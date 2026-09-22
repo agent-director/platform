@@ -1,6 +1,8 @@
-import pytest
 import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
+
 from gateway.unified_api import app
 
 
@@ -65,17 +67,6 @@ def test_chaos_missing_headers(client):
     # Missing Both
     response = client.post("/api/workflows", json={"name": "test", "args": {}})
     assert response.status_code == 403  # CSRF evaluated first
-
-
-@pytest.fixture
-def mock_admin_allowlist():
-    from gateway.unified_api import app, get_admin_allowlist
-
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
-    yield
-    app.dependency_overrides.clear()
 
 
 def test_security_admin_endpoint_no_bypass(client, mock_admin_allowlist):

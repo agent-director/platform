@@ -1,4 +1,5 @@
 import pytest
+
 from gateway.shunt_middleware import ShuntMiddleware
 
 

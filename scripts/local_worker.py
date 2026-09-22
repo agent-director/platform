@@ -1,12 +1,13 @@
+import asyncio
 import os
 import sys
 import tempfile
 from pathlib import Path
+
 from mcp.server.mcpserver import MCPServer
-import asyncio
+from temporalio import activity
 from temporalio.client import Client
 from temporalio.worker import Worker
-from temporalio import activity
 
 mcp = MCPServer("LocalFilesystem")
 WORKSPACE_BOUNDARY = Path("/workspace/agent-mount").resolve()
@@ -28,7 +29,7 @@ def _secure_resolve(path: str) -> Path:
 
         return requested_path
     except Exception as e:
-        raise ValueError(f"Invalid path: {str(e)}")
+        raise ValueError(f"Invalid path: {e!s}")
 
 
 @mcp.tool()

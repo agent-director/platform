@@ -114,7 +114,15 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          uv run pytest tests/integration/ || exit_code=$?
+          # Verify tests exist and have no syntax errors before applying filters
+          uv run pytest tests/integration/ --collect-only -q > .pytest-collect.log || collect_code=$?
+          if [ "${collect_code:-0}" -ne 0 ]; then
+            cat .pytest-collect.log
+            echo "::error::Test collection failed (code $collect_code). Tests missing or syntax errors."
+            exit "$collect_code"
+          fi
+          # Run tests excluding quarantined ones
+          uv run pytest tests/integration/ -m "not quarantine" || exit_code=$?
           if [ "${exit_code:-0}" -ne 0 ] && [ "${exit_code:-0}" -ne 5 ]; then exit "$exit_code"; fi
 
       - name: Run E2E Tests

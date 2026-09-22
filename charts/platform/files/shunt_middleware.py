@@ -1,5 +1,6 @@
 import re
-from typing import Any, Optional
+from typing import Any
+
 from litellm.integrations.custom_logger import CustomLogger
 
 
@@ -19,8 +20,8 @@ class ShuntMiddleware(CustomLogger):
         self,
         user_api_key_dict: dict,
         cache: Any = None,
-        data: Optional[dict] = None,
-        call_type: Optional[str] = None,
+        data: dict | None = None,
+        call_type: str | None = None,
         **kwargs,
     ):
         """
@@ -63,4 +64,3 @@ class ShuntMiddleware(CustomLogger):
         """
         Telemetry and tracking.
         """
-        pass

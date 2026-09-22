@@ -12,7 +12,7 @@ This project defines three tiers of tests to guarantee code quality and stabilit
 2. **Integration Tests (`tests/integration/`)**
    - **Scope:** Verifies interaction with real components.
    - **Environment:** Connects to real Postgres and Temporal running in the Kind cluster.
-   - **Network Routing:** Routed via `/etc/hosts` NodePort mappings to ensure realistic behavior.
+   - **Network Routing:** Services are accessed via Kind NodePorts mapped to `127.0.0.1`.
 
 3. **End-to-End Tests (`tests/e2e/`)**
    - **Scope:** Verifies the full system by executing tasks through a real workspace.

@@ -1,7 +1,13 @@
-import pytest
-from scripts.local_worker import _secure_resolve, WORKSPACE_BOUNDARY
 from unittest.mock import patch
-from scripts.local_worker import read_file, write_file
+
+import pytest
+
+from scripts.local_worker import (
+    WORKSPACE_BOUNDARY,
+    _secure_resolve,
+    read_file,
+    write_file,
+)
 
 
 def test_secure_resolve_valid_path():

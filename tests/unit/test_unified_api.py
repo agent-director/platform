@@ -1,22 +1,14 @@
 import os
-import pytest
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-from gateway.unified_api import app, get_admin_allowlist
+
+from gateway.unified_api import app
 
 # Ensure ENV is not 'dev' so we can test headers
 os.environ.pop("ENV", None)
 
 client = TestClient(app)
-
-
-@pytest.fixture
-def mock_admin_allowlist():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
-    yield
-    app.dependency_overrides.clear()
 
 
 def test_health():

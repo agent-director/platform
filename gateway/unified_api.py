@@ -1,17 +1,19 @@
-import os
-import yaml  # type: ignore
-import httpx
-from gateway.shunt_middleware import apply_shunt_middleware
-from fastapi import FastAPI, Depends, HTTPException, Request, Header
 import asyncio
 import base64
-from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Dict, Any, Optional
+import copy
+import os
 import time
-
 from contextlib import asynccontextmanager
+from typing import Any
+
+import httpx
+import yaml  # type: ignore
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
+from gateway.shunt_middleware import apply_shunt_middleware
 
 http_client = httpx.AsyncClient(timeout=30.0)
 
@@ -76,7 +78,7 @@ async def verify_csrf_header(request: Request, call_next):
     return await call_next(request)
 
 
-async def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -> str:
+async def get_current_user(tailscale_user_login: str | None = Header(None)) -> str:
     if not tailscale_user_login:
         if os.environ.get("ENV") == "dev":
             return "dev@example.com"
@@ -86,30 +88,41 @@ async def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -
     return tailscale_user_login
 
 
-from typing import Any, Dict
-import copy
+class AsyncTTLCache:
+    def __init__(self, ttl: int):
+        self.ttl = ttl
+        self._cache = {}
+        self._lock = asyncio.Lock()
 
-
-async def get_admin_allowlist() -> Dict[str, Any]:
-    # Returning mapping proxy or deepcopy ensures callers cannot mutate the cache
-    if not hasattr(get_admin_allowlist, "_cache"):
-        get_admin_allowlist._cache = {}
-        get_admin_allowlist._lock = asyncio.Lock()
-
-    if (
-        "data" in get_admin_allowlist._cache
-        and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
-    ):
-        return copy.deepcopy(get_admin_allowlist._cache["data"])
-
-    async with get_admin_allowlist._lock:
+    async def get_or_load(self, loader):
         if (
-            "data" in get_admin_allowlist._cache
-            and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
+            "data" in self._cache
+            and time.time() - self._cache.get("time", 0) < self.ttl
         ):
-            return copy.deepcopy(get_admin_allowlist._cache["data"])
+            return copy.deepcopy(self._cache["data"])
+
+        async with self._lock:
+            if (
+                "data" in self._cache
+                and time.time() - self._cache.get("time", 0) < self.ttl
+            ):
+                return copy.deepcopy(self._cache["data"])
+
+            data = await loader()
+            self._cache["data"] = data
+            self._cache["time"] = time.time()
+            return copy.deepcopy(data)
+
+
+_allowlist_cache = AsyncTTLCache(ttl=_CONFIG_TTL)
+_config_cache = AsyncTTLCache(ttl=_CONFIG_TTL)
+
+
+async def get_admin_allowlist() -> dict[str, Any]:
+    # Returning mapping proxy or deepcopy ensures callers cannot mutate the cache
+    async def _load_allowlist():
         try:
-            # Using async thread delegation for I/O only on cache miss
+
             def _read_allowlist():
                 with open(get_allowlist_path(), "r") as f:
                     return yaml.safe_load(f)
@@ -128,9 +141,9 @@ async def get_admin_allowlist() -> Dict[str, Any]:
             if isinstance(sub_allowlist, dict):
                 allowlist = sub_allowlist
 
-        get_admin_allowlist._cache["data"] = allowlist
-        get_admin_allowlist._cache["time"] = time.time()
-        return copy.deepcopy(allowlist)
+        return allowlist
+
+    return await _allowlist_cache.get_or_load(_load_allowlist)
 
 
 async def verify_admin(
@@ -191,7 +204,7 @@ async def chat_proxy(request: Request, user: str = Depends(get_current_user)):
 
 class WorkflowRequest(BaseModel):
     name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
 
 
 @app.post("/api/workflows")
@@ -216,38 +229,20 @@ async def signal_workflow(
 
 @app.get("/api/config")
 async def get_config(user: str = Depends(verify_admin)):
-    if not hasattr(get_config, "_cache"):
-        get_config._cache = {}
-        get_config._lock = asyncio.Lock()
-
-    if (
-        "data" in get_config._cache
-        and time.time() - get_config._cache.get("time", 0) < 300
-    ):
-        return copy.deepcopy(get_config._cache["data"])
-
-    async with get_config._lock:
-        # Double check
-        if (
-            "data" in get_config._cache
-            and time.time() - get_config._cache.get("time", 0) < 300
-        ):
-            return copy.deepcopy(get_config._cache["data"])
-
+    async def _load_config():
         def _read_config():
             try:
                 with open(get_config_path(), "r") as f:
-                    data = yaml.safe_load(f)
+                    data = yaml.safe_load(f) or {}
                     return data
             except FileNotFoundError:
                 return {"model_list": []}
             except yaml.YAMLError:
                 return {"model_list": []}
 
-        config_data = await asyncio.to_thread(_read_config)
-        get_config._cache["data"] = config_data
-        get_config._cache["time"] = time.time()
-        return copy.deepcopy(config_data)
+        return await asyncio.to_thread(_read_config)
+
+    return await _config_cache.get_or_load(_load_config)
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -263,7 +258,7 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
         if "model_list" not in data or not isinstance(data["model_list"], list):
             raise ValueError("Configuration must contain a valid 'model_list'")
     except (yaml.YAMLError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {e!s}")
 
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:

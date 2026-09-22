@@ -1,6 +1,7 @@
 import json
 import re
-from typing import Any, Optional
+from typing import Any
+
 from litellm.integrations.custom_logger import CustomLogger
 
 
@@ -53,7 +54,7 @@ def truncate_context(messages: list, max_tokens: int = 4000) -> list:
     return [m for m in messages if id(m) in retained_set]
 
 
-def apply_shunt_middleware(payload: bytes, user: Optional[str] = None) -> bytes:
+def apply_shunt_middleware(payload: bytes, user: str | None = None) -> bytes:
     try:
         data = json.loads(payload.decode("utf-8"))
         if "messages" in data and isinstance(data["messages"], list):
@@ -86,8 +87,8 @@ class ShuntMiddleware(CustomLogger):
         self,
         user_api_key_dict: dict,
         cache: Any = None,
-        data: Optional[dict] = None,
-        call_type: Optional[str] = None,
+        data: dict | None = None,
+        call_type: str | None = None,
         **kwargs,
     ):
         data_dict = data if data is not None else kwargs.copy()
