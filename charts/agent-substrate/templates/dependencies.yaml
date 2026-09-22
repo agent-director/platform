@@ -1,0 +1,127 @@
+{{- if .Values.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ate-redis
+  labels:
+    app: ate-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ate-redis
+  template:
+    metadata:
+      labels:
+        app: ate-redis
+    spec:
+      containers:
+      - name: redis
+        image: {{ .Values.redis.image }}
+        ports:
+        - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ate-redis
+spec:
+  selector:
+    app: ate-redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+{{- end }}
+
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ate-postgres
+  labels:
+    app: ate-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ate-postgres
+  template:
+    metadata:
+      labels:
+        app: ate-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: {{ .Values.postgres.image }}
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: postgres-password
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ate-postgres
+spec:
+  selector:
+    app: ate-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+{{- end }}
+
+{{- if .Values.minio.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ate-minio
+  labels:
+    app: ate-minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ate-minio
+  template:
+    metadata:
+      labels:
+        app: ate-minio
+    spec:
+      containers:
+      - name: minio
+        image: {{ .Values.minio.image }}
+        args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-accessKey
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-secretKey
+        ports:
+        - containerPort: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ate-minio
+spec:
+  selector:
+    app: ate-minio
+  ports:
+  - port: 9000
+    targetPort: 9000
+{{- end }}

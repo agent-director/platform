@@ -68,7 +68,7 @@ unifiedApi:
     repository: unified-api
     tag: local
     pullPolicy: IfNotPresent
-  githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO" # MUST CHANGE THIS!
+  githubRepo: "gordon-control-plane/platform" # MUST CHANGE THIS!
   service:
     port: 8000
 
@@ -88,3 +88,13 @@ litellm:
   enabled: true
   service:
     port: 4000
+
+temporal:
+  server:
+    securityContext:
+      runAsUser: null
+      fsGroup: null
+  admintools:
+    securityContext:
+      runAsUser: null
+      fsGroup: null

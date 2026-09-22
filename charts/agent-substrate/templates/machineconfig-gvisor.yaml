@@ -1,0 +1,13 @@
+{{- if .Values.machineConfig.enabled }}
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: worker
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+  name: 50-gvisor
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+{{- end }}

@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ateapi
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ateapi
+spec:
+  replicas: {{ .Values.ateapi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ateapi
+  template:
+    metadata:
+      labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ateapi
+    spec:
+      containers:
+      - name: ateapi
+        image: "{{ .Values.image.repository }}/ateapi:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: REDIS_URL
+          value: "redis://ate-redis:6379"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: postgres-password
+        - name: POSTGRES_URL
+          value: "postgres://postgres:$(POSTGRES_PASSWORD)@ate-postgres:5432/postgres?sslmode=disable"
+        - name: S3_ENDPOINT
+          value: "ate-minio:9000"
+        - name: S3_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-accessKey
+        - name: S3_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-secretKey
+        - name: S3_USE_SSL
+          value: "false"
+        - name: ATEAPI_INSECURE
+          value: "true" # disable TLS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ateapi
+spec:
+  selector:
+    {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ateapi
+  ports:
+  - port: 50051
+    targetPort: 50051
+    name: grpc

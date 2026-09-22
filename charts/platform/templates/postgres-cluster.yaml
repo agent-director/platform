@@ -8,7 +8,7 @@ spec:
   teamId: "agent-director"
   volume:
     size: 10Gi
-  numberOfInstances: 2
+  numberOfInstances: 1
   users:
     agent-director:
       - superuser

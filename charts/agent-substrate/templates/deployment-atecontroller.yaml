@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atecontroller
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: atecontroller
+spec:
+  replicas: {{ .Values.atecontroller.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: atecontroller
+  template:
+    metadata:
+      labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: atecontroller
+    spec:
+      serviceAccountName: agent-substrate-sa
+      containers:
+      - name: atecontroller
+        image: "{{ .Values.image.repository }}/atecontroller:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: ATEAPI_ADDRESS
+          value: "ateapi:50051"
+        - name: ATEAPI_INSECURE
+          value: "true"
+        # The atecontroller creates WorkerPool pods, which run the ateom-microvm or ateom-gvisor herders
+        - name: WORKER_IMAGE_GVISOR
+          value: "{{ .Values.image.repository }}/ateom-gvisor:{{ .Values.image.tag }}"
+        - name: WORKER_IMAGE_MICROVM
+          value: "{{ .Values.image.repository }}/ateom-microvm:{{ .Values.image.tag }}"
+        - name: WORKER_SERVICE_ACCOUNT
+          value: "agent-substrate-workload-sa"

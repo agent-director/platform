@@ -1,0 +1,38 @@
+image:
+  repository: ghcr.io/gordon-control-plane
+  tag: latest
+  pullPolicy: IfNotPresent
+
+ateapi:
+  replicaCount: 1
+
+atecontroller:
+  replicaCount: 1
+
+atelet:
+  enabled: true
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+
+postgres:
+  enabled: true
+  image: postgres:15-alpine
+  password: "substrate-secret"
+
+minio:
+  enabled: true
+  image: minio/minio:latest
+  accessKey: "minioadmin"
+  secretKey: "minioadmin"
+
+gvisor:
+  enabled: false
+
+kata:
+  enabled: true
+  runtimeClassName: kata
+
+machineConfig:
+  enabled: false

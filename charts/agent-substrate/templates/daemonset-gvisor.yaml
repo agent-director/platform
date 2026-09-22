@@ -1,0 +1,56 @@
+{{- if .Values.gvisor.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: agent-substrate-gvisor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: gvisor-installer
+spec:
+  selector:
+    matchLabels:
+      app: gvisor-installer
+  template:
+    metadata:
+      labels:
+        app: gvisor-installer
+    spec:
+      hostPID: true
+      serviceAccountName: agent-substrate-sa
+      containers:
+      - name: installer
+        image: registry.access.redhat.com/ubi9/ubi:latest
+        securityContext:
+          privileged: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          echo "Downloading runsc..."
+          curl -Lo /host/usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/runsc
+          chmod +x /host/usr/local/bin/runsc
+
+          echo "Writing CRI-O config..."
+          mkdir -p /host/etc/crio/crio.conf.d
+          cat <<EOF > /host/etc/crio/crio.conf.d/99-runsc.conf
+          [crio.runtime.runtimes.runsc]
+          runtime_path = "/usr/local/bin/runsc"
+          runtime_type = "oci"
+          runtime_root = "/run/runsc"
+          EOF
+
+          echo "Reloading CRI-O..."
+          chroot /host systemctl reload crio || true
+
+          echo "Done. Sleeping forever."
+          sleep infinity
+        volumeMounts:
+        - name: host
+          mountPath: /host
+      volumes:
+      - name: host
+        hostPath:
+          path: /
+          type: Directory
+{{- end }}
