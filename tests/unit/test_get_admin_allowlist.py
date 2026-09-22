@@ -1,18 +1,12 @@
+import asyncio
 import time
 from unittest.mock import mock_open, patch
 
 import pytest
 from fastapi import HTTPException
 
-from gateway.unified_api import _allowlist_cache, get_admin_allowlist
+from gateway.unified_api import get_admin_allowlist, verify_admin
 
-
-@pytest.fixture(autouse=True)
-def _reset_allowlist_cache():
-    """Reset the get_admin_allowlist cache state before and after each test."""
-    _allowlist_cache._cache.clear()
-    yield
-    _allowlist_cache._cache.clear()
 
 
 @pytest.mark.asyncio
@@ -46,7 +40,7 @@ async def test_get_admin_allowlist_ttl_expiry():
             m_open.assert_called_once()
 
             # Fast forward time to expire TTL
-            with patch("time.time", return_value=time.time() + 301):
+            with patch("time.monotonic", return_value=time.monotonic() + 301):
                 m_open.reset_mock()
                 await get_admin_allowlist()
                 m_open.assert_called_once()
@@ -79,3 +73,37 @@ async def test_get_admin_allowlist_nested_data():
         with patch("builtins.open", mock_open(read_data=yaml_content)):
             res = await get_admin_allowlist()
             assert res == {"admins": ["nested@example.com"]}
+
+
+@pytest.mark.asyncio
+async def test_get_admin_allowlist_concurrent_calls():
+    yaml_content = "admins:\n  - test@example.com"
+    with patch("gateway.unified_api.get_allowlist_path", return_value="dummy.yaml"):
+        with patch("builtins.open", mock_open(read_data=yaml_content)) as m_open:
+            results = await asyncio.gather(*(get_admin_allowlist() for _ in range(5)))
+            assert len(results) == 5
+            for r in results:
+                assert r == {"admins": ["test@example.com"]}
+            m_open.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_admin_allowlist_nested_data_not_dict():
+    # Test that when the inner yaml parses as a scalar, it raises an exception
+    yaml_content = "data:\n  allowlist.yaml: |\n    just a string, not a dict"
+    with patch("gateway.unified_api.get_allowlist_path", return_value="dummy.yaml"):
+        with patch("builtins.open", mock_open(read_data=yaml_content)):
+            with pytest.raises(HTTPException) as exc:
+                await get_admin_allowlist()
+            assert exc.value.status_code == 500
+            assert "Malformed Admin allowlist" in str(exc.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_verify_admin_empty_or_null_admins():
+    # Test that when admins is missing, null, or a scalar, verify_admin raises 403
+    for invalid_allowlist in [{"admins": None}, {"admins": "not a list"}, {}]:
+        with pytest.raises(HTTPException) as exc:
+            await verify_admin(allowlist=invalid_allowlist, user="test@example.com")
+        assert exc.value.status_code == 403
+        assert "Admin privileges required" in str(exc.value.detail)
