@@ -30,8 +30,12 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-norecursedirs = ["tests/e2e"]
+testpaths = ["tests/unit"]
+norecursedirs = ["tests/e2e", "tests/integration"]
+pythonpath = ["."]
+markers = [
+    "quarantine: Tests that are currently flaky or non-deterministic",
+]
 
 [project.scripts]
 director = "director.main:main"

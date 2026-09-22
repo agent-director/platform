@@ -69,6 +69,7 @@ repo = "local"
 hooks = [
   { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", pass_filenames = false, files = "^charts/" },
   { id = "kube-linter", name = "Kube-Linter", entry = "make lint-kube", language = "system", pass_filenames = false, files = "^charts/" },
+  { id = "pytest", name = "Pytest", entry = "make test", language = "system", pass_filenames = false, types = ["python"] },
   { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", pass_filenames = false, files = "^charts/" },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", pass_filenames = false, stages = ["pre-push", "manual"] }
 ]

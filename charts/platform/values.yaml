@@ -88,3 +88,17 @@ litellm:
   enabled: true
   service:
     port: 4000
+
+temporal:
+  enabled: true
+  server:
+    frontend:
+      service:
+        type: ClusterIP
+        nodePort: 30723
+
+postgresql:
+  enabled: true
+  nodePort:
+    enabled: true
+    port: 30543

@@ -59,9 +59,31 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 
 Always use `uv` for Python execution and dependency management:
 - Run scripts: `uv run script.py`
-- Run tests: `uv run pytest tests/`
 - Add dependencies: `uv add <package>`
 
+### Running Tests
+
+We strictly separate our tests to ensure fast feedback and reliable infrastructure validation. See [`tests/README.md`](tests/README.md) for the full testing contract.
+
+- **Unit Tests**: `make test`
+  - Runs fast, pure logic tests in `tests/unit/`.
+  - **No network access allowed.** Relies on FastAPI dependency overrides (`app.dependency_overrides`) for mocking infrastructure.
+- **Integration Tests**: `make test-integration`
+  - Runs tests against real backend services (Postgres, Temporal) in `tests/integration/`.
+  - Requires a local Kind cluster running the `agent-platform` Helm chart. Services are accessed via Kind NodePorts mapped to `127.0.0.1`.
+- **End-to-End**: `make test-e2e`
+  - Runs full workflows in `tests/e2e/`.
+
+### Local Cluster & Port Mappings
+
+When running the integration suite or developing locally, the platform infrastructure must be deployed to a local Kubernetes cluster using `kind`.
+
+To allow host-to-cluster communication for integration testing without relying on Kubernetes Service IPs, our `kind-config.yaml` explicitly maps essential node ports to the host's loopback interface (`127.0.0.1`):
+
+- **PostgreSQL**: Mapped to host port `5432` (via NodePort `30543`).
+- **Temporal**: Mapped to host port `7233` (via NodePort `30723`).
+
+**Security Note**: Port mappings MUST explicitly bind to `listenAddress: "127.0.0.1"`. Binding to `0.0.0.0` or omitting the listen address exposes these unauthenticated databases to the local network.
 ## Developer Guidelines
 
 ### Writing Temporal Activities (LLM Invocations)

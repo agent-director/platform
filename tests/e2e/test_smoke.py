@@ -31,14 +31,8 @@ def test_openshell_sandbox_running():
     check_pod_ready("app=openshell")
 
 
-def test_postgres_operator_running():
-    # Zalando postgres operator creates pods labeled app.kubernetes.io/name=postgres-operator
-    check_pod_ready("app.kubernetes.io/name=postgres-operator")
-
-
-def test_spilo_database_running():
-    # The actual database pods are labeled application=spilo
-    check_pod_ready("application=spilo")
+def test_postgres_running():
+    check_pod_ready("app.kubernetes.io/name=postgresql")
 
 
 def test_langfuse_running():
@@ -46,6 +40,4 @@ def test_langfuse_running():
 
 
 def test_temporal_running():
-    # Bitnami temporal chart usually uses app.kubernetes.io/name=temporal
-    # Just check if at least one temporal component is running
     check_pod_ready("app.kubernetes.io/name=temporal")
