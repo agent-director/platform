@@ -10,4 +10,34 @@ spec:
   config:
     ignition:
       version: 3.2.0
+    storage:
+      files:
+      - path: /etc/crio/crio.conf.d/99-runsc.conf
+        mode: 0644
+        overwrite: true
+        contents:
+          source: data:,%5Bcrio.runtime.runtimes.runsc%5D%0Aruntime_path%20%3D%20%22/usr/local/bin/runsc%22%0Aruntime_type%20%3D%20%22oci%22%0Aruntime_root%20%3D%20%22/run/runsc%22%0A
+    systemd:
+      units:
+      - name: gvisor-installer.service
+        enabled: true
+        contents: |
+          [Unit]
+          Description=Download and install gVisor (runsc)
+          After=network-online.target
+          Wants=network-online.target
+          ConditionPathExists=!/usr/local/bin/runsc
+
+          [Service]
+          Type=oneshot
+          ExecStartPre=/usr/bin/mkdir -p /usr/local/bin
+          ExecStart=/usr/bin/curl -sSL -o /usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/latest/{{ default "x86_64" .Values.arch }}/runsc
+          ExecStartPost=/usr/bin/curl -sSL -o /usr/local/bin/runsc.sha512 https://storage.googleapis.com/gvisor/releases/release/latest/{{ default "x86_64" .Values.arch }}/runsc.sha512
+          ExecStartPost=/bin/sh -c 'cd /usr/local/bin && sha512sum -c runsc.sha512'
+          ExecStartPost=/usr/bin/chmod +x /usr/local/bin/runsc
+          ExecStartPost=/usr/bin/systemctl reload crio
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
 {{- end }}

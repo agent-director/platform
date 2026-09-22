@@ -21,35 +21,50 @@ spec:
       - name: ateapi
         image: "{{ .Values.image.repository }}/ateapi:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        args:
+        - "--grpc-listen-addr=:50051"
+        - "--postgres-connection-string=$(POSTGRES_URL)"
+        - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
+        - "--authentication-config=/etc/tls/auth.yaml"
+        - "--actor-id-ca-pool=/etc/tls/bundle.pem"
+        - "--actor-id-jwt-pool=/etc/tls/jwt.pem"
         ports:
         - containerPort: 50051
           name: grpc
         env:
-        - name: REDIS_URL
-          value: "redis://ate-redis:6379"
-        - name: POSTGRES_PASSWORD
+        - name: ATE_STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_ENDPOINT_URL_S3
+          value: {{ if .Values.minio.enabled }}"http://ate-minio:9000"{{ else }}{{ .Values.minio.endpoint | quote }}{{ end }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-secretKey
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_S3_USE_PATH_STYLE
+          value: "true"
+        - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
               name: agent-substrate-secrets
               key: postgres-password
         - name: POSTGRES_URL
-          value: "postgres://postgres:$(POSTGRES_PASSWORD)@ate-postgres:5432/postgres?sslmode=disable"
-        - name: S3_ENDPOINT
-          value: "ate-minio:9000"
-        - name: S3_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: agent-substrate-secrets
-              key: minio-accessKey
-        - name: S3_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: agent-substrate-secrets
-              key: minio-secretKey
-        - name: S3_USE_SSL
-          value: "false"
-        - name: ATEAPI_INSECURE
-          value: "true" # disable TLS
+          value: {{ if .Values.postgres.enabled }}"postgres://postgres@ate-postgres:5432/postgres?sslmode=disable"{{ else }}{{ .Values.postgres.url | quote }}{{ end }}
+        volumeMounts:
+        - name: tls
+          mountPath: /etc/tls
+          readOnly: true
+      volumes:
+      - name: tls
+        secret:
+          secretName: agent-substrate-tls
 ---
 apiVersion: v1
 kind: Service

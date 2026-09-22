@@ -12,27 +12,23 @@ atecontroller:
 atelet:
   enabled: true
 
-redis:
-  enabled: true
-  image: redis:7-alpine
 
 postgres:
   enabled: true
   image: postgres:15-alpine
   password: "substrate-secret"
+  url: ""
 
 minio:
   enabled: true
   image: minio/minio:latest
   accessKey: "minioadmin"
   secretKey: "minioadmin"
+  endpoint: ""
 
 gvisor:
   enabled: false
 
-kata:
-  enabled: true
-  runtimeClassName: kata
 
 machineConfig:
   enabled: false

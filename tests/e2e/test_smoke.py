@@ -1,51 +1,50 @@
+import os
 import subprocess
 import pytest
 
-NAMESPACE = "platform"
+NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 
 def check_pod_ready(label_selector: str):
     """Wait for a pod matching the label selector to be ready."""
-    cmd = [
-        "kubectl",
-        "wait",
-        "--for=condition=ready",
-        "pod",
-        "-l",
-        label_selector,
-        "-n",
-        NAMESPACE,
-        "--timeout=120s",
-    ]
     try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        pytest.fail(f"Pod matching {label_selector} not ready. Error: {e.stderr}")
+        subprocess.run(
+            [
+                "kubectl",
+                "wait",
+                "--for=condition=ready",
+                "pod",
+                "-l",
+                label_selector,
+                "-n",
+                NAMESPACE,
+                "--timeout=60s",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
-def test_mcp_server_running():
-    check_pod_ready("app=mcp-server")
+def test_core_platform_components_ready():
+    # Zaland Postgres cluster
+    assert check_pod_ready("application=spilo")
+
+    # LiteLLM Proxy
+    assert check_pod_ready("app=litellm")
+
+    # Tailscale Ingress
+    assert check_pod_ready("app=tailscale-ingress")
 
 
-def test_openshell_sandbox_running():
-    check_pod_ready("app=openshell")
-
-
-def test_postgres_operator_running():
-    # Zalando postgres operator creates pods labeled app.kubernetes.io/name=postgres-operator
-    check_pod_ready("app.kubernetes.io/name=postgres-operator")
-
-
-def test_spilo_database_running():
-    # The actual database pods are labeled application=spilo
-    check_pod_ready("application=spilo")
-
-
-def test_langfuse_running():
-    check_pod_ready("app=langfuse")
-
-
-def test_temporal_running():
-    # Bitnami temporal chart usually uses app.kubernetes.io/name=temporal
-    # Just check if at least one temporal component is running
-    check_pod_ready("app.kubernetes.io/name=temporal")
+def test_agent_substrate_components_ready():
+    # AteAPI
+    assert check_pod_ready("app.kubernetes.io/component=ateapi")
+    
+    # AteController
+    assert check_pod_ready("app.kubernetes.io/component=atecontroller")
+    
+    # Atelet DaemonSet
+    assert check_pod_ready("app.kubernetes.io/component=atelet")

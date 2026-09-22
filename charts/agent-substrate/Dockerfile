@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y git
 
 WORKDIR /build
 # Clone the upstream agent-substrate repository
-RUN git clone https://github.com/google/agent-substrate.git .
+RUN git clone -b v0.1.0 https://github.com/agent-substrate/substrate.git .
 
 # Build the binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi

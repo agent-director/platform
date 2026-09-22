@@ -27,21 +27,37 @@ spec:
         - -c
         - |
           set -e
-          echo "Downloading runsc..."
-          curl -Lo /host/usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/latest/x86_64/runsc
-          chmod +x /host/usr/local/bin/runsc
+          # Ensure necessary tools are present
+          dnf install -y tar bzip2 || true
+          
+          echo "Downloading gVisor..."
+          ARCH=$(uname -m)
+          URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
+          
+          WORKDIR=$(mktemp -d)
+          cd "$WORKDIR"
+          
+          curl -sSL -o gvisor.tar.bz2 "${URL}/gvisor.tar.bz2"
+          curl -sSL -o gvisor.tar.bz2.sha512 "${URL}/gvisor.tar.bz2.sha512"
+          
+          echo "Verifying checksum..."
+          sha512sum -c gvisor.tar.bz2.sha512
+          
+          echo "Extracting..."
+          tar -xjf gvisor.tar.bz2 -C /host/usr/local/bin
+          
+          cd /
+          rm -rf "$WORKDIR"
 
           echo "Writing CRI-O config..."
           mkdir -p /host/etc/crio/crio.conf.d
-          cat <<EOF > /host/etc/crio/crio.conf.d/99-runsc.conf
-          [crio.runtime.runtimes.runsc]
-          runtime_path = "/usr/local/bin/runsc"
-          runtime_type = "oci"
-          runtime_root = "/run/runsc"
-          EOF
+          echo '[crio.runtime.runtimes.runsc]' > /host/etc/crio/crio.conf.d/99-runsc.conf
+          echo 'runtime_path = "/usr/local/bin/runsc"' >> /host/etc/crio/crio.conf.d/99-runsc.conf
+          echo 'runtime_type = "oci"' >> /host/etc/crio/crio.conf.d/99-runsc.conf
+          echo 'runtime_root = "/run/runsc"' >> /host/etc/crio/crio.conf.d/99-runsc.conf
 
           echo "Reloading CRI-O..."
-          chroot /host systemctl reload crio || true
+          chroot /host systemctl reload crio
 
           echo "Done. Sleeping forever."
           sleep infinity

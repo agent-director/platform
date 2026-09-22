@@ -18,20 +18,22 @@ spec:
         app.kubernetes.io/component: atelet
     spec:
       serviceAccountName: agent-substrate-sa
-      nodeSelector:
-        ate.dev/substrate-version: "true"
       hostPID: true
       containers:
       - name: atelet
         image: "{{ .Values.image.repository }}/atelet:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        command: ["/usr/local/bin/atelet"]
         securityContext:
           privileged: true
+        args:
+        - --ateapi-address=ateapi:50051
+        - --gcp-auth-for-image-pulls=false
+        - --ateapi-ca-file=/etc/tls/bundle.pem
+        - --grpc-server-cred-bundle=/etc/tls/bundle.pem
+        - --client-ca-certs=/etc/tls/bundle.pem
+        - --ateapi-server-name=ateapi
         env:
-        - name: ATEAPI_ADDRESS
-          value: "ateapi:50051"
-        - name: ATEAPI_INSECURE
-          value: "true"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -42,6 +44,9 @@ spec:
         - name: host-sys
           mountPath: /sys
           readOnly: true
+        - name: tls
+          mountPath: /etc/tls
+          readOnly: true
       volumes:
       - name: host-var-run
         hostPath:
@@ -49,4 +54,7 @@ spec:
       - name: host-sys
         hostPath:
           path: /sys
+      - name: tls
+        secret:
+          secretName: agent-substrate-tls
 {{- end }}

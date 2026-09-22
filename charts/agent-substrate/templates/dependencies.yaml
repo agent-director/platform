@@ -1,38 +1,3 @@
-{{- if .Values.redis.enabled }}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ate-redis
-  labels:
-    app: ate-redis
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: ate-redis
-  template:
-    metadata:
-      labels:
-        app: ate-redis
-    spec:
-      containers:
-      - name: redis
-        image: {{ .Values.redis.image }}
-        ports:
-        - containerPort: 6379
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ate-redis
-spec:
-  selector:
-    app: ate-redis
-  ports:
-  - port: 6379
-    targetPort: 6379
-{{- end }}
 
 {{- if .Values.postgres.enabled }}
 ---
@@ -41,15 +6,18 @@ kind: Deployment
 metadata:
   name: ate-postgres
   labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
     app: ate-postgres
 spec:
   replicas: 1
   selector:
     matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
       app: ate-postgres
   template:
     metadata:
       labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app: ate-postgres
     spec:
       containers:
@@ -70,6 +38,7 @@ metadata:
   name: ate-postgres
 spec:
   selector:
+    {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
     app: ate-postgres
   ports:
   - port: 5432
@@ -83,15 +52,18 @@ kind: Deployment
 metadata:
   name: ate-minio
   labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
     app: ate-minio
 spec:
   replicas: 1
   selector:
     matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
       app: ate-minio
   template:
     metadata:
       labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app: ate-minio
     spec:
       containers:
@@ -120,6 +92,7 @@ metadata:
   name: ate-minio
 spec:
   selector:
+    {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
     app: ate-minio
   ports:
   - port: 9000
