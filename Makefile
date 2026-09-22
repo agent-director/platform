@@ -143,7 +143,7 @@ scan-local:
 		./scripts/run-all-local-scans.sh "all"; \
 	fi
 test:
-	uv run pytest -m "not e2e"
+	uv run pytest tests/unit/
 
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
@@ -158,4 +158,4 @@ format:
 .PHONY: test-integration
 test-integration:
 	@echo "Running full integration test suite..."
-	./scripts/test-integration.sh platform-dev
+	uv run pytest tests/integration/

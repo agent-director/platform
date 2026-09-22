@@ -3,7 +3,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-pytestmark = pytest.mark.e2e
+
 
 from gateway.unified_api import app
 
@@ -91,11 +91,13 @@ def test_security_admin_endpoint_no_bypass(client):
         tf_name = tf.name
 
     try:
-        with patch("gateway.unified_api.get_allowlist_path", return_value=tf_name):
-            response = client.get("/api/config", headers=headers_user)
-            assert response.status_code == 403
-            assert "Admin privileges required" in response.json()["detail"]
+        from gateway.unified_api import get_admin_allowlist
+        app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["real_admin@example.com"]}
+        response = client.get("/api/config", headers=headers_user)
+        assert response.status_code == 403
+        assert "Admin privileges required" in response.json()["detail"]
     finally:
+        app.dependency_overrides.clear()
         os.unlink(tf_name)
     # Missing Auth entirely
     response = client.get("/api/config")

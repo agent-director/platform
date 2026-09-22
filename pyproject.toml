@@ -34,10 +34,13 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+pythonpath = ["."]
+testpaths = ["tests/unit"]
+norecursedirs = ["tests/integration", "tests/e2e"]
 timeout = 30
 markers = [
     "e2e: End-to-end tests requiring a Kubernetes cluster",
+    "quarantine: Flaky tests temporarily quarantined from failing CI",
 ]
 
 [build-system]

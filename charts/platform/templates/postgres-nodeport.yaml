@@ -1,0 +1,19 @@
+{{- if and .Values.postgresql.enabled .Values.postgresql.nodePort.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-db-nodeport
+  labels:
+    app: postgres
+    cluster-name: {{ .Release.Name }}-db
+spec:
+  type: NodePort
+  ports:
+    - port: 5432
+      targetPort: 5432
+      nodePort: {{ .Values.postgresql.nodePort.port }}
+  selector:
+    application: spilo
+    cluster-name: {{ .Release.Name }}-db
+    spilo-role: master
+{{- end }}

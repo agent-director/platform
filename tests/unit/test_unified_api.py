@@ -5,16 +5,20 @@ import pytest
 from fastapi.testclient import TestClient
 
 import gateway.unified_api
-from gateway.unified_api import app
+from gateway.unified_api import app, get_admin_allowlist
 
 # Ensure ENV is not 'dev' so we can test headers
 os.environ.pop("ENV", None)
 
 
 @pytest.fixture(autouse=True)
-def clear_allowlist_cache():
-    gateway.unified_api._allowlist_cache = {}
+def clear_dependency_overrides():
     yield
+    app.dependency_overrides.clear()
+    # also reset the cache inside the function if it exists
+    if hasattr(gateway.unified_api.get_config, "_cache"):
+        gateway.unified_api.get_config._cache = {}
+
 
 
 client = TestClient(app)
@@ -65,32 +69,24 @@ def test_auth_with_dev_env():
 
 
 def test_verify_admin_success():
-    allowlist_yaml = """
-admins:
-  - admin@example.com
-"""
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
     }
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        response = client.get("/api/config", headers=headers)
-        assert response.status_code == 200
+    response = client.get("/api/config", headers=headers)
+    assert response.status_code == 200
 
 
 def test_verify_admin_forbidden():
-    allowlist_yaml = """
-admins:
-  - admin@example.com
-"""
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "user@example.com",
     }
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        response = client.get("/api/config", headers=headers)
-        assert response.status_code == 403
-        assert "Admin privileges required" in response.json()["detail"]
+    response = client.get("/api/config", headers=headers)
+    assert response.status_code == 403
+    assert "Admin privileges required" in response.json()["detail"]
 
 
 def test_chat_proxy():
@@ -175,7 +171,7 @@ def test_chat_proxy_streaming_validator():
 
 
 def test_update_config_valid_yaml():
-    allowlist_yaml = "admins:\n  - admin@example.com"
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -183,7 +179,6 @@ def test_update_config_valid_yaml():
     payload = {"config_yaml": "model_list: []\nrouter_settings: {}"}
 
     with (
-        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
         patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
         patch("httpx.AsyncClient.get") as mock_get,
     ):
@@ -221,7 +216,7 @@ def test_update_config_valid_yaml():
 
 
 def test_update_config_conflict():
-    allowlist_yaml = "admins:\n  - admin@example.com"
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -237,7 +232,6 @@ def test_update_config_conflict():
             return self._json
 
     with (
-        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
         patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
         patch("httpx.AsyncClient.get") as mock_get,
     ):
@@ -254,7 +248,7 @@ def test_update_config_conflict():
 
 
 def test_update_config_github_upstream_failure():
-    allowlist_yaml = "admins:\n  - admin@example.com"
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -271,7 +265,6 @@ def test_update_config_github_upstream_failure():
 
     # Test failure to fetch repo info
     with (
-        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
         patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
         patch("httpx.AsyncClient.get") as mock_get,
     ):
@@ -288,7 +281,7 @@ def test_update_config_github_upstream_failure():
 
 
 def test_update_config_pr_creation_failure():
-    allowlist_yaml = "admins:\n  - admin@example.com"
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -304,7 +297,6 @@ def test_update_config_pr_creation_failure():
             return self._json
 
     with (
-        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
         patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
         patch("httpx.AsyncClient.get") as mock_get,
     ):
@@ -329,7 +321,7 @@ def test_update_config_pr_creation_failure():
 
 
 def test_update_config_invalid_yaml():
-    allowlist_yaml = "admins:\n  - admin@example.com"
+    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -337,24 +329,23 @@ def test_update_config_invalid_yaml():
     # Missing model_list
     payload = {"config_yaml": "some_other_key: []"}
 
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        response = client.post("/api/config", json=payload, headers=headers)
-        assert response.status_code == 400
-        assert (
-            "Configuration must contain a valid 'model_list'"
-            in response.json()["detail"]
-        )
+    response = client.post("/api/config", json=payload, headers=headers)
+    assert response.status_code == 400
+    assert (
+        "Configuration must contain a valid 'model_list'"
+        in response.json()["detail"]
+    )
 
-        # Test TypeError (non-dict YAML)
-        payload_type = {"config_yaml": "- list_item"}
-        response_type = client.post("/api/config", json=payload_type, headers=headers)
-        assert response_type.status_code == 400
-        assert "YAML must be a dictionary" in response_type.json()["detail"]
+    # Test TypeError (non-dict YAML)
+    payload_type = {"config_yaml": "- list_item"}
+    response_type = client.post("/api/config", json=payload_type, headers=headers)
+    assert response_type.status_code == 400
+    assert "YAML must be a dictionary" in response_type.json()["detail"]
 
-        # Test YAMLError (invalid syntax)
-        payload_yaml_err = {"config_yaml": "foo: [unclosed list"}
-        response_err = client.post(
-            "/api/config", json=payload_yaml_err, headers=headers
-        )
-        assert response_err.status_code == 400
-        assert "Invalid YAML" in response_err.json()["detail"]
+    # Test YAMLError (invalid syntax)
+    payload_yaml_err = {"config_yaml": "foo: [unclosed list"}
+    response_err = client.post(
+        "/api/config", json=payload_yaml_err, headers=headers
+    )
+    assert response_err.status_code == 400
+    assert "Invalid YAML" in response_err.json()["detail"]

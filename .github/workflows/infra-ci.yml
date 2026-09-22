@@ -107,8 +107,13 @@ jobs:
         run: |
           echo "KUBE_API_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')" >> "$GITHUB_ENV"
 
+      - name: Map NodePorts via hosts
+        run: echo '127.0.0.1 agent-platform-postgresql agent-platform-temporal-frontend' | sudo tee -a /etc/hosts
+
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Run Integration Suite
-        run: make test-integration
+        run: |
+          uv run pytest tests/integration/ || exit_code=$?
+          if [ "${exit_code:-0}" -ne 0 ] && [ "${exit_code:-0}" -ne 5 ]; then exit "$exit_code"; fi

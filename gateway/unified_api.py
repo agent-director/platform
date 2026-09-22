@@ -5,7 +5,8 @@ import os
 import re
 import time
 import uuid
-from typing import Any
+import copy
+from typing import Any, Dict
 
 import httpx
 import yaml  # type: ignore
@@ -107,34 +108,53 @@ def get_current_user(
     return tailscale_user_login
 
 
-_allowlist_cache: dict[str, Any] = {}
-_ALLOWLIST_TTL = 300
+async def get_admin_allowlist() -> Dict[str, Any]:
+    # Returning mapping proxy or deepcopy ensures callers cannot mutate the cache
+    if not hasattr(get_admin_allowlist, "_cache"):
+        get_admin_allowlist._cache = {}
+        get_admin_allowlist._lock = asyncio.Lock()
 
-
-def verify_admin(user: str = Depends(get_current_user)) -> str:
-    global _allowlist_cache
-    current_time = time.time()
     if (
-        "data" in _allowlist_cache
-        and current_time - _allowlist_cache["time"] < _ALLOWLIST_TTL
+        "data" in get_admin_allowlist._cache
+        and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
     ):
-        allowlist = _allowlist_cache["data"]
-    else:
+        return copy.deepcopy(get_admin_allowlist._cache["data"])
+
+    async with get_admin_allowlist._lock:
+        if (
+            "data" in get_admin_allowlist._cache
+            and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
+        ):
+            return copy.deepcopy(get_admin_allowlist._cache["data"])
         try:
-            with open(get_allowlist_path(), "r") as f:
-                allowlist = yaml.safe_load(f)
-                _allowlist_cache = {"data": allowlist, "time": current_time}
+            # Using async thread delegation for I/O only on cache miss
+            def _read_allowlist():
+                with open(get_allowlist_path(), "r") as f:
+                    return yaml.safe_load(f)
+
+            allowlist = await asyncio.to_thread(_read_allowlist)
         except FileNotFoundError:
             raise HTTPException(status_code=500, detail="Admin allowlist not found")
+        except yaml.YAMLError:
+            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-    if not isinstance(allowlist, dict):
-        raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
+        if not isinstance(allowlist, dict):
+            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-    if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
-        sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
-        if isinstance(sub_allowlist, dict):
-            allowlist = sub_allowlist
+        if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
+            sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
+            if isinstance(sub_allowlist, dict):
+                allowlist = sub_allowlist
 
+        get_admin_allowlist._cache["data"] = allowlist
+        get_admin_allowlist._cache["time"] = time.time()
+        return copy.deepcopy(allowlist)
+
+
+def verify_admin(
+    allowlist: dict = Depends(get_admin_allowlist),
+    user: str = Depends(get_current_user),
+) -> str:
     admins = allowlist.get("admins", [])
     if user not in admins:
         raise HTTPException(status_code=403, detail="Admin privileges required")
