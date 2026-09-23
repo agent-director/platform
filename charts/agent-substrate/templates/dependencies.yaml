@@ -31,6 +31,12 @@ spec:
               key: postgres-password
         ports:
         - containerPort: 5432
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -85,6 +91,12 @@ spec:
               key: minio-secretKey
         ports:
         - containerPort: 9000
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+      volumes:
+      - name: minio-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

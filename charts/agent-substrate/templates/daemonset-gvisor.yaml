@@ -32,16 +32,24 @@ spec:
           
           echo "Downloading gVisor..."
           ARCH=$(uname -m)
-          URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
+          VERSION={{ .Values.gvisor.version | default "20240422.0" | quote }}
+          URL="https://storage.googleapis.com/gvisor/releases/release/${VERSION}/${ARCH}"
           
           WORKDIR=$(mktemp -d)
           cd "$WORKDIR"
           
           curl -sSL -o gvisor.tar.bz2 "${URL}/gvisor.tar.bz2"
-          curl -sSL -o gvisor.tar.bz2.sha512 "${URL}/gvisor.tar.bz2.sha512"
           
-          echo "Verifying checksum..."
-          sha512sum -c gvisor.tar.bz2.sha512
+          EXPECTED_SHA512="{{ .Values.gvisor.sha512 }}"
+          if [ -n "$EXPECTED_SHA512" ]; then
+            echo "Verifying checksum against configured SHA-512..."
+            echo "${EXPECTED_SHA512} gvisor.tar.bz2" | sha512sum -c -
+          else
+            echo "Warning: No trusted checksum configured in values. Verifying against remote checksum..."
+            curl -sSL -o gvisor.tar.bz2.sha512 "${URL}/gvisor.tar.bz2.sha512"
+            echo "Verifying checksum..."
+            sha512sum -c gvisor.tar.bz2.sha512
+          fi
           
           echo "Extracting..."
           tar -xjf gvisor.tar.bz2 -C /host/usr/local/bin

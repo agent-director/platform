@@ -17,11 +17,27 @@ spec:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: atecontroller
     spec:
-      serviceAccountName: agent-substrate-sa
+      serviceAccountName: agent-substrate-controller-sa
       containers:
       - name: atecontroller
         image: "{{ .Values.image.repository }}/atecontroller:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
         command: ["/usr/local/bin/atecontroller"]
         args:
         - "--ateapi-conn-spec=ateapi:50051"

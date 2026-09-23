@@ -21,6 +21,21 @@ spec:
       - name: ateapi
         image: "{{ .Values.image.repository }}/ateapi:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
         args:
         - "--grpc-listen-addr=:50051"
         - "--postgres-connection-string=$(POSTGRES_URL)"
@@ -56,7 +71,7 @@ spec:
               name: agent-substrate-secrets
               key: postgres-password
         - name: POSTGRES_URL
-          value: {{ if .Values.postgres.enabled }}"postgres://postgres@ate-postgres:5432/postgres?sslmode=disable"{{ else }}{{ .Values.postgres.url | quote }}{{ end }}
+          value: {{ if .Values.postgres.enabled }}"postgres://postgres@ate-postgres:5432/postgres"{{ else }}{{ .Values.postgres.url | quote }}{{ end }}
         volumeMounts:
         - name: tls
           mountPath: /etc/tls

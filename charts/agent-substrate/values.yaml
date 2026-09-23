@@ -16,14 +16,14 @@ atelet:
 postgres:
   enabled: true
   image: postgres:15-alpine
-  password: "substrate-secret"
+  password: ""
   url: ""
 
 minio:
   enabled: true
   image: minio/minio:latest
-  accessKey: "minioadmin"
-  secretKey: "minioadmin"
+  accessKey: ""
+  secretKey: ""
   endpoint: ""
 
 gvisor:

@@ -17,7 +17,7 @@ metadata:
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
-  verbs: ["get", "list", "watch", "update", "patch"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["get", "list", "watch"]
@@ -57,6 +57,9 @@ subjects:
 - kind: ServiceAccount
   name: agent-substrate-sa
   namespace: {{ .Release.Namespace }}
+- kind: ServiceAccount
+  name: agent-substrate-workload-sa
+  namespace: {{ .Release.Namespace }}
 
 ---
 apiVersion: v1
@@ -69,10 +72,9 @@ metadata:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: agent-substrate-pod-role
-  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 rules:
@@ -88,17 +90,41 @@ rules:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: agent-substrate-pod-rolebinding
-  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: agent-substrate-pod-role
 subjects:
 - kind: ServiceAccount
   name: agent-substrate-sa
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-substrate-controller-sa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-substrate-controller-rolebinding
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agent-substrate-role
+subjects:
+- kind: ServiceAccount
+  name: agent-substrate-controller-sa
   namespace: {{ .Release.Namespace }}

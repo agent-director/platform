@@ -31,9 +31,8 @@ spec:
           [Service]
           Type=oneshot
           ExecStartPre=/usr/bin/mkdir -p /usr/local/bin
-          ExecStart=/usr/bin/curl -sSL -o /usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/latest/{{ default "x86_64" .Values.arch }}/runsc
-          ExecStartPost=/usr/bin/curl -sSL -o /usr/local/bin/runsc.sha512 https://storage.googleapis.com/gvisor/releases/release/latest/{{ default "x86_64" .Values.arch }}/runsc.sha512
-          ExecStartPost=/bin/sh -c 'cd /usr/local/bin && sha512sum -c runsc.sha512'
+          ExecStart=/bin/sh -c 'VERSION={{ .Values.gvisor.version | default "20240422.0" }}; ARCH={{ default "x86_64" .Values.arch }}; curl -sSL -o /usr/local/bin/runsc https://storage.googleapis.com/gvisor/releases/release/${VERSION}/${ARCH}/runsc'
+          ExecStartPost=/bin/sh -c 'EXPECTED_SHA512="{{ .Values.gvisor.sha512 }}"; if [ -n "$EXPECTED_SHA512" ]; then echo "$EXPECTED_SHA512 /usr/local/bin/runsc" | sha512sum -c -; else VERSION={{ .Values.gvisor.version | default "20240422.0" }}; ARCH={{ default "x86_64" .Values.arch }}; curl -sSL -o /usr/local/bin/runsc.sha512 https://storage.googleapis.com/gvisor/releases/release/${VERSION}/${ARCH}/runsc.sha512 && cd /usr/local/bin && sha512sum -c runsc.sha512; fi'
           ExecStartPost=/usr/bin/chmod +x /usr/local/bin/runsc
           ExecStartPost=/usr/bin/systemctl reload crio
           RemainAfterExit=yes

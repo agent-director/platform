@@ -6,14 +6,14 @@ RUN apt-get update && apt-get install -y git
 
 WORKDIR /build
 # Clone the upstream agent-substrate repository
-RUN git clone -b v0.1.0 https://github.com/agent-substrate/substrate.git .
+RUN git clone --depth 1 -b v0.1.0 https://github.com/agent-substrate/substrate.git .
 
 # Build the binaries
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/atelet ./cmd/atelet
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/atecontroller ./cmd/atecontroller
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-gvisor ./cmd/ateom-gvisor
-RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-microvm ./cmd/ateom-microvm
+RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/atelet ./cmd/atelet && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/atecontroller ./cmd/atecontroller && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-gvisor ./cmd/ateom-gvisor && \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-microvm ./cmd/ateom-microvm
 
 # ateapi image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ateapi

@@ -33,6 +33,14 @@ spec:
         - --grpc-server-cred-bundle=/etc/tls/bundle.pem
         - --client-ca-certs=/etc/tls/bundle.pem
         - --ateapi-server-name=ateapi
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
         env:
         - name: NODE_NAME
           valueFrom:
