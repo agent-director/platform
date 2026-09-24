@@ -25,10 +25,3 @@ minio:
   accessKey: ""
   secretKey: ""
   endpoint: ""
-
-gvisor:
-  enabled: false
-
-
-machineConfig:
-  enabled: false

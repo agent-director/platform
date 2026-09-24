@@ -12,7 +12,6 @@ RUN git clone --depth 1 -b v0.1.0 https://github.com/agent-substrate/substrate.g
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
     CGO_ENABLED=0 GOOS=linux go build -o /out/atelet ./cmd/atelet && \
     CGO_ENABLED=0 GOOS=linux go build -o /out/atecontroller ./cmd/atecontroller && \
-    CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-gvisor ./cmd/ateom-gvisor && \
     CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-microvm ./cmd/ateom-microvm
 
 # ateapi image
@@ -29,11 +28,6 @@ ENTRYPOINT ["/usr/local/bin/atelet"]
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS atecontroller
 COPY --from=builder /out/atecontroller /usr/local/bin/atecontroller
 ENTRYPOINT ["/usr/local/bin/atecontroller"]
-
-# ateom-gvisor image
-FROM registry.access.redhat.com/ubi9/ubi-minimal AS ateom-gvisor
-COPY --from=builder /out/ateom-gvisor /usr/local/bin/ateom-gvisor
-ENTRYPOINT ["/usr/local/bin/ateom-gvisor"]
 
 # ateom-microvm image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ateom-microvm
