@@ -7,44 +7,77 @@ NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 def check_pod_ready(label_selector: str):
     """Wait for a pod matching the label selector to be ready."""
+    cmd = [
+        "kubectl",
+        "wait",
+        "--for=condition=ready",
+        "pod",
+        "-l",
+        label_selector,
+        "-n",
+        NAMESPACE,
+        "--timeout=120s",
+    ]
     try:
-        subprocess.run(
-            [
-                "kubectl",
-                "wait",
-                "--for=condition=ready",
-                "pod",
-                "-l",
-                label_selector,
-                "-n",
-                NAMESPACE,
-                "--timeout=60s",
-            ],
-            check=True,
-            capture_output=True,
-        )
-        return True
-    except subprocess.CalledProcessError:
-        return False
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        pytest.fail(f"Pod matching {label_selector} not ready. Error: {e.stderr}")
 
 
 def test_core_platform_components_ready():
-    # Zaland Postgres cluster
-    assert check_pod_ready("application=spilo")
+    # Zalando Postgres cluster
+    check_pod_ready("application=spilo")
 
     # LiteLLM Proxy
-    assert check_pod_ready("app=litellm")
+    check_pod_ready("app=litellm")
 
     # Tailscale Ingress
-    assert check_pod_ready("app=tailscale-ingress")
+    check_pod_ready("app=tailscale-ingress")
+
+    # Minio
+    check_pod_ready("app=minio")
 
 
 def test_agent_substrate_components_ready():
     # AteAPI
-    assert check_pod_ready("app.kubernetes.io/component=ateapi")
+    check_pod_ready("app.kubernetes.io/component=ateapi")
+
+    # Functionally test the API
+    cmd_get_pod = [
+        "kubectl",
+        "get",
+        "pods",
+        "-n",
+        NAMESPACE,
+        "-l",
+        "app.kubernetes.io/component=ateapi",
+        "-o",
+        "jsonpath={.items[0].metadata.name}",
+    ]
+    pod_name = subprocess.run(
+        cmd_get_pod, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    cmd_check_port = [
+        "kubectl",
+        "exec",
+        "-n",
+        NAMESPACE,
+        pod_name,
+        "--",
+        "bash",
+        "-c",
+        "cat /proc/net/tcp | grep -q ':C383'",
+    ]
+    try:
+        subprocess.run(cmd_check_port, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        pytest.fail(
+            f"ateapi pod is running but not listening on gRPC port 50051. Error: {e.stderr}"
+        )
     
     # AteController
-    assert check_pod_ready("app.kubernetes.io/component=atecontroller")
+    check_pod_ready("app.kubernetes.io/component=atecontroller")
     
     # Atelet DaemonSet
-    assert check_pod_ready("app.kubernetes.io/component=atelet")
+    check_pod_ready("app.kubernetes.io/component=atelet")

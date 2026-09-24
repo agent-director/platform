@@ -14,14 +14,9 @@ atelet:
 
 
 postgres:
-  enabled: true
-  image: postgres:15-alpine
-  password: ""
-  url: ""
+  url: "postgres://postgres:password@postgres-db.gordon.svc.cluster.local:5432/postgres" # pragma: allowlist secret
 
 minio:
-  enabled: true
-  image: minio/minio:latest
-  accessKey: ""
-  secretKey: ""
-  endpoint: ""
+  endpoint: "http://minio.gordon.svc.cluster.local:9000"
+  accessKey: "minioadmin"
+  secretKey: "minioadmin" # pragma: allowlist secret

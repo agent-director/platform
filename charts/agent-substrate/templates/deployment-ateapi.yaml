@@ -50,7 +50,7 @@ spec:
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3
-          value: {{ if .Values.minio.enabled }}"http://ate-minio:9000"{{ else }}{{ .Values.minio.endpoint | quote }}{{ end }}
+          value: {{ .Values.minio.endpoint | quote }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -71,7 +71,7 @@ spec:
               name: agent-substrate-secrets
               key: postgres-password
         - name: POSTGRES_URL
-          value: {{ if .Values.postgres.enabled }}"postgres://postgres@ate-postgres:5432/postgres"{{ else }}{{ .Values.postgres.url | quote }}{{ end }}
+          value: {{ .Values.postgres.url | quote }}
         volumeMounts:
         - name: tls
           mountPath: /etc/tls
@@ -79,7 +79,7 @@ spec:
       volumes:
       - name: tls
         secret:
-          secretName: agent-substrate-tls
+          secretName: agent-substrate-tls # pragma: allowlist secret
 ---
 apiVersion: v1
 kind: Service

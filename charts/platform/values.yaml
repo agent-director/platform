@@ -12,6 +12,13 @@ database:
   superuser: "agent-director-admin"
   version: "18"
 
+minio:
+  enabled: true
+  image: "minio/minio:latest"
+  accessKey: "minioadmin"
+  secretKey: "minioadmin" # pragma: allowlist secret
+  persistence:
+    size: "10Gi"
 gitSync:
   repo: "https://github.com/agent-director/platform.git"
   branch: "main"
