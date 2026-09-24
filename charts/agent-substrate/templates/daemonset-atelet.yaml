@@ -26,6 +26,8 @@ spec:
         command: ["/usr/local/bin/atelet"]
         securityContext:
           privileged: true
+          runAsUser: 0
+          runAsGroup: 0
         args:
         - --ateapi-address=ateapi:50051
         - --gcp-auth-for-image-pulls=false
@@ -41,11 +43,39 @@ spec:
             cpu: 500m
             memory: 512Mi
 
+        readinessProbe:
+          tcpSocket:
+            port: 9090
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 10
         env:
         - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        - name: ATE_STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_ENDPOINT_URL_S3
+          value: {{ .Values.minio.endpoint | quote }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-substrate-secrets
+              key: minio-secretKey
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_S3_USE_PATH_STYLE
+          value: "true"
         volumeMounts:
         - name: ateom-gvisor
           mountPath: /var/lib/ateom-gvisor
