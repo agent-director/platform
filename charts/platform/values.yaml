@@ -7,6 +7,11 @@ fullnameOverride: ""
 imagePullSecrets:
   - name: ghcr-secret
 
+database:
+  teamId: "agent-director"
+  superuser: "agent-director-admin"
+  version: "18"
+
 gitSync:
   repo: "https://github.com/agent-director/platform.git"
   branch: "main"

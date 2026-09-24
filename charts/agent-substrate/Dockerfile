@@ -17,19 +17,27 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
 # ateapi image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ateapi
 COPY --from=builder /out/ateapi /usr/local/bin/ateapi
+RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+USER 10001
 ENTRYPOINT ["/usr/local/bin/ateapi"]
 
 # atelet image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS atelet
 COPY --from=builder /out/atelet /usr/local/bin/atelet
+RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+USER 10001
 ENTRYPOINT ["/usr/local/bin/atelet"]
 
 # atecontroller image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS atecontroller
 COPY --from=builder /out/atecontroller /usr/local/bin/atecontroller
+RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+USER 10001
 ENTRYPOINT ["/usr/local/bin/atecontroller"]
 
 # ateom-microvm image
 FROM registry.access.redhat.com/ubi9/ubi-minimal AS ateom-microvm
 COPY --from=builder /out/ateom-microvm /usr/local/bin/ateom-microvm
+RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+USER 10001
 ENTRYPOINT ["/usr/local/bin/ateom-microvm"]
