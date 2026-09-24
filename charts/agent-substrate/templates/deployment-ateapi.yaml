@@ -40,13 +40,25 @@ spec:
         - "--grpc-listen-addr=:50051"
         - "--postgres-connection-string=$(POSTGRES_URL)"
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
-        - "--authentication-config=/etc/tls/auth.yaml"
-        - "--actor-id-ca-pool=/etc/tls/bundle.pem"
-        - "--actor-id-jwt-pool=/etc/tls/jwt.pem"
+        - "--atelet-service-account=agent-substrate-sa"
         ports:
         - containerPort: 50051
           name: grpc
         env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3

@@ -47,22 +47,36 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         volumeMounts:
-        - name: host-var-run
-          mountPath: /var/run
-        - name: host-sys
-          mountPath: /sys
+        - name: ateom-gvisor
+          mountPath: /var/lib/ateom-gvisor
+        - name: kubelet-plugins
+          mountPath: /var/lib/kubelet/plugins
+        - name: kubelet-device-plugins
+          mountPath: /var/lib/kubelet/device-plugins
+        - name: host-dev
+          mountPath: /host/dev
           readOnly: true
         - name: tls
           mountPath: /etc/tls
           readOnly: true
       volumes:
-      - name: host-var-run
+      - name: ateom-gvisor
         hostPath:
-          path: /var/run
-      - name: host-sys
+          path: /var/lib/ateom-gvisor
+          type: DirectoryOrCreate
+      - name: kubelet-plugins
         hostPath:
-          path: /sys
+          path: /var/lib/kubelet/plugins
+          type: DirectoryOrCreate
+      - name: kubelet-device-plugins
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+          type: DirectoryOrCreate
+      - name: host-dev
+        hostPath:
+          path: /dev
+          type: Directory
       - name: tls
         secret:
-          secretName: agent-substrate-tls
+          secretName: agent-substrate-tls # pragma: allowlist secret
 {{- end }}

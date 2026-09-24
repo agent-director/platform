@@ -44,11 +44,27 @@ spec:
         - "--ateapi-client-cert=/etc/tls/bundle.pem"
         - "--ateapi-ca-file=/etc/tls/bundle.pem"
         - "--ateapi-server-name=ateapi"
+        - "--atelet-service-account=agent-substrate-sa"
+        - "--router-service-account=agent-substrate-sa"
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
         volumeMounts:
         - name: tls
           mountPath: /etc/tls
           readOnly: true
-      volumes:
       - name: tls
         secret:
-          secretName: agent-substrate-tls
+          secretName: agent-substrate-tls # pragma: allowlist secret
