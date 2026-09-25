@@ -108,3 +108,11 @@ temporal:
     securityContext:
       runAsUser: null
       fsGroup: null
+  server:
+    additionalVolumes:
+      - name: temporal-scratch
+        emptyDir:
+          sizeLimit: 1Gi
+    additionalVolumeMounts:
+      - name: temporal-scratch
+        mountPath: /var/lib/temporal

@@ -12,6 +12,8 @@ atecontroller:
 atelet:
   enabled: true
 
+postgres:
+  host: "agent-platform-db"
 
 tls:
   create: true
