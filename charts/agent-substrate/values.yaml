@@ -13,8 +13,6 @@ atelet:
   enabled: true
 
 
-minio:
-  endpoint: "http://minio.gordon.svc.cluster.local:9000"
 tls:
   create: true
-  secretName: agent-substrate-tls # pragma: allowlist secret
+  secretName: agent-substrate-tls

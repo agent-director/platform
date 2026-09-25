@@ -61,7 +61,7 @@ spec:
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3
-          value: {{ .Values.minio.endpoint | quote }}
+          value: {{ printf "http://minio.%s.svc.cluster.local:9000" .Release.Namespace | quote }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -108,5 +108,5 @@ spec:
           type: Directory
       - name: tls
         secret:
-          secretName: agent-substrate-tls # pragma: allowlist secret
+          secretName: agent-substrate-tls
 {{- end }}

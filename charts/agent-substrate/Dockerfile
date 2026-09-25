@@ -1,10 +1,8 @@
 # Builder stage
-# hadolint ignore=DL3007
-FROM docker.io/library/golang:latest AS builder
+FROM docker.io/library/golang:1.27.1-trixie@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db AS builder
 
 # Install git
-# hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git=1:2.* && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 # Clone the upstream agent-substrate repository
@@ -17,37 +15,29 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
     CGO_ENABLED=0 GOOS=linux go build -o /out/ateom-microvm ./cmd/ateom-microvm
 
 # ateapi image
-# hadolint ignore=DL3007
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS ateapi
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS ateapi
 COPY --from=builder /out/ateapi /usr/local/bin/ateapi
-# hadolint ignore=DL3041
-RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+RUN microdnf install -y shadow-utils-4.9.0-1 && useradd -u 10001 -m substrate && microdnf clean all
 USER 10001
 ENTRYPOINT ["/usr/local/bin/ateapi"]
 
 # atelet image
-# hadolint ignore=DL3007
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS atelet
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS atelet
 COPY --from=builder /out/atelet /usr/local/bin/atelet
-# hadolint ignore=DL3041
-RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+RUN microdnf install -y shadow-utils-4.9.0-1 && useradd -u 10001 -m substrate && microdnf clean all
 USER 10001
 ENTRYPOINT ["/usr/local/bin/atelet"]
 
 # atecontroller image
-# hadolint ignore=DL3007
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS atecontroller
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS atecontroller
 COPY --from=builder /out/atecontroller /usr/local/bin/atecontroller
-# hadolint ignore=DL3041
-RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+RUN microdnf install -y shadow-utils-4.9.0-1 && useradd -u 10001 -m substrate && microdnf clean all
 USER 10001
 ENTRYPOINT ["/usr/local/bin/atecontroller"]
 
 # ateom-microvm image
-# hadolint ignore=DL3007
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS ateom-microvm
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS ateom-microvm
 COPY --from=builder /out/ateom-microvm /usr/local/bin/ateom-microvm
-# hadolint ignore=DL3041
-RUN microdnf install -y shadow-utils && useradd -u 10001 -m substrate && microdnf clean all
+RUN microdnf install -y shadow-utils-4.9.0-1 && useradd -u 10001 -m substrate && microdnf clean all
 USER 10001
 ENTRYPOINT ["/usr/local/bin/ateom-microvm"]

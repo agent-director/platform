@@ -66,4 +66,4 @@ spec:
       volumes:
         - name: tls
           secret:
-            secretName: agent-substrate-tls # pragma: allowlist secret
+            secretName: agent-substrate-tls
