@@ -76,13 +76,13 @@ spec:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: agent-substrate-secrets
-              key: minio-accessKey
+              name: minio-auth-secret
+              key: rootUser
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: agent-substrate-secrets
-              key: minio-secretKey
+              name: minio-auth-secret
+              key: rootPassword
         - name: AWS_REGION
           value: "us-east-1"
         - name: AWS_S3_USE_PATH_STYLE
@@ -90,10 +90,15 @@ spec:
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: agent-substrate-secrets
-              key: postgres-password
+              name: "platform-admin.agent-platform-db.credentials.postgresql.acid.zalan.do"
+              key: password
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: "platform-admin.agent-platform-db.credentials.postgresql.acid.zalan.do"
+              key: username
         - name: POSTGRES_URL
-          value: {{ .Values.postgres.url | quote }}
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@agent-platform-db.gordon.svc.cluster.local:5432/postgres"
         volumeMounts:
         - name: tls
           mountPath: /etc/tls

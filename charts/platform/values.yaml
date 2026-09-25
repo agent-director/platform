@@ -14,9 +14,7 @@ database:
 
 minio:
   enabled: true
-  image: "minio/minio:latest"
-  accessKey: "minioadmin"
-  secretKey: "minioadmin" # pragma: allowlist secret
+  image: "quay.io/minio/minio:latest"
   persistence:
     size: "10Gi"
 gitSync:

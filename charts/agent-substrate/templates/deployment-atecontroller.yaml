@@ -44,8 +44,6 @@ spec:
         - "--ateapi-client-cert=/etc/tls/bundle.pem"
         - "--ateapi-ca-file=/etc/tls/bundle.pem"
         - "--ateapi-server-name=ateapi"
-        - "--atelet-service-account=agent-substrate-sa"
-        - "--router-service-account=agent-substrate-sa"
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -65,6 +63,7 @@ spec:
         - name: tls
           mountPath: /etc/tls
           readOnly: true
-      - name: tls
-        secret:
-          secretName: agent-substrate-tls # pragma: allowlist secret
+      volumes:
+        - name: tls
+          secret:
+            secretName: agent-substrate-tls # pragma: allowlist secret

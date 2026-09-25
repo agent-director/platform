@@ -13,10 +13,8 @@ atelet:
   enabled: true
 
 
-postgres:
-  url: "postgres://postgres:password@postgres-db.gordon.svc.cluster.local:5432/postgres" # pragma: allowlist secret
-
 minio:
   endpoint: "http://minio.gordon.svc.cluster.local:9000"
-  accessKey: "minioadmin"
-  secretKey: "minioadmin" # pragma: allowlist secret
+tls:
+  create: true
+  secretName: agent-substrate-tls # pragma: allowlist secret
