@@ -54,11 +54,21 @@ hooks = [
 repo = "https://github.com/bridgecrewio/checkov"
 rev = "3.2.66"
 hooks = [
-  { id = "checkov", priority = 0, args = ["-d", "charts/agent-platform", "--framework", "helm"] }
+  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/" }
+]
+
+[[repos]]
+repo = "https://github.com/hadolint/hadolint"
+rev = "v2.12.0"
+hooks = [
+  { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
 ]
 
 [[repos]]
 repo = "local"
 hooks = [
-  { id = "helm-lint", name = "Helm Lint", entry = "helm lint charts/agent-platform", language = "system", pass_filenames = false, files = "^charts/" }
+  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", pass_filenames = false, files = "^charts/" },
+  { id = "kube-linter", name = "Kube-Linter", entry = "make lint-kube", language = "system", pass_filenames = false, files = "^charts/" },
+  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", pass_filenames = false, files = "^charts/" },
+  { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", pass_filenames = false, stages = ["pre-push", "manual"] }
 ]

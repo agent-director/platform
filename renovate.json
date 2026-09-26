@@ -2,5 +2,23 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "Managed by khepri-deps/renovate — global config provides weekly Monday schedule, 14-day release cooldown, and vulnerability alert bypass."
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": ["deb"],
+      "matchFileNames": ["images/caddy-tailscale/Dockerfile"],
+      "registryUrls": [
+        "https://deb.debian.org/debian?suite=bookworm&components=main&binaryArch=amd64",
+        "https://deb.debian.org/debian-security?suite=bookworm-security&components=main&binaryArch=amd64"
+      ]
+    },
+    {
+      "matchDatasources": ["deb"],
+      "matchFileNames": ["images/agent-substrate/Dockerfile"],
+      "registryUrls": [
+        "https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64",
+        "https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64"
+      ]
+    }
   ]
 }

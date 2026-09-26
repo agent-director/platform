@@ -76,6 +76,39 @@ deploy: setup check-cluster
 teardown: check-cluster
 	./scripts/teardown.sh $(NAMESPACE) $(RELEASE_NAME)
 
+.PHONY: lint-helm
+lint-helm:
+	@echo "Linting Helm charts..."
+	@for d in charts/*; do \
+		if [ -d "$$d" ] && [ -f "$$d/Chart.yaml" ]; then \
+			helm lint "$$d"; \
+		fi; \
+	done
+
+.PHONY: check-schema
+check-schema:
+	@echo "Validating Helm schemas with Kubeconform..."
+	@for d in charts/*; do \
+		if [ -d "$$d" ] && [ -f "$$d/Chart.yaml" ]; then \
+			helm template "$$(basename "$$d")" "$$d" \
+				--set secrets.langfuseNextauthSecret="dummy" \
+				--set secrets.langfuseSalt="dummy" \
+				| kubeconform -strict -summary \
+				-schema-location default \
+				-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'; \
+		fi; \
+	done
+
+.PHONY: lint-kube
+lint-kube:
+	@echo "Running Kube-Linter..."
+	kube-linter lint charts/ --config .kube-linter.yaml
+
+.PHONY: scan-iac
+scan-iac:
+	@echo "Running Trivy IaC Scan..."
+	trivy fs . --format table --exit-code 1 --severity CRITICAL,HIGH
+
 test:
 	uv run pytest tests/
 
