@@ -5,7 +5,7 @@ import tempfile
 import yaml  # type: ignore
 import pytest
 
-RELEASE_NAME = "test-release-agent-platform"
+RELEASE_NAME = "test-release-platform"
 
 
 def render_chart(chart_dir, values=None):

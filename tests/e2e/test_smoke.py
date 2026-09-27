@@ -1,7 +1,7 @@
 import subprocess
 import pytest
 
-NAMESPACE = "gordon"
+NAMESPACE = "platform"
 
 
 def check_pod_ready(label_selector: str):

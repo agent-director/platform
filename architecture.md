@@ -1,6 +1,6 @@
 # Architecture: Two-Plane Agent Control Plane
 
-The `gordon-control-plane` is designed around a **Two-Plane** architecture to accommodate the differing operational profiles of highly interactive, real-time agent sessions versus long-running, durable automation workflows.
+The `agent-director` is designed around a **Two-Plane** architecture to accommodate the differing operational profiles of highly interactive, real-time agent sessions versus long-running, durable automation workflows.
 
 ## 1. Two-Plane Execution Model
 
@@ -32,7 +32,7 @@ Provides the secure, isolated execution environment where agent-generated code a
 - Drops capabilities (e.g., `CAP_SYS_ADMIN`) and defaults to read-only root filesystems.
 
 2. **Network Isolation:** OpenShell sandboxes cannot reach internal services (Temporal, Gateway, Postgres) or cloud metadata endpoints.
-The base deployment layer defined by the `charts/agent-platform` Helm chart. It manages:
+The base deployment layer defined by the `charts/platform` Helm chart. It manages:
 - PostgreSQL (Temporal state, LiteLLM routing rules, LangGraph checkpoints, MCP registry).
 - Temporal Cluster.
 - LiteLLM Gateway pods.

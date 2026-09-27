@@ -71,7 +71,7 @@ Due to the inherent non-determinism of LLMs, all LLM invocations **must** be iso
 - Pass necessary state via LangGraph checkpoint serialization.
 
 ### Local Bring-Up & Helm Deployment
-Deploying the base infrastructure (PostgreSQL, Temporal, LiteLLM proxy, OpenShell workers) relies on the `charts/agent-platform` Helm chart.
+Deploying the base infrastructure (PostgreSQL, Temporal, LiteLLM proxy, OpenShell workers) relies on the `charts/platform` Helm chart.
 - Local environment bring-up requires Kubernetes (e.g., Docker Desktop, Minikube, or kind).
 - Follow the infrastructure guides (TBD) for deploying the chart and establishing the required sandbox configurations.
 

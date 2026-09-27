@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-caddy-config
+  name: {{ include "platform.fullname" . }}-caddy-config
 data:
   Caddyfile: |
 {{ tpl .Values.tailscaleIngress.caddyConfig . | indent 4 }}
@@ -10,7 +10,7 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-tailscale-ingress
+  name: {{ include "platform.fullname" . }}-tailscale-ingress
   labels:
     app: tailscale-ingress
 spec:
@@ -43,7 +43,7 @@ spec:
                   name: {{ .Values.tailscaleIngress.secretName }}
                   key: TS_AUTHKEY
             - name: TS_HOSTNAME
-              value: {{ include "agent-platform.tailscaleHostname" . | quote }}
+              value: {{ include "platform.tailscaleHostname" . | quote }}
             - name: TS_STATE_DIR
               value: /data/tailscale
             - name: XDG_CONFIG_HOME
@@ -79,10 +79,10 @@ spec:
       volumes:
         - name: data-volume
           persistentVolumeClaim:
-            claimName: {{ include "agent-platform.fullname" . }}-tailscale-data
+            claimName: {{ include "platform.fullname" . }}-tailscale-data
         - name: caddy-config
           configMap:
-            name: {{ include "agent-platform.fullname" . }}-caddy-config
+            name: {{ include "platform.fullname" . }}-caddy-config
         - name: tailscale-run
           emptyDir: {}
 {{- end }}

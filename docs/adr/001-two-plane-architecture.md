@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The `gordon-control-plane` must support two fundamentally different types of agentic workloads:
+The `agent-director` must support two fundamentally different types of agentic workloads:
 1. **Long-running, asynchronous workflows:** Tasks like continuous integration monitoring, background code review, and periodic project management standups. These require high durability, state persistence, and the ability to suspend/resume over long periods.
 2. **Real-time, interactive sessions:** Direct user-agent collaboration requiring low latency, streaming updates, and fast, mutable state transitions.
 

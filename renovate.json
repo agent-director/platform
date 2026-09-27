@@ -14,7 +14,7 @@
     },
     {
       "matchDatasources": ["deb"],
-      "matchFileNames": ["images/agent-substrate/Dockerfile"],
+      "matchFileNames": ["images/sandbox/Dockerfile"],
       "registryUrls": [
         "https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64",
         "https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64"

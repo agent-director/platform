@@ -1,10 +1,10 @@
 #!/bin/bash
 set -o pipefail
 
-NAMESPACE=${1:-"gordon"}
-RELEASE_NAME=${2:-"agent-platform"}
+NAMESPACE=${1:-"platform"}
+RELEASE_NAME=${2:-"platform"}
 echo "========================================"
-echo " Gordon Control Plane - Teardown"
+echo " Agent Director - Teardown"
 echo "========================================"
 
 echo "Uninstalling Helm release '$RELEASE_NAME' in namespace '$NAMESPACE'..."

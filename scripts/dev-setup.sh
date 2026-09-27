@@ -2,7 +2,7 @@
 set -eo pipefail
 
 echo "========================================"
-echo " Gordon Control Plane - Dev Setup"
+echo " Agent Director - Dev Setup"
 echo "========================================"
 
 # Check dependencies
@@ -110,10 +110,10 @@ uv sync
 echo ""
 if [ "$CI" == "true" ]; then
     echo "Building Helm dependencies strictly from lockfile..."
-    helm dependency build charts/agent-platform
+    helm dependency build charts/platform
 else
     echo "Updating Helm dependencies..."
-    helm dependency update charts/agent-platform
+    helm dependency update charts/platform
 fi
 
 echo ""

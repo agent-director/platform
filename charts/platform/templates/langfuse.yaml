@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-langfuse
+  name: {{ include "platform.fullname" . }}-langfuse
   labels:
     app: langfuse
 spec:
@@ -67,7 +67,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-langfuse
+  name: {{ include "platform.fullname" . }}-langfuse
 spec:
   ports:
     - port: 3000
