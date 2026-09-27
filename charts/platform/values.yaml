@@ -13,7 +13,7 @@ imagePullSecrets:
 database:
   teamId: "agent-director"
   superuser: "agent-director-admin"
-  version: "16"
+  version: "18"
 
 minio:
   enabled: true

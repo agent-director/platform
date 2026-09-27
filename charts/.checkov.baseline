@@ -6,10 +6,7 @@
                 {
                     "resource": "DaemonSet.default.atelet",
                     "check_ids": [
-                        "CKV_K8S_11",
-                        "CKV_K8S_13",
                         "CKV_K8S_14",
-                        "CKV_K8S_15",
                         "CKV_K8S_16",
                         "CKV_K8S_17",
                         "CKV_K8S_20",
@@ -40,10 +37,7 @@
                 {
                     "resource": "Deployment.default.ateapi",
                     "check_ids": [
-                        "CKV_K8S_11",
-                        "CKV_K8S_13",
                         "CKV_K8S_14",
-                        "CKV_K8S_15",
                         "CKV_K8S_21",
                         "CKV_K8S_22",
                         "CKV_K8S_29",
@@ -74,10 +68,7 @@
                 {
                     "resource": "Deployment.default.atecontroller",
                     "check_ids": [
-                        "CKV_K8S_11",
-                        "CKV_K8S_13",
                         "CKV_K8S_14",
-                        "CKV_K8S_15",
                         "CKV_K8S_21",
                         "CKV_K8S_22",
                         "CKV_K8S_29",
