@@ -15,6 +15,9 @@ database:
   teamId: "agent-director"
   superuser: "agent-director-admin"
   version: "18"
+  nodePort:
+    enabled: true
+    port: 30543
 
 rustfs:
   enabled: true

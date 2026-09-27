@@ -11,7 +11,7 @@ async def test_temporal_connection():
     try:
         client = await Client.connect("127.0.0.1:7233")
         assert client is not None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         pytest.fail(f"Could not connect to Temporal at 127.0.0.1:7233: {e}")
 
 
@@ -27,9 +27,9 @@ async def test_postgres_connection():
     import asyncio
 
     try:
-        reader, writer = await asyncio.open_connection('127.0.0.1', 5432)
+        _reader, writer = await asyncio.open_connection("127.0.0.1", 5432)
         assert writer is not None
         writer.close()
         await writer.wait_closed()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         pytest.fail(f"Could not connect to Postgres at 127.0.0.1:5432: {e}")

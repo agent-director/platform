@@ -1,12 +1,12 @@
 import asyncio
 import base64
+import copy
 import logging
 import os
 import re
 import time
 import uuid
-import copy
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 import yaml  # type: ignore
@@ -108,24 +108,24 @@ def get_current_user(
     return tailscale_user_login
 
 
-async def get_admin_allowlist() -> Dict[str, Any]:
+async def get_admin_allowlist() -> dict[str, Any]:
     # Returning mapping proxy or deepcopy ensures callers cannot mutate the cache
     if not hasattr(get_admin_allowlist, "_cache"):
-        get_admin_allowlist._cache = {}
-        get_admin_allowlist._lock = asyncio.Lock()
+        get_admin_allowlist._cache = {}  # type: ignore
+        get_admin_allowlist._lock = asyncio.Lock()  # type: ignore
 
     if (
-        "data" in get_admin_allowlist._cache
-        and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
+        "data" in get_admin_allowlist._cache  # type: ignore
+        and time.time() - get_admin_allowlist._cache.get("time", 0) < 300  # type: ignore
     ):
-        return copy.deepcopy(get_admin_allowlist._cache["data"])
+        return copy.deepcopy(get_admin_allowlist._cache["data"])  # type: ignore
 
-    async with get_admin_allowlist._lock:
+    async with get_admin_allowlist._lock:  # type: ignore
         if (
-            "data" in get_admin_allowlist._cache
-            and time.time() - get_admin_allowlist._cache.get("time", 0) < 300
+            "data" in get_admin_allowlist._cache  # type: ignore
+            and time.time() - get_admin_allowlist._cache.get("time", 0) < 300  # type: ignore
         ):
-            return copy.deepcopy(get_admin_allowlist._cache["data"])
+            return copy.deepcopy(get_admin_allowlist._cache["data"])  # type: ignore
         try:
             # Using async thread delegation for I/O only on cache miss
             def _read_allowlist():
@@ -146,13 +146,13 @@ async def get_admin_allowlist() -> Dict[str, Any]:
             if isinstance(sub_allowlist, dict):
                 allowlist = sub_allowlist
 
-        get_admin_allowlist._cache["data"] = allowlist
-        get_admin_allowlist._cache["time"] = time.time()
+        get_admin_allowlist._cache["data"] = allowlist  # type: ignore
+        get_admin_allowlist._cache["time"] = time.time()  # type: ignore
         return copy.deepcopy(allowlist)
 
 
 def verify_admin(
-    allowlist: dict = Depends(get_admin_allowlist),
+    allowlist: dict = Depends(get_admin_allowlist),  # noqa: B008
     user: str = Depends(get_current_user),
 ) -> str:
     admins = allowlist.get("admins", [])

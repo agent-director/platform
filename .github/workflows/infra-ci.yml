@@ -111,7 +111,7 @@ jobs:
         run: echo '127.0.0.1 agent-platform-postgresql agent-platform-temporal-frontend' | sudo tee -a /etc/hosts
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v5.4.2
 
       - name: Run Integration Suite
         run: |

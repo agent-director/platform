@@ -3,8 +3,6 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
-
-
 from gateway.unified_api import app
 
 
@@ -84,7 +82,6 @@ def test_security_admin_endpoint_no_bypass(client):
     # Standard user without allowlist
     import os
     import tempfile
-    from unittest.mock import patch
 
     with tempfile.NamedTemporaryFile(mode="w", delete=False) as tf:
         tf.write("admins:\n  - real_admin@example.com")
@@ -92,13 +89,16 @@ def test_security_admin_endpoint_no_bypass(client):
 
     try:
         from gateway.unified_api import get_admin_allowlist
-        app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["real_admin@example.com"]}
+
+        app.dependency_overrides[get_admin_allowlist] = lambda: {
+            "admins": ["real_admin@example.com"]
+        }
         response = client.get("/api/config", headers=headers_user)
         assert response.status_code == 403
         assert "Admin privileges required" in response.json()["detail"]
     finally:
-        app.dependency_overrides.clear()
         os.unlink(tf_name)
     # Missing Auth entirely
     response = client.get("/api/config")
     assert response.status_code == 401
+    app.dependency_overrides.clear()

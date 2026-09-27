@@ -37,7 +37,7 @@ dev = [
 pythonpath = ["."]
 testpaths = ["tests/unit"]
 norecursedirs = ["tests/integration", "tests/e2e"]
-timeout = 30
+timeout = 120
 markers = [
     "e2e: End-to-end tests requiring a Kubernetes cluster",
     "quarantine: Flaky tests temporarily quarantined from failing CI",

@@ -1,5 +1,5 @@
 import os
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +18,6 @@ def clear_dependency_overrides():
     # also reset the cache inside the function if it exists
     if hasattr(gateway.unified_api.get_config, "_cache"):
         gateway.unified_api.get_config._cache = {}
-
 
 
 client = TestClient(app)
@@ -69,7 +68,9 @@ def test_auth_with_dev_env():
 
 
 def test_verify_admin_success():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -79,7 +80,9 @@ def test_verify_admin_success():
 
 
 def test_verify_admin_forbidden():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "user@example.com",
@@ -171,7 +174,9 @@ def test_chat_proxy_streaming_validator():
 
 
 def test_update_config_valid_yaml():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -216,7 +221,9 @@ def test_update_config_valid_yaml():
 
 
 def test_update_config_conflict():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -248,7 +255,9 @@ def test_update_config_conflict():
 
 
 def test_update_config_github_upstream_failure():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -281,7 +290,9 @@ def test_update_config_github_upstream_failure():
 
 
 def test_update_config_pr_creation_failure():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -321,7 +332,9 @@ def test_update_config_pr_creation_failure():
 
 
 def test_update_config_invalid_yaml():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {"admins": ["admin@example.com"]}
+    app.dependency_overrides[get_admin_allowlist] = lambda: {
+        "admins": ["admin@example.com"]
+    }
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -332,8 +345,7 @@ def test_update_config_invalid_yaml():
     response = client.post("/api/config", json=payload, headers=headers)
     assert response.status_code == 400
     assert (
-        "Configuration must contain a valid 'model_list'"
-        in response.json()["detail"]
+        "Configuration must contain a valid 'model_list'" in response.json()["detail"]
     )
 
     # Test TypeError (non-dict YAML)
@@ -344,8 +356,6 @@ def test_update_config_invalid_yaml():
 
     # Test YAMLError (invalid syntax)
     payload_yaml_err = {"config_yaml": "foo: [unclosed list"}
-    response_err = client.post(
-        "/api/config", json=payload_yaml_err, headers=headers
-    )
+    response_err = client.post("/api/config", json=payload_yaml_err, headers=headers)
     assert response_err.status_code == 400
     assert "Invalid YAML" in response_err.json()["detail"]
