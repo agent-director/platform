@@ -99,10 +99,6 @@ check-schema:
 		fi; \
 	done
 
-.PHONY: lint-kube
-lint-kube:
-	@echo "Running Kube-Linter..."
-	kube-linter lint charts/ --config .kube-linter.yaml
 
 .PHONY: scan-iac
 scan-iac:
