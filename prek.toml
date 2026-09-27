@@ -63,12 +63,6 @@ rev = "v2.12.0"
 hooks = [
   { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
 ]
-[[repos]]
-repo = "https://github.com/hadolint/hadolint"
-rev = "v2.12.0"
-hooks = [
-  { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
-]
 
 [[repos]]
 repo = "https://github.com/stackrox/kube-linter"
@@ -81,7 +75,6 @@ hooks = [
 repo = "local"
 hooks = [
   { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", pass_filenames = false, files = "^charts/" },
-  { id = "kube-linter", name = "Kube-Linter", entry = "make lint-kube", language = "system", pass_filenames = false, files = "^charts/" },
   { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", pass_filenames = false, files = "^charts/" },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", pass_filenames = false, stages = ["pre-push", "manual"] }
 ]
