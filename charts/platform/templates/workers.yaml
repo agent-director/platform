@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "platform.fullname" . }}-workers
+  labels:
+    app: workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workers
+  template:
+    metadata:
+      labels:
+        app: workers
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: temporal-worker
+          image: "ghcr.io/wgordon17/platform-worker:{{ .Values.global.image.tag | default "latest" }}"
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+          env:
+            - name: TEMPORAL_URL
+              value: '{{ .Release.Name }}-temporal-frontend:7233'
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: DATABASE_URL
+              value: "postgres://platform:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/platform"
+            - name: OPENAI_BASE_URL
+              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
+            - name: LITELLM_URL
+              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
+          command: ["python", "-m", "orchestrator.temporal_worker"]
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
