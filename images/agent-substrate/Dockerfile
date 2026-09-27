@@ -2,7 +2,7 @@
 FROM docker.io/library/golang:1.27.1-trixie@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db AS builder
 
 # Install git
-RUN apt-get update && apt-get install -y --no-install-recommends git=1:2.45.2-1 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git=1:2.53.0-1 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 # Clone the upstream agent-substrate repository
