@@ -78,7 +78,7 @@ unifiedApi:
     repository: unified-api
     tag: local
     pullPolicy: IfNotPresent
-  githubRepo: "gordon-control-plane/platform"
+  githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO"
   service:
     port: 8000
 
