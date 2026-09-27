@@ -33,7 +33,7 @@ atelet:
   affinity: {}
 
 postgres:
-  host: "agent-platform-db"
+  host: "platform-db"
 
 tls:
   create: true

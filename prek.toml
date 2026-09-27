@@ -74,7 +74,7 @@ hooks = [
 repo = "https://github.com/stackrox/kube-linter"
 rev = "v0.7.1"
 hooks = [
-  { id = "kube-linter", priority = 0, args = ["--config", ".kube-linter.yaml", "charts/agent-platform"] }
+  { id = "kube-linter", priority = 0, args = ["--config", ".kube-linter.yaml", "charts/platform", "charts/agent-substrate"] }
 ]
 
 [[repos]]
