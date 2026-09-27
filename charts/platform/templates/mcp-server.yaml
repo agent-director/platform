@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-mcp
+  name: {{ include "platform.fullname" . }}-mcp
   labels:
     app: mcp-server
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-mcp-role
+  name: {{ include "platform.fullname" . }}-mcp-role
 rules:
   - apiGroups: [""]
     resources: ["configmaps"]
@@ -17,20 +17,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-mcp-rolebinding
+  name: {{ include "platform.fullname" . }}-mcp-rolebinding
 subjects:
   - kind: ServiceAccount
-    name: {{ include "agent-platform.fullname" . }}-mcp
+    name: {{ include "platform.fullname" . }}-mcp
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: Role
-  name: {{ include "agent-platform.fullname" . }}-mcp-role
+  name: {{ include "platform.fullname" . }}-mcp-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-mcp
+  name: {{ include "platform.fullname" . }}-mcp
   labels:
     app: mcp-server
 spec:
@@ -43,7 +43,7 @@ spec:
       labels:
         app: mcp-server
     spec:
-      serviceAccountName: {{ include "agent-platform.fullname" . }}-mcp
+      serviceAccountName: {{ include "platform.fullname" . }}-mcp
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -83,7 +83,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-mcp
+  name: {{ include "platform.fullname" . }}-mcp
 spec:
   ports:
     - port: 8080

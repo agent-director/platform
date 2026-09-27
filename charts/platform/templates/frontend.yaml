@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-frontend
+  name: {{ include "platform.fullname" . }}-frontend
   labels:
     app: frontend
 spec:

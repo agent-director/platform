@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mcp-relay
-  namespace: gordon
+  namespace: agent-director
   labels:
     app: mcp-relay
 spec:
@@ -45,7 +45,7 @@ spec:
             - containerPort: 9000
           env:
             - name: TEMPORAL_URL
-              value: "agent-platform-temporal-frontend.gordon.svc.cluster.local:7233"
+              value: "platform-temporal-frontend.agent-director.svc.cluster.local:7233"
       volumes:
         - name: tmp-volume
           emptyDir: {}
@@ -54,7 +54,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mcp-relay
-  namespace: gordon
+  namespace: agent-director
 spec:
   ports:
     - port: 9000

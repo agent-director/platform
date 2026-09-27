@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-workers
+  name: {{ include "platform.fullname" . }}-workers
   labels:
     app: workers
 spec:
@@ -25,7 +25,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: temporal-worker
-          image: "ghcr.io/wgordon17/agent-platform-worker:{{ .Values.global.image.tag | default "latest" }}"
+          image: "ghcr.io/wgordon17/platform-worker:{{ .Values.global.image.tag | default "latest" }}"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -48,14 +48,14 @@ spec:
             - name: PG_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
+                  name: platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
                   key: password
             - name: DATABASE_URL
-              value: "postgres://agent-platform:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/agent-platform"
+              value: "postgres://platform:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/platform"
             - name: OPENAI_BASE_URL
-              value: 'http://{{ include "agent-platform.fullname" . }}-litellm:4000/v1'
+              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
             - name: LITELLM_URL
-              value: 'http://{{ include "agent-platform.fullname" . }}-litellm:4000/v1'
+              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
           command: ["python", "-m", "orchestrator.temporal_worker"]
       volumes:
         - name: tmp-volume

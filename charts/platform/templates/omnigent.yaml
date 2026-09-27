@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-omnigent-workspace
+  name: {{ include "platform.fullname" . }}-omnigent-workspace
   labels:
     app: omnigent
 spec:
@@ -14,7 +14,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-omnigent
+  name: {{ include "platform.fullname" . }}-omnigent
   labels:
     app: omnigent
 spec:
@@ -62,7 +62,7 @@ spec:
               readOnly: true
           env:
             - name: MCP_SERVER_URL
-              value: "http://{{ include "agent-platform.fullname" . }}-mcp:8080"
+              value: "http://{{ include "platform.fullname" . }}-mcp:8080"
         - name: git-sync
           image: "registry.k8s.io/git-sync/git-sync:v4.2.0"
           securityContext:
@@ -97,7 +97,7 @@ spec:
       volumes:
         - name: workspace
           persistentVolumeClaim:
-            claimName: {{ include "agent-platform.fullname" . }}-omnigent-workspace
+            claimName: {{ include "platform.fullname" . }}-omnigent-workspace
         - name: git-repo
           emptyDir: {}
         - name: tmp-volume

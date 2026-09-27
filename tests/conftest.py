@@ -10,8 +10,8 @@ def chart_dir(tmp_path_factory):
     Prevents mutating the developer's working directory (Chart.lock, charts/).
     """
     tmp_dir = tmp_path_factory.mktemp("helm-charts")
-    chart_path = tmp_dir / "agent-platform"
-    shutil.copytree("charts/agent-platform", chart_path)
+    chart_path = tmp_dir / "platform"
+    shutil.copytree("charts/platform", chart_path)
     subprocess.run(
         ["helm", "dependency", "build", str(chart_path)],
         check=True,

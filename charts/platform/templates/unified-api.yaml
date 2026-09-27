@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-unified-api
+  name: {{ include "platform.fullname" . }}-unified-api
   labels:
     app: unified-api
 spec:
@@ -33,7 +33,7 @@ spec:
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "agent-platform.fullname" . }}-secrets
+                  name: {{ include "platform.fullname" . }}-secrets
                   key: GITHUB_TOKEN
                   optional: true
             - name: GITHUB_REPO
@@ -52,7 +52,7 @@ spec:
             name: admin-allowlist
         - name: litellm-config
           configMap:
-            name: {{ include "agent-platform.fullname" . }}-litellm-config
+            name: {{ include "platform.fullname" . }}-litellm-config
 ---
 apiVersion: v1
 kind: Service

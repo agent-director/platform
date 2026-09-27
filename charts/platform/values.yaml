@@ -44,8 +44,8 @@ tailscaleIngress:
         }
     }
 
-    {{ include "agent-platform.tailscaleHostname" . }}.{{ .Values.tailscaleIngress.tailnet }} {
-        bind tailscale/{{ include "agent-platform.tailscaleHostname" . }}
+    {{ include "platform.tailscaleHostname" . }}.{{ .Values.tailscaleIngress.tailnet }} {
+        bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
         request_header X-Webauth-User {http.auth.user.tailscale_user}
         request_header X-Webauth-Name {http.auth.user.tailscale_name}

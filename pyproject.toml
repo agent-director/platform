@@ -1,5 +1,5 @@
 [project]
-name = "gordon-control-plane"
+name = "agent-director"
 version = "0.1.0"
 description = "Two-Plane multi-agent control plane"
 readme = "README.md"
@@ -32,3 +32,13 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = ["tests/e2e"]
+
+[project.scripts]
+director = "director.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["director", "gateway", "orchestrator"]

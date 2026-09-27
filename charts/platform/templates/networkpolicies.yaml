@@ -2,7 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-frontend-ingress
+  name: {{ include "platform.fullname" . }}-frontend-ingress
   labels:
     app: frontend
 spec:
@@ -25,7 +25,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-tailscale-egress
+  name: {{ include "platform.fullname" . }}-tailscale-egress
   labels:
     app: tailscale-ingress
 spec:

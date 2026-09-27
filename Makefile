@@ -1,8 +1,8 @@
 SHELL := /bin/bash
 .PHONY: cluster-up cluster-down setup deploy teardown test-e2e test lint format
 
-NAMESPACE ?= gordon
-RELEASE_NAME ?= agent-platform
+NAMESPACE ?= agent-director
+RELEASE_NAME ?= platform
 
 GIT_SHA ?= $(shell git rev-parse HEAD)
 IMAGE_TAG ?= main
@@ -13,11 +13,11 @@ KUBE_API_URL ?= $(if $(findstring 127.0.0.1,$(CURRENT_API_URL)),$(CURRENT_API_UR
 
 cluster-up:
 	@echo "Creating local kind cluster..."
-	@kind create cluster --name gordon-dev || true
+	@kind create cluster --name agent-director-dev || true
 
 cluster-down:
 	@echo "Deleting local kind cluster..."
-	@kind delete cluster --name gordon-dev || true
+	@kind delete cluster --name agent-director-dev || true
 
 setup:
 	./scripts/dev-setup.sh
@@ -60,7 +60,7 @@ deploy: setup check-cluster
 	fi; \
 	echo "Upgrading Helm chart (streaming live pod status)..."; \
 	kubectl get pods -n $(NAMESPACE) -w & WATCH_PID=$$!; \
-	helm upgrade --install $(RELEASE_NAME) charts/agent-platform \
+	helm upgrade --install $(RELEASE_NAME) charts/platform \
 		--namespace $(NAMESPACE) \
 		--set tailscaleIngress.tailnet="$$TAILSCALE_DOMAIN" \
 		--set tailscaleIngress.hostname="$(USER)-$(NAMESPACE)-$(RELEASE_NAME)" \

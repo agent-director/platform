@@ -1,6 +1,6 @@
-# Agent Platform Helm Chart
+# Platform Helm Chart
 
-This Helm chart (`charts/agent-platform`) defines the base infrastructure for the `gordon-control-plane`.
+This Helm chart (`charts/platform`) defines the base infrastructure for the `agent-director`.
 
 ## Components Deployed
 - **PostgreSQL:** Backing store for Temporal state, LiteLLM routing rules, LangGraph checkpoints, and MCP registry schemas.
@@ -14,7 +14,7 @@ This Helm chart (`charts/agent-platform`) defines the base infrastructure for th
 
 Generally, deployment requires a local Kubernetes cluster (e.g., Docker Desktop, Minikube, kind):
 ```bash
-helm upgrade --install agent-platform ./charts/agent-platform --namespace gordon --create-namespace
+helm upgrade --install platform ./charts/platform --namespace agent-director --create-namespace
 ```
 
 ## Prerequisites

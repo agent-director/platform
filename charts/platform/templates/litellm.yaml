@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-litellm-config
+  name: {{ include "platform.fullname" . }}-litellm-config
 data:
   litellm_config.yaml: |
 {{ .Files.Get "files/litellm_config.yaml" | indent 4 }}
@@ -10,7 +10,7 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-litellm
+  name: {{ include "platform.fullname" . }}-litellm
   labels:
     app: litellm
 spec:
@@ -42,7 +42,7 @@ spec:
               value: "PRODUCTION"
           envFrom:
             - secretRef:
-                name: {{ include "agent-platform.fullname" . }}-secrets
+                name: {{ include "platform.fullname" . }}-secrets
                 optional: true
           volumeMounts:
             - name: litellm-config
@@ -57,10 +57,10 @@ spec:
       volumes:
         - name: litellm-config
           configMap:
-            name: {{ include "agent-platform.fullname" . }}-litellm-config
+            name: {{ include "platform.fullname" . }}-litellm-config
         - name: litellm-middleware
           configMap:
-            name: {{ include "agent-platform.fullname" . }}-litellm-middleware
+            name: {{ include "platform.fullname" . }}-litellm-middleware
 ---
 apiVersion: v1
 kind: Service
@@ -81,7 +81,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "agent-platform.fullname" . }}-litellm-middleware
+  name: {{ include "platform.fullname" . }}-litellm-middleware
 data:
   shunt_middleware.py: |
 {{ .Files.Get "files/shunt_middleware.py" | indent 4 }}
