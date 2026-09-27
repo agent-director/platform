@@ -25,7 +25,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: temporal-worker
-          image: "ghcr.io/wgordon17/platform-worker:{{ .Values.global.image.tag | default "latest" }}"
+          image: "ghcr.io/agent-director/platform-worker:{{ .Values.global.image.tag | default "latest" }}"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false

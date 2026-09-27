@@ -19,7 +19,7 @@ secrets:
 tailscaleIngress:
   enabled: true
   image:
-    repository: ghcr.io/gordon-control-plane/caddy-tailscale
+    repository: ghcr.io/agent-director/caddy-tailscale
     tag: latest
   hostname: "" # Dynamically generated via helper if left blank
   tailnet: ""  # Must be provided via --set or values override (e.g. from .env)

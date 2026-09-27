@@ -38,7 +38,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: omnigent
-          image: "ghcr.io/wgordon17/interactive-agent:{{ .Values.global.image.tag | default "latest" }}"
+          image: "ghcr.io/agent-director/interactive-agent:{{ .Values.global.image.tag | default "latest" }}"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
