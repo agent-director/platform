@@ -13,7 +13,6 @@ build/
 
 # Helm dependencies
 charts/*/charts/*.tgz
-charts/*/Chart.lock
 
 # Virtual environments
 venv/
