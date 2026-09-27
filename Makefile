@@ -48,7 +48,7 @@ deploy: setup check-cluster
 		kubectl create secret docker-registry ghcr-secret \
 			--namespace $(NAMESPACE) \
 			--docker-server=ghcr.io \
-			--docker-username=$${GH_USER:-gordon-control-plane} \
+			--docker-username=$${GH_USER:-agent-director} \
 			--docker-password="$$GH_PAT" \
 			--dry-run=client -o yaml | kubectl apply -f -; \
 	fi; \

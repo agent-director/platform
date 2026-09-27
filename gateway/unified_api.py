@@ -221,7 +221,7 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
     if not github_token:
         raise HTTPException(status_code=500, detail="GITHUB_TOKEN not configured")
 
-    repo = os.environ.get("GITHUB_REPO", "gordon-control-plane/platform")
+    repo = os.environ.get("GITHUB_REPO", "agent-director/platform")
 
     async with httpx.AsyncClient() as client:
         # Check for open config PRs

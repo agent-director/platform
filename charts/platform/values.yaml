@@ -8,7 +8,7 @@ imagePullSecrets:
   - name: ghcr-secret
 
 gitSync:
-  repo: "https://github.com/gordon-control-plane/platform.git"
+  repo: "https://github.com/agent-director/platform.git"
   branch: "main"
 
 secrets:
