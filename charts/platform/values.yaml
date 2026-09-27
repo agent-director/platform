@@ -65,7 +65,7 @@ unifiedApi:
   enabled: true
   replicaCount: 1
   image:
-    repository: agent-unified-api
+    repository: unified-api
     tag: local
     pullPolicy: IfNotPresent
   githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO" # MUST CHANGE THIS!
@@ -76,7 +76,7 @@ frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: agent-frontend
+    repository: frontend
     tag: local
     pullPolicy: IfNotPresent
   env:
