@@ -75,9 +75,9 @@ def test_agent_substrate_components_ready():
         pytest.fail(
             f"ateapi pod is running but not listening on gRPC port 50051. Error: {e.stderr}"
         )
-    
+
     # AteController
     check_pod_ready("app.kubernetes.io/component=atecontroller")
-    
+
     # Atelet DaemonSet
     check_pod_ready("app.kubernetes.io/component=atelet")
