@@ -4,6 +4,9 @@ global:
 
 fullnameOverride: ""
 
+adminAllowlist:
+  - "admin@example.com"
+
 imagePullSecrets:
   - name: ghcr-secret
 

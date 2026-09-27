@@ -5,6 +5,7 @@ metadata:
 data:
   allowlist.yaml: |
     admins:
-      - admin@example.com
-      - wgordon17@gmail.com
+{{- range .Values.adminAllowlist }}
+      - {{ . | quote }}
+{{- end }}
     # Future roles can be added here
