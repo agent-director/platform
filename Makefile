@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 .PHONY: cluster-up cluster-down setup deploy teardown test-e2e test lint format
 
-NAMESPACE ?= agent-director
+NAMESPACE ?= platform
 RELEASE_NAME ?= platform
 
 GIT_SHA ?= $(shell git rev-parse HEAD)
@@ -13,11 +13,11 @@ KUBE_API_URL ?= $(if $(findstring 127.0.0.1,$(CURRENT_API_URL)),$(CURRENT_API_UR
 
 cluster-up:
 	@echo "Creating local kind cluster..."
-	@kind create cluster --name agent-director-dev || true
+	@kind create cluster --name platform-dev || true
 
 cluster-down:
 	@echo "Deleting local kind cluster..."
-	@kind delete cluster --name agent-director-dev || true
+	@kind delete cluster --name platform-dev || true
 
 setup:
 	./scripts/dev-setup.sh

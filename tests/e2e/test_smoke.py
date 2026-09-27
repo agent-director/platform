@@ -1,7 +1,7 @@
 import subprocess
 import pytest
 
-NAMESPACE = "agent-director"
+NAMESPACE = "platform"
 
 
 def check_pod_ready(label_selector: str):

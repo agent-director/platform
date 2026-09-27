@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-NAMESPACE=${1:-"agent-director"}
+NAMESPACE=${1:-"platform"}
 RELEASE_NAME=${2:-"platform"}
 echo "========================================"
 echo " Agent Director - Teardown"
