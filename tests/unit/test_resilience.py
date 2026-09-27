@@ -1,6 +1,8 @@
-import pytest
 import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
+
 from gateway.unified_api import app
 
 
@@ -10,7 +12,7 @@ def client():
 
 
 @pytest.mark.asyncio
-async def test_concurrent_workflow_creation(client):
+async def test_concurrent_workflow_creation():
     """
     Simulate a basic load test: creating multiple workflows concurrently
     to ensure the API handles concurrent requests smoothly without crashing.
@@ -67,7 +69,7 @@ def test_chaos_missing_headers(client):
     assert response.status_code == 403  # CSRF evaluated first
 
 
-def test_security_admin_endpoint_no_bypass(client):
+def test_security_admin_endpoint_no_bypass(client, mock_admin_allowlist):
     """
     Security test: Ensure the /api/config endpoint cannot be bypassed
     by standard users or missing auth.
@@ -79,10 +81,7 @@ def test_security_admin_endpoint_no_bypass(client):
 
     # Standard user without allowlist
     response = client.get("/api/config", headers=headers_user)
-    assert response.status_code in [
-        403,
-        500,
-    ]  # 500 if allowlist is missing, 403 if it exists but user not in it
+    assert response.status_code == 403
 
     # Missing Auth entirely
     response = client.get("/api/config")

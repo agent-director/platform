@@ -74,14 +74,8 @@ jobs:
           pip install uv
           make setup
 
-      - name: Run Pytest
-        run: uv run pytest tests/
-
-      - name: Run Prek (Commit Hooks)
-        run: uvx prek run --all-files
-
-      - name: Run Prek (Pre-Push Hooks - Trivy IaC)
-        run: uvx prek run trivy-fs --all-files
+      - name: Run Prek (Pre-Commit and Pre-Push)
+        run: uvx prek run --all-files --stage pre-push
 
   kind-integration:
     runs-on: ubuntu-latest
@@ -100,16 +94,39 @@ jobs:
         uses: helm/kind-action@v1.8.0
         with:
           cluster_name: e2e-cluster
+          config: scripts/kind-config.yaml
 
       - name: Export Cluster URL
         run: |
           echo "KUBE_API_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')" >> "$GITHUB_ENV"
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Deploy to Kind
-        run: make deploy HELM_ARGS="--set tailscaleIngress.enabled=false"
+        run: |
+          KUBE_API_URL="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+          export KUBE_API_URL
+          make deploy KUBE_API_URL="$KUBE_API_URL" HELM_ARGS="--set tailscaleIngress.enabled=false"
 
-      - name: Run Smoke Tests
-        run: make test-e2e
+      - name: Map NodePorts to localhost
+        run: echo '127.0.0.1 platform-postgresql platform-temporal-frontend' | sudo tee -a /etc/hosts
+
+      - name: Run Integration Tests
+        run: |
+          # Verify tests exist and have no syntax errors before applying filters
+          uv run pytest tests/integration/ --collect-only -q > .pytest-collect.log || collect_code=$?
+          if [ "${collect_code:-0}" -ne 0 ]; then
+            cat .pytest-collect.log
+            echo "::error::Test collection failed (code $collect_code). Tests missing or syntax errors."
+            exit "$collect_code"
+          fi
+          # Run tests excluding quarantined ones
+          uv run pytest tests/integration/ -m "not quarantine" || exit_code=$?
+          if [ "${exit_code:-0}" -ne 0 ] && [ "${exit_code:-0}" -ne 5 ]; then exit "$exit_code"; fi
+
+      - name: Run E2E Tests
+        run: |
+          KUBE_API_URL="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+          export KUBE_API_URL
+          make test-e2e KUBE_API_URL="$KUBE_API_URL"

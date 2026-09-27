@@ -1,29 +1,30 @@
-import os
-import yaml  # type: ignore
-import httpx
-from gateway.shunt_middleware import apply_shunt_middleware
-from fastapi import FastAPI, Depends, HTTPException, Request, Header
-import time
 import asyncio
 import base64
-from fastapi.responses import JSONResponse, StreamingResponse
+import copy
+import os
+import time
+from contextlib import asynccontextmanager
+from typing import Any
+
+import httpx
+import yaml  # type: ignore
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
 
-
-import logging
-
-logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Unified API BFF")
+from gateway.shunt_middleware import apply_shunt_middleware
 
 http_client = httpx.AsyncClient(timeout=30.0)
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
     await http_client.aclose()
+
+
+app = FastAPI(title="Unified API BFF", lifespan=lifespan)
 
 
 allowed_origins = os.environ.get(
@@ -39,21 +40,26 @@ app.add_middleware(
 
 
 def get_allowlist_path():
-    return os.environ.get(
-        "ADMIN_ALLOWLIST_PATH",
-        "/etc/unified-api/allowlist.yaml"
-        if os.path.exists("/etc/unified-api/allowlist.yaml")
-        else "admin-allowlist.yaml",
-    )
+    path = os.environ.get("ADMIN_ALLOWLIST_PATH")
+    if path:
+        return path
+    if os.path.exists("/etc/unified-api/allowlist.yaml"):
+        return "/etc/unified-api/allowlist.yaml"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "..", "admin-allowlist.yaml")
 
 
 def get_config_path():
-    return os.environ.get(
-        "LITELLM_CONFIG_PATH",
-        "/app/gateway/litellm_config.yaml"
-        if os.path.exists("/app/gateway/litellm_config.yaml")
-        else "gateway/litellm_config.yaml",
-    )
+    path = os.environ.get("LITELLM_CONFIG_PATH")
+    if path:
+        return path
+    if os.path.exists("/app/gateway/litellm_config.yaml"):
+        return "/app/gateway/litellm_config.yaml"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, "litellm_config.yaml")
+
+
+_CONFIG_TTL = 300
 
 
 LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000")
@@ -61,6 +67,10 @@ LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000")
 
 @app.middleware("http")
 async def verify_csrf_header(request: Request, call_next):
+    # Exempt standard API routes that rely on Auth headers rather than browser sessions
+    if request.url.path.startswith("/v1/chat/completions"):
+        return await call_next(request)
+
     if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
         if request.headers.get("X-Requested-With") != "XMLHttpRequest":
             return JSONResponse(
@@ -72,7 +82,7 @@ async def verify_csrf_header(request: Request, call_next):
     return await call_next(request)
 
 
-def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -> str:
+async def get_current_user(tailscale_user_login: str | None = Header(None)) -> str:
     if not tailscale_user_login:
         if os.environ.get("ENV") == "dev":
             return "dev@example.com"
@@ -82,36 +92,67 @@ def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -> str:
     return tailscale_user_login
 
 
-_allowlist_cache: Dict[str, Any] = {}
-_ALLOWLIST_TTL = 300
+class AsyncTTLCache:
+    def __init__(self, ttl: int) -> None:
+        self.ttl: int = ttl
+        self._data: dict[str, Any] | None = None
+        self._time: float = 0.0
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def get_or_load(self, loader) -> dict[str, Any]:
+        if self._data is not None and time.monotonic() - self._time < self.ttl:
+            return copy.deepcopy(self._data)
+
+        async with self._lock:
+            if self._data is not None and time.monotonic() - self._time < self.ttl:
+                return copy.deepcopy(self._data)
+
+            data = await loader()
+            self._data = data
+            self._time = time.monotonic()
+            return copy.deepcopy(data)
 
 
-def verify_admin(user: str = Depends(get_current_user)) -> str:
-    global _allowlist_cache
-    current_time = time.time()
-    if (
-        "data" in _allowlist_cache
-        and current_time - _allowlist_cache["time"] < _ALLOWLIST_TTL
-    ):
-        allowlist = _allowlist_cache["data"]
-    else:
-        try:
-            with open(get_allowlist_path(), "r") as f:
-                allowlist = yaml.safe_load(f)
-                _allowlist_cache = {"data": allowlist, "time": current_time}
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="Admin allowlist not found")
+_allowlist_cache = AsyncTTLCache(ttl=_CONFIG_TTL)
+_config_cache = AsyncTTLCache(ttl=_CONFIG_TTL)
+def _read_allowlist_file() -> Any:
+    with open(get_allowlist_path(), "r") as f:
+        return yaml.safe_load(f)
+
+
+async def _load_allowlist() -> dict[str, Any]:
+    try:
+        allowlist = await asyncio.to_thread(_read_allowlist_file)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Admin allowlist not found")
+    except yaml.YAMLError:
+        raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
     if not isinstance(allowlist, dict):
         raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
     if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
-        sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
-        if isinstance(sub_allowlist, dict):
-            allowlist = sub_allowlist
+        try:
+            sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
+            if isinstance(sub_allowlist, dict):
+                allowlist = sub_allowlist
+            else:
+                raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
+        except yaml.YAMLError:
+            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-    admins = allowlist.get("admins", [])
-    if user not in admins:
+    return allowlist
+
+
+async def get_admin_allowlist() -> dict[str, Any]:
+    return await _allowlist_cache.get_or_load(_load_allowlist)
+
+async def verify_admin(
+    allowlist: dict = Depends(get_admin_allowlist),
+    user: str = Depends(get_current_user),
+) -> str:
+    admins = allowlist.get("admins") or []
+    if not isinstance(admins, (list, tuple, set)) or user not in admins:
         raise HTTPException(status_code=403, detail="Admin privileges required")
 
     return user
@@ -132,15 +173,16 @@ async def chat_proxy(request: Request, user: str = Depends(get_current_user)):
     for h in ["host", "content-length", "x-requested-with"]:
         headers.pop(h, None)
     headers["x-litellm-user"] = user
-
-    req = http_client.build_request(
-        method="POST",
-        url=f"{LITELLM_URL}/v1/chat/completions",
-        content=body,
-        headers=headers,
-    )
-
-    response = await http_client.send(req, stream=True)
+    try:
+        req = http_client.build_request(
+            request.method,
+            url=f"{LITELLM_URL}/v1/chat/completions",
+            headers=headers,
+            content=raw_body,
+        )
+        response = await http_client.send(req, stream=True)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Upstream LLM gateway unavailable: {e!s}")
 
     async def stream_generator():
         try:
@@ -164,7 +206,7 @@ async def chat_proxy(request: Request, user: str = Depends(get_current_user)):
 
 class WorkflowRequest(BaseModel):
     name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
 
 
 @app.post("/api/workflows")
@@ -187,19 +229,24 @@ async def signal_workflow(
     return {"id": workflow_id, "signaled": True}
 
 
+def _read_config_file() -> dict[str, Any]:
+    try:
+        with open(get_config_path(), "r") as f:
+            data = yaml.safe_load(f)
+            return data if isinstance(data, dict) else {"model_list": []}
+    except FileNotFoundError:
+        return {"model_list": []}
+    except yaml.YAMLError:
+        return {"model_list": []}
+
+
+async def _load_config() -> dict[str, Any]:
+    return await asyncio.to_thread(_read_config_file)
+
+
 @app.get("/api/config")
 async def get_config(user: str = Depends(verify_admin)):
-    def _read_config():
-        try:
-            with open(get_config_path(), "r") as f:
-                return yaml.safe_load(f) or {}
-        except FileNotFoundError:
-            return {"model_list": []}
-        except yaml.YAMLError:
-            return {"model_list": []}
-
-    return await asyncio.to_thread(_read_config)
-
+    return await _config_cache.get_or_load(_load_config)
 
 class ConfigUpdateRequest(BaseModel):
     config_yaml: str
@@ -214,10 +261,9 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
         if "model_list" not in data or not isinstance(data["model_list"], list):
             raise ValueError("Configuration must contain a valid 'model_list'")
     except (yaml.YAMLError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {e!s}")
 
     github_token = os.environ.get("GITHUB_TOKEN")
-
     if not github_token:
         raise HTTPException(status_code=500, detail="GITHUB_TOKEN not configured")
 

@@ -13,7 +13,7 @@ KUBE_API_URL ?= $(if $(findstring 127.0.0.1,$(CURRENT_API_URL)),$(CURRENT_API_UR
 
 cluster-up:
 	@echo "Creating local kind cluster..."
-	@kind create cluster --name platform-dev || true
+	@kind create cluster --name platform-dev --config scripts/kind-config.yaml || true
 
 cluster-down:
 	@echo "Deleting local kind cluster..."
@@ -110,7 +110,11 @@ scan-iac:
 	trivy fs . --format table --exit-code 1 --severity CRITICAL,HIGH
 
 test:
-	uv run pytest tests/
+	uv run pytest tests/unit/
+
+test-integration: check-cluster
+	@echo "Running Integration tests..."
+	uv run pytest tests/integration/
 
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
