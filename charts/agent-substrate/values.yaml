@@ -6,8 +6,14 @@ ateapi:
   replicaCount: 1
   image:
     repository: ghcr.io/agent-director/ateapi
-    pullPolicy: IfNotPresent
-  resources: {}
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -16,8 +22,14 @@ atecontroller:
   replicaCount: 1
   image:
     repository: ghcr.io/agent-director/atecontroller
-    pullPolicy: IfNotPresent
-  resources: {}
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
   nodeSelector: {}
   tolerations: []
   affinity: {}
@@ -26,8 +38,14 @@ atelet:
   enabled: true
   image:
     repository: ghcr.io/agent-director/atelet
-    pullPolicy: IfNotPresent
-  resources: {}
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
   nodeSelector: {}
   tolerations: []
   affinity: {}

@@ -95,7 +95,7 @@ check-schema:
 				--set secrets.langfuseSalt="dummy" \
 				| kubeconform -strict -summary \
 				-schema-location default \
-				-skip "postgresql" \
+				-schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 				-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'; \
 		fi; \
 	done
