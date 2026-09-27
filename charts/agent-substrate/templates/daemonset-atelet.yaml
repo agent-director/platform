@@ -19,10 +19,23 @@ spec:
     spec:
       serviceAccountName: agent-substrate-sa
       hostPID: true
+
+      {{- with .Values.atelet.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atelet.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atelet.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: atelet
-        image: "{{ .Values.image.repository }}/atelet:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: "{{ .Values.atelet.image.repository }}:{{ .Values.atelet.image.tag | default .Values.global.image.tag | default "latest" }}"
+        imagePullPolicy: {{ .Values.atelet.image.pullPolicy | default "IfNotPresent" }}
         command: ["/usr/local/bin/atelet"]
         securityContext:
           privileged: true
@@ -36,12 +49,7 @@ spec:
         - --client-ca-certs=/etc/tls/bundle.pem
         - --ateapi-server-name=ateapi
         resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+          {{- toYaml .Values.atelet.resources | nindent 10 }}
 
         readinessProbe:
           tcpSocket:
@@ -108,5 +116,5 @@ spec:
           type: Directory
       - name: tls
         secret:
-          secretName: agent-substrate-tls
+          secretName: agent-substrate-tls # pragma: allowlist secret
 {{- end }}

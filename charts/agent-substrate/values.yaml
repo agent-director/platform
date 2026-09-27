@@ -1,20 +1,40 @@
-image:
-  repository: ghcr.io/gordon-control-plane
-  tag: latest
-  pullPolicy: IfNotPresent
+global:
+  image:
+    tag: latest
 
 ateapi:
   replicaCount: 1
+  image:
+    repository: ghcr.io/gordon-control-plane/ateapi
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 atecontroller:
   replicaCount: 1
+  image:
+    repository: ghcr.io/gordon-control-plane/atecontroller
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 atelet:
   enabled: true
+  image:
+    repository: ghcr.io/gordon-control-plane/atelet
+    pullPolicy: IfNotPresent
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
 
 postgres:
   host: "agent-platform-db"
 
 tls:
   create: true
-  secretName: agent-substrate-tls
+  secretName: agent-substrate-tls # pragma: allowlist secret

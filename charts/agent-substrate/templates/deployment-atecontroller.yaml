@@ -18,10 +18,23 @@ spec:
         app.kubernetes.io/component: atecontroller
     spec:
       serviceAccountName: agent-substrate-controller-sa
+
+      {{- with .Values.atecontroller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atecontroller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atecontroller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: atecontroller
-        image: "{{ .Values.image.repository }}/atecontroller:{{ .Values.image.tag }}"
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        image: "{{ .Values.atecontroller.image.repository }}:{{ .Values.atecontroller.image.tag | default .Values.global.image.tag | default "latest" }}"
+        imagePullPolicy: {{ .Values.atecontroller.image.pullPolicy | default "IfNotPresent" }}
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
@@ -31,12 +44,7 @@ spec:
             drop:
             - ALL
         resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+          {{- toYaml .Values.atecontroller.resources | nindent 10 }}
 
         command: ["/usr/local/bin/atecontroller"]
         args:
@@ -66,4 +74,4 @@ spec:
       volumes:
         - name: tls
           secret:
-            secretName: agent-substrate-tls
+            secretName: agent-substrate-tls # pragma: allowlist secret
