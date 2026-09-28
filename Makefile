@@ -85,6 +85,11 @@ lint-helm:
 		fi; \
 	done
 
+.PHONY: update-schemas
+update-schemas:
+	@echo "Updating local CRD schemas..."
+	uv run --with pyyaml python scripts/update-crds.py
+
 .PHONY: check-schema
 check-schema:
 	@echo "Validating Helm schemas with Kubeconform..."
