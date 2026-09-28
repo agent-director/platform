@@ -1,8 +1,6 @@
 name: Auto-Update CRD Schemas
 
 on:
-  schedule:
-    - cron: '0 0 * * 0' # Run weekly on Sunday at midnight
   workflow_dispatch: # Allow manual triggering from the GitHub UI
 
 permissions:
