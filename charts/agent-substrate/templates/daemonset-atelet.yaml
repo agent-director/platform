@@ -48,12 +48,6 @@ spec:
       - name: atelet
         image: "{{ .Values.atelet.image.repository }}:{{ .Values.atelet.image.tag | default .Values.global.image.tag | default "latest" }}"
         imagePullPolicy: {{ .Values.atelet.image.pullPolicy | default "IfNotPresent" }}
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-              - ALL
         command: ["/usr/local/bin/atelet"]
         securityContext:
           privileged: true
