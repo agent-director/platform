@@ -2,16 +2,18 @@ global:
   image:
     tag: latest
 
-# OpenShift Sandboxed Containers (Kata) Operator
-sandboxedContainers:
-  enabled: true
-  channel: "stable"
 
 ateapi:
   replicaCount: 1
   image:
     repository: ghcr.io/agent-director/ateapi
     pullPolicy: Always
+  database:
+    host: "platform-db"
+  minio:
+    secretName: "minio-auth-secret" # pragma: allowlist secret
+    host: "minio"
+    port: 9000
   resources:
     limits:
       cpu: 200m
@@ -28,6 +30,12 @@ atecontroller:
   image:
     repository: ghcr.io/agent-director/atecontroller
     pullPolicy: Always
+  database:
+    host: "platform-db"
+  minio:
+    secretName: "minio-auth-secret" # pragma: allowlist secret
+    host: "minio"
+    port: 9000
   resources:
     limits:
       cpu: 200m
@@ -43,7 +51,6 @@ postgres:
   host: "platform-db"
 
 tls:
-  create: true
   secretName: agent-substrate-tls # pragma: allowlist secret
 
 platformNamespace: platform

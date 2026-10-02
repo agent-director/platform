@@ -6,9 +6,7 @@ metadata:
   name: openshift-sandboxed-containers-operator
   labels:
     openshift.io/cluster-monitoring: "true"
-    {{- include "agent-substrate.labels" . | nindent 4 }}
-  annotations:
-    checkov.io/skip1: "CKV_K8S_21=Explicit namespace required for OLM Operator deployment"
+    app.kubernetes.io/name: sandboxed-containers-operator
 ---
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
@@ -16,9 +14,7 @@ metadata:
   name: openshift-sandboxed-containers-operator
   namespace: openshift-sandboxed-containers-operator
   labels:
-    {{- include "agent-substrate.labels" . | nindent 4 }}
-  annotations:
-    checkov.io/skip1: "CKV_K8S_21=Explicit namespace required for OLM Operator deployment"
+    app.kubernetes.io/name: sandboxed-containers-operator
 spec:
   targetNamespaces:
   - openshift-sandboxed-containers-operator
@@ -29,9 +25,7 @@ metadata:
   name: sandboxed-containers-operator
   namespace: openshift-sandboxed-containers-operator
   labels:
-    {{- include "agent-substrate.labels" . | nindent 4 }}
-  annotations:
-    checkov.io/skip1: "CKV_K8S_21=Explicit namespace required for OLM Operator deployment"
+    app.kubernetes.io/name: sandboxed-containers-operator
 spec:
   channel: {{ .Values.sandboxedContainers.channel | quote }}
   installPlanApproval: Automatic
@@ -45,8 +39,8 @@ metadata:
   name: cluster-kataconfig
   # KataConfig is a cluster-scoped resource, no namespace needed
   labels:
-    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/name: sandboxed-containers-operator
 spec:
   # Default empty spec provisions Kata across all eligible worker nodes
-  checkNodeEligibility: false
+  checkNodeEligibility: {{ .Values.sandboxedContainers.checkNodeEligibility | default true }}
 {{- end }}

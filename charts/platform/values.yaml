@@ -33,7 +33,7 @@ tailscaleIngress:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
-    tag: latest
+    tag: RELEASE.2024-01-01T16-36-33Z
   hostname: "" # Dynamically generated via helper if left blank
   tailnet: ""  # Must be provided via --set or values override (e.g. from .env)
   ephemeral: false
@@ -119,3 +119,8 @@ temporal:
     additionalVolumeMounts:
       - name: temporal-scratch
         mountPath: /var/lib/temporal
+
+# OpenShift Sandboxed Containers (Kata) Operator
+sandboxedContainers:
+  enabled: true
+  channel: "stable"

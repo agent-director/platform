@@ -17,10 +17,10 @@ spec:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ateapi
       annotations:
-        checkov.io/skip1: "CKV_K8S_38=Service Account Token automounting is required to authenticate with the Kubernetes API"
         checkov.io/skip2: "CKV_K8S_35=Storing secrets as environment variables is an accepted pattern for this feasibility spike"
     spec:
-      serviceAccountName: agent-substrate-sa
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "agent-substrate.fullname" . }}-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -50,16 +50,6 @@ spec:
           capabilities:
             drop:
               - ALL
-        livenessProbe:
-          tcpSocket:
-            port: 50051
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          tcpSocket:
-            port: 50051
-          initialDelaySeconds: 5
-          periodSeconds: 10
         resources:
           {{- toYaml .Values.ateapi.resources | nindent 10 }}
         args:
@@ -98,16 +88,16 @@ spec:
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3
-          value: {{ printf "http://minio.%s.svc.cluster.local:9000" .Values.platformNamespace | quote }}
+          value: {{ printf "http://%s.%s.svc.cluster.local:%v" (.Values.ateapi.minio.host | default "minio") .Values.platformNamespace (.Values.ateapi.minio.port | default 9000) | quote }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: minio-auth-secret
+              name: {{ .Values.ateapi.minio.secretName | quote }}
               key: rootUser
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: minio-auth-secret
+              name: {{ .Values.ateapi.minio.secretName | quote }}
               key: rootPassword
         - name: AWS_REGION
           value: "us-east-1"
@@ -116,16 +106,19 @@ spec:
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: "agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do"
+              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.ateapi.database.host | quote }}
               key: password
         - name: PGUSER
           valueFrom:
             secretKeyRef:
-              name: "agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do"
+              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.ateapi.database.host | quote }}
               key: username
         - name: POSTGRES_URL
-          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.postgres.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres"
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.ateapi.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres"
         volumeMounts:
+        - name: sa-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
         - name: tls
           mountPath: /etc/tls
           readOnly: true
@@ -138,6 +131,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ateapi
+  annotations:
+    {{- if .Values.tls.useOcpServingCert }}
+    service.beta.openshift.io/serving-cert-secret-name: {{ .Values.tls.secretName | default "agent-substrate-tls" | quote }}
+    {{- end }}
 spec:
   selector:
     {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
