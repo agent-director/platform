@@ -17,8 +17,8 @@ spec:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ateapi
       annotations:
-        checkov.io/skip1: "CKV_K8S_35=Secrets as env vars allowed"
-        checkov.io/skip2: "CKV_K8S_38=SA token required"
+        checkov.io/skip1: "CKV_K8S_38=Service Account Token automounting is required to authenticate with the Kubernetes API"
+        checkov.io/skip2: "CKV_K8S_35=Storing secrets as environment variables is an accepted pattern for this feasibility spike"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -166,7 +166,11 @@ spec:
     - Egress
   ingress:
     - from:
-      - namespaceSelector: {}
+      - podSelector: {} # Allow all pods within the same namespace
   egress:
     - to:
-      - namespaceSelector: {}
+      - podSelector: {} # Allow all pods within the same namespace
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system # Allow DNS/KubeAPI

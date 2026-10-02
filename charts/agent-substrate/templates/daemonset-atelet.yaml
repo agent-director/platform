@@ -19,18 +19,13 @@ spec:
       annotations:
         checkov.io/skip1: "CKV_K8S_16=DaemonSet fundamentally requires privileged container access to map gVisor/Kata sandbox configurations"
         checkov.io/skip2: "CKV_K8S_17=DaemonSet requires host PID namespace to inspect and manage node-level sandbox processes"
-        checkov.io/skip3: "CKV_K8S_19=Host network namespace access is required to bridge sandbox configurations with node networking"
-        checkov.io/skip4: "CKV_K8S_20=allowPrivilegeEscalation is required for the node daemon to assume sysadmin permissions"
-        checkov.io/skip5: "CKV_K8S_22=DaemonSet requires write access to the host filesystem to provision /var/lib/kubelet plugins"
-        checkov.io/skip6: "CKV_K8S_23=runAsNonRoot cannot be enforced; DaemonSet must execute as root to manage node resources"
-        checkov.io/skip7: "CKV_K8S_28=NET_RAW capability cannot be dropped; required for sandbox network interface manipulation"
-        checkov.io/skip8: "CKV_K8S_29=Standard restricted security contexts conflict with the DaemonSet's requirement to operate as a host-level system agent"
-        checkov.io/skip9: "CKV_K8S_31=RuntimeDefault seccomp profile restricts syscalls needed by the node agent to provision sandbox environments"
-        checkov.io/skip10: "CKV_K8S_35=Storing AWS credentials as environment variables is an accepted pattern for this feasibility spike"
-        checkov.io/skip11: "CKV_K8S_37=Cannot drop ALL capabilities; DaemonSet requires elevated host capabilities to configure container runtimes"
-        checkov.io/skip12: "CKV_K8S_38=Service Account Token automounting is required for the agent to authenticate with the Kubernetes API"
-        checkov.io/skip13: "CKV_K8S_39=CAP_SYS_ADMIN is explicitly required to mount sandbox volumes and modify namespace configurations"
-        checkov.io/skip14: "CKV_K8S_40=runAsUser must be exactly 0 (root); cannot run as a high unprivileged UID"
+        checkov.io/skip3: "CKV_K8S_20=allowPrivilegeEscalation is required for the node daemon to assume sysadmin permissions"
+        checkov.io/skip4: "CKV_K8S_22=DaemonSet requires write access to the host filesystem to provision /var/lib/kubelet plugins"
+        checkov.io/skip5: "CKV_K8S_28=NET_RAW capability cannot be dropped; required for sandbox network interface manipulation"
+        checkov.io/skip6: "CKV_K8S_35=Storing AWS credentials as environment variables is an accepted pattern for this feasibility spike"
+        checkov.io/skip7: "CKV_K8S_37=Cannot drop ALL capabilities; DaemonSet requires elevated host capabilities to configure container runtimes"
+        checkov.io/skip8: "CKV_K8S_38=Service Account Token automounting is required for the agent to authenticate with the Kubernetes API"
+        checkov.io/skip9: "CKV_K8S_40=runAsUser must be exactly 0 (root); cannot run as a high unprivileged UID"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -159,7 +154,11 @@ spec:
     - Egress
   ingress:
     - from:
-      - namespaceSelector: {}
+      - podSelector: {} # Allow all pods within the same namespace
   egress:
     - to:
-      - namespaceSelector: {}
+      - podSelector: {} # Allow all pods within the same namespace
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system # Allow DNS/KubeAPI
