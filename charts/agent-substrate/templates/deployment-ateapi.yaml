@@ -97,7 +97,7 @@ spec:
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3
-          value: {{ printf "http://minio.%s.svc.cluster.local:9000" .Release.Namespace | quote }}
+          value: {{ printf "http://minio.%s.svc.cluster.local:9000" .Values.platformNamespace | quote }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -123,7 +123,7 @@ spec:
               name: "agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do"
               key: username
         - name: POSTGRES_URL
-          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.postgres.host }}.{{ .Release.Namespace }}.svc.cluster.local:5432/postgres"
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.postgres.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres"
         volumeMounts:
         - name: tls
           mountPath: /etc/tls

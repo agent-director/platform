@@ -45,3 +45,5 @@ postgres:
 tls:
   create: true
   secretName: agent-substrate-tls # pragma: allowlist secret
+
+platformNamespace: platform

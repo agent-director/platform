@@ -5,7 +5,7 @@ import pytest
 NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 
-def check_pod_ready(label_selector: str):
+def check_pod_ready(label_selector: str, namespace: str = NAMESPACE):
     """Wait for a pod matching the label selector to be ready."""
     cmd = [
         "kubectl",
@@ -15,7 +15,7 @@ def check_pod_ready(label_selector: str):
         "-l",
         label_selector,
         "-n",
-        NAMESPACE,
+        namespace,
         "--timeout=120s",
     ]
     try:
@@ -40,7 +40,7 @@ def test_core_platform_components_ready():
 
 def test_agent_substrate_components_ready():
     # AteAPI
-    check_pod_ready("app.kubernetes.io/component=ateapi")
+    check_pod_ready("app.kubernetes.io/component=ateapi", namespace="agent-substrate")
 
     # Functionally test the API
     cmd_get_pod = [
@@ -48,7 +48,7 @@ def test_agent_substrate_components_ready():
         "get",
         "pods",
         "-n",
-        NAMESPACE,
+        "agent-substrate",
         "-l",
         "app.kubernetes.io/component=ateapi",
         "-o",
@@ -62,7 +62,7 @@ def test_agent_substrate_components_ready():
         "kubectl",
         "exec",
         "-n",
-        NAMESPACE,
+        "agent-substrate",
         pod_name,
         "--",
         "bash",
@@ -77,4 +77,6 @@ def test_agent_substrate_components_ready():
         )
 
     # AteController
-    check_pod_ready("app.kubernetes.io/component=atecontroller")
+    check_pod_ready(
+        "app.kubernetes.io/component=atecontroller", namespace="agent-substrate"
+    )
