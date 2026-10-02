@@ -15,11 +15,13 @@ database:
   superuser: "agent-director-admin"
   version: "18"
 
-minio:
+rustfs:
   enabled: true
-  image: "quay.io/minio/minio:RELEASE.2026-09-20T00-00-00Z"
+  image: "rustfs/rustfs:1.0.0-beta.3@sha256:378642b05b7dcb4849fb77ebe6aca4ced1c3f66e7e504247df95a5c9018d3358"
   persistence:
     size: "10Gi"
+  accessKey: "rustfsadmin"
+  secretKey: "rustfsadmin" # pragma: allowlist secret
 gitSync:
   repo: "https://github.com/agent-director/platform.git"
   branch: "main"
