@@ -9,6 +9,10 @@ RUN go get golang.org/x/crypto@v0.55.0 google.golang.org/grpc@v1.83.1 && \
     go mod tidy && \
     xcaddy build --output /usr/bin/caddy --with github.com/tailscale/caddy-tailscale=/workspace/caddy-tailscale
 
+# hadolint ignore=DL4006
+RUN /usr/bin/caddy version && \
+    /usr/bin/caddy list-modules | grep tailscale
+
 FROM caddy:2.11@sha256:040e9f7480b80b6d4a7e5013a21159b950a63dcbdb956e38abe2387fb28d9ec0
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 RUN apt-get update && \
