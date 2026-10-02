@@ -126,6 +126,13 @@ scan-iac:
 	@echo "Running Trivy IaC Scan..."
 	trivy fs . --format table --exit-code 1 --severity CRITICAL,HIGH
 
+.PHONY: scan-local
+scan-local:
+	@if [ -n "$(IMAGE)" ]; then \
+		./scripts/run-all-local-scans.sh "$(IMAGE)"; \
+	else \
+		./scripts/run-all-local-scans.sh "all"; \
+	fi
 test:
 	uv run pytest tests/
 

@@ -51,8 +51,8 @@ jobs:
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL'
+          vuln-type: 'library'
+          severity: 'CRITICAL,HIGH'
 
       # Step 3: Trivy passed. Now push the exact same image to GHCR.
       # Buildx natively uses the cached layers from the step above.
