@@ -47,3 +47,5 @@ tls:
   secretName: agent-substrate-tls # pragma: allowlist secret
 
 platformNamespace: platform
+
+workloadNamespace: agent-workloads
