@@ -71,6 +71,10 @@ deploy: setup check-cluster
 		$(HELM_ARGS) \
 		--wait --timeout 600s; \
 	HELM_EXIT=$$?; \
+	helm upgrade --install agent-substrate charts/agent-substrate \
+		--namespace $(NAMESPACE) \
+		$(HELM_ARGS_SUBSTRATE) \
+		--wait --timeout 600s; \
 	kill $$WATCH_PID 2>/dev/null || true; \
 	exit $$HELM_EXIT
 teardown: check-cluster
