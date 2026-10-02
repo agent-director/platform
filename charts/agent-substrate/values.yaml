@@ -2,6 +2,11 @@ global:
   image:
     tag: latest
 
+# OpenShift Sandboxed Containers (Kata) Operator
+sandboxedContainers:
+  enabled: true
+  channel: "stable"
+
 ateapi:
   replicaCount: 1
   image:
@@ -33,7 +38,6 @@ atecontroller:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
 
 postgres:
   host: "platform-db"
