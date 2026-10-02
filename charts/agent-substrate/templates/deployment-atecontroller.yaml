@@ -19,7 +19,6 @@ spec:
       annotations:
         checkov.io/skip1: "CKV_K8S_35=Secrets as env vars allowed"
         checkov.io/skip2: "CKV_K8S_38=SA token required"
-        checkov.io/skip3: "CKV2_K8S_6=Checkov incorrectly evaluates NetworkPolicy associations against dynamically injected Helm labels, causing false-positives"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -104,24 +103,27 @@ spec:
           secret:
             secretName: agent-substrate-tls # pragma: allowlist secret
 
+
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: substrate/templates/deployment-netpol
+  name: atecontroller
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/component: substrate/templates/deployment
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: atecontroller
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: substrate/templates/deployment
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: atecontroller
   policyTypes:
-  - Ingress
-  - Egress
+    - Ingress
+    - Egress
   ingress:
-  - from:
-    - namespaceSelector: {}
+    - from:
+      - namespaceSelector: {}
   egress:
-  - to:
-    - namespaceSelector: {}
+    - to:
+      - namespaceSelector: {}

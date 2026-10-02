@@ -31,7 +31,6 @@ spec:
         checkov.io/skip12: "CKV_K8S_38=Service Account Token automounting is required for the agent to authenticate with the Kubernetes API"
         checkov.io/skip13: "CKV_K8S_39=CAP_SYS_ADMIN is explicitly required to mount sandbox volumes and modify namespace configurations"
         checkov.io/skip14: "CKV_K8S_40=runAsUser must be exactly 0 (root); cannot run as a high unprivileged UID"
-        checkov.io/skip15: "CKV2_K8S_6=Checkov incorrectly evaluates NetworkPolicy associations against dynamically injected Helm labels, causing false-positives"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -140,3 +139,27 @@ spec:
         secret:
           secretName: agent-substrate-tls # pragma: allowlist secret
 {{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atelet
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: atelet
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: atelet
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - namespaceSelector: {}
+  egress:
+    - to:
+      - namespaceSelector: {}
