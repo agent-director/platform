@@ -103,6 +103,8 @@ litellm:
     port: 4000
 
 temporal:
+  prometheus:
+    enabled: false
   server:
     securityContext:
       runAsUser: null
