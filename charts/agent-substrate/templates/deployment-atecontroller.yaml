@@ -113,7 +113,6 @@ spec:
           secret:
             secretName: agent-substrate-tls # pragma: allowlist secret
 
-
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

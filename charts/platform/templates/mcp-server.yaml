@@ -4,6 +4,7 @@ metadata:
   name: {{ include "platform.fullname" . }}-mcp
   labels:
     app: mcp-server
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -13,6 +14,7 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "list", "watch"]
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -26,6 +28,7 @@ roleRef:
   kind: Role
   name: {{ include "platform.fullname" . }}-mcp-role
   apiGroup: rbac.authorization.k8s.io
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -79,6 +82,7 @@ spec:
       volumes:
         - name: tmp-volume
           emptyDir: {}
+
 ---
 apiVersion: v1
 kind: Service

@@ -17,7 +17,7 @@ database:
 
 minio:
   enabled: true
-  image: "quay.io/minio/minio:RELEASE.2024-01-01T16-36-33Z"
+  image: "quay.io/minio/minio:RELEASE.2026-09-20T00-00-00Z"
   persistence:
     size: "10Gi"
 gitSync:
@@ -33,7 +33,7 @@ tailscaleIngress:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
-    tag: RELEASE.2024-01-01T16-36-33Z
+    tag: latest
   hostname: "" # Dynamically generated via helper if left blank
   tailnet: ""  # Must be provided via --set or values override (e.g. from .env)
   ephemeral: false
