@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
@@ -9,7 +9,10 @@ RUN uv pip compile pyproject.toml -o requirements.txt && \
     uv venv /opt/venv && \
     VIRTUAL_ENV=/opt/venv uv pip install -r requirements.txt
 
-FROM python:3.11-slim
+FROM python:3.14-slim
+
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --upgrade setuptools wheel jaraco.context msgpack urllib3
 
 ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
