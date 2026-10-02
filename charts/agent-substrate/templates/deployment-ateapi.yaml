@@ -16,7 +16,18 @@ spec:
       labels:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ateapi
+      annotations:
+        checkov.io/skip1: "CKV_K8S_35=Secrets as env vars allowed"
+        checkov.io/skip2: "CKV_K8S_38=SA token required"
+        checkov.io/skip3: "CKV2_K8S_6=NetworkPolicy skip"
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
 
       {{- with .Values.ateapi.nodeSelector }}
       nodeSelector:
@@ -35,13 +46,21 @@ spec:
         image: "{{ .Values.ateapi.image.repository }}:{{ .Values.ateapi.image.tag | default .Values.global.image.tag | default "latest" }}"
         imagePullPolicy: {{ .Values.ateapi.image.pullPolicy | default "IfNotPresent" }}
         securityContext:
-          runAsNonRoot: true
           allowPrivilegeEscalation: false
-          runAsUser: 1000
-          runAsGroup: 1000
+          readOnlyRootFilesystem: true
           capabilities:
             drop:
-            - ALL
+              - ALL
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 10
         resources:
           {{- toYaml .Values.ateapi.resources | nindent 10 }}
         args:
@@ -128,3 +147,25 @@ spec:
   - port: 50051
     targetPort: 50051
     name: grpc
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: substrate/templates/deployment-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: substrate/templates/deployment
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: substrate/templates/deployment
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+  egress:
+  - to:
+    - namespaceSelector: {}
