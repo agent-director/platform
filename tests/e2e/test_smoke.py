@@ -78,6 +78,3 @@ def test_agent_substrate_components_ready():
 
     # AteController
     check_pod_ready("app.kubernetes.io/component=atecontroller")
-
-    # Atelet DaemonSet
-    check_pod_ready("app.kubernetes.io/component=atelet")

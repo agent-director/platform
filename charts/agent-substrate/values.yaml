@@ -34,21 +34,6 @@ atecontroller:
   tolerations: []
   affinity: {}
 
-atelet:
-  enabled: true
-  image:
-    repository: ghcr.io/agent-director/atelet
-    pullPolicy: Always
-  resources:
-    limits:
-      cpu: 200m
-      memory: 256Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
 
 postgres:
   host: "platform-db"

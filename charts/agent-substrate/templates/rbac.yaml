@@ -42,26 +42,6 @@ subjects:
   namespace: {{ .Release.Namespace }}
 
 ---
-# Bind to OpenShift privileged SCC for atelet
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: agent-substrate-scc-privileged
-  labels:
-    {{- include "agent-substrate.labels" . | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:openshift:scc:privileged
-subjects:
-- kind: ServiceAccount
-  name: agent-substrate-sa
-  namespace: {{ .Release.Namespace }}
-- kind: ServiceAccount
-  name: agent-substrate-workload-sa
-  namespace: {{ .Release.Namespace }}
-
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
