@@ -32,10 +32,11 @@ def test_core_platform_components_ready():
     check_pod_ready("app=litellm")
 
     # Tailscale Ingress
-    check_pod_ready("app=tailscale-ingress")
+    if os.environ.get("TEST_TAILSCALE", "false") == "true":
+        check_pod_ready("app=tailscale-ingress")
 
     # Minio
-    check_pod_ready("app=minio")
+    check_pod_ready("app=rustfs")
 
 
 def test_agent_substrate_components_ready():

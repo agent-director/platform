@@ -133,3 +133,8 @@ lint:
 
 format:
 	uvx ruff format .
+
+.PHONY: test-integration
+test-integration:
+	@echo "Running full integration test suite..."
+	./scripts/test-integration.sh platform-dev

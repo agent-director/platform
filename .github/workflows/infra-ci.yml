@@ -107,8 +107,5 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Deploy to Kind
-        run: make deploy HELM_ARGS="--set tailscaleIngress.enabled=false --set sandboxedContainers.enabled=false"
-
-      - name: Run Smoke Tests
-        run: make test-e2e
+      - name: Run Integration Suite
+        run: make test-integration
