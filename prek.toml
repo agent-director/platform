@@ -3,7 +3,7 @@
 #:schema https://www.schemastore.org/prek.json
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
-rev = "v4.4.0"
+rev = "v6.0.0"
 hooks = [
   { id = "trailing-whitespace", priority = 0 },
   { id = "end-of-file-fixer", priority = 0 },
@@ -45,7 +45,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/pre-commit/mirrors-mypy"
-rev = "v1.9.0"
+rev = "v2.3.1"
 hooks = [
   { id = "mypy", priority = 0, args = ["--ignore-missing-imports", "--explicit-package-bases"] }
 ]
