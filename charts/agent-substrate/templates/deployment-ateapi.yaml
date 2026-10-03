@@ -129,7 +129,6 @@ spec:
               - serviceAccountToken:
                   path: token
                   expirationSeconds: 3600
-                  audience: api
               - configMap:
                   name: kube-root-ca.crt
                   items:
