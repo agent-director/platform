@@ -29,6 +29,7 @@ gitSync:
 secrets:
   langfuseNextauthSecret: "secret"
   langfuseSalt: "salt"
+  litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
 
 # Unprivileged Sidecar Bridge Ingress
 tailscaleIngress:
