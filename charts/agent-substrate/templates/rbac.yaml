@@ -130,9 +130,6 @@ roleRef:
   name: {{ include "agent-substrate.fullname" . }}-workload-manager
 subjects:
 - kind: ServiceAccount
-  name: {{ include "agent-substrate.fullname" . }}-api
-  namespace: {{ .Release.Namespace }}
-- kind: ServiceAccount
   name: {{ include "agent-substrate.fullname" . }}-controller
   namespace: {{ .Release.Namespace }}
 
