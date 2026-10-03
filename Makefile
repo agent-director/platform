@@ -42,7 +42,7 @@ deploy: setup check-cluster
 	@helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator || true
 	@helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
 		--namespace $(NAMESPACE) --create-namespace
-	@kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	@if [ -f .env ]; then set -a; . .env; set +a; fi; \
 	if [ -n "$$GH_PAT" ]; then \
 		kubectl create secret docker-registry ghcr-secret \
@@ -71,10 +71,10 @@ deploy: setup check-cluster
 		$(HELM_ARGS) \
 		--wait --timeout 600s; \
 	HELM_EXIT=$$?; \
-	@echo "Replicating platform credentials to substrate namespace..."
-	@kubectl create namespace agent-substrate --dry-run=client -o yaml | kubectl apply -f -
-	@kubectl get secret rustfs-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
-	@kubectl get secret agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
+	echo "Replicating platform credentials to substrate namespace..."
+	kubectl create namespace agent-substrate --dry-run=client -o yaml | kubectl apply -f -
+	kubectl get secret rustfs-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
+	kubectl get secret agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
 	helm upgrade --install agent-substrate charts/agent-substrate \
 		--namespace agent-substrate \
 		--set platformNamespace=$(NAMESPACE) \
