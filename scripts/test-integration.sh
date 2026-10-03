@@ -6,12 +6,12 @@ NAMESPACE="platform"
 
 echo "=== Building all images concurrently ==="
 pids=()
-docker build -t ghcr.io/agent-director/ateapi:local --target ateapi -f images/agent-substrate/Dockerfile . & pids+=($!)
-docker build -t ghcr.io/agent-director/atecontroller:local --target atecontroller -f images/agent-substrate/Dockerfile . & pids+=($!)
-docker build -t frontend:local -f images/frontend/Dockerfile . & pids+=($!)
-docker build -t unified-api:local -f images/unified-api/Dockerfile . & pids+=($!)
-docker build -t ghcr.io/agent-director/platform-worker:local -f images/platform-worker/Dockerfile . & pids+=($!)
-docker build -t ghcr.io/agent-director/mcp-server:local -f images/mcp-server/Dockerfile . & pids+=($!)
+docker buildx build --load -t ghcr.io/agent-director/ateapi:local --target ateapi -f images/agent-substrate/Dockerfile . & pids+=($!)
+docker buildx build --load -t ghcr.io/agent-director/atecontroller:local --target atecontroller -f images/agent-substrate/Dockerfile . & pids+=($!)
+docker buildx build --load -t frontend:local -f images/frontend/Dockerfile . & pids+=($!)
+docker buildx build --load -t unified-api:local -f images/unified-api/Dockerfile . & pids+=($!)
+docker buildx build --load -t ghcr.io/agent-director/platform-worker:local -f images/platform-worker/Dockerfile . & pids+=($!)
+docker buildx build --load -t ghcr.io/agent-director/mcp-server:local -f images/mcp-server/Dockerfile . & pids+=($!)
 
 # Wait for all builds to finish
 fail=0
