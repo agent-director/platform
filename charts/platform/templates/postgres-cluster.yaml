@@ -20,6 +20,7 @@ spec:
     platform: platform
     langfuse: langfuse
     temporal: temporal
+    temporal_visibility: temporal
   postgresql:
     version: {{ .Values.database.version | quote }}
   resources:

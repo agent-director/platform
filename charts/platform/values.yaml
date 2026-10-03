@@ -112,8 +112,28 @@ temporal:
   prometheus:
     enabled: false
   postgresql:
-    enabled: true
+    enabled: false
+  mysql:
+    enabled: false
   server:
+    config:
+      persistence:
+        default:
+          driver: "sql"
+          sql:
+            host: "platform-db"
+            port: 5432
+            database: "temporal"
+            user: "temporal"
+            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
+        visibility:
+          driver: "sql"
+          sql:
+            host: "platform-db"
+            port: 5432
+            database: "temporal_visibility"
+            user: "temporal"
+            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
     securityContext:
       runAsUser: null
       fsGroup: null
@@ -129,9 +149,14 @@ temporal:
       runAsUser: null
       fsGroup: null
 
-# OpenShift Sandboxed Containers (Kata) Operator
+# OpenShift Sandboxed Containers (Kata) Operator# OpenShift Sandboxed Containers (Kata) Operator
 # OpenShift Sandboxed Containers (Kata) Operator
 
 sandboxedContainers:
   enabled: true
+  channel: "stable"
   checkNodeEligibility: false
+
+# Disable legacy Bitnami PostgreSQL subchart (we use Zalando Operator)
+postgresql:
+  enabled: false
