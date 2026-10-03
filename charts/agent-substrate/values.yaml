@@ -8,12 +8,6 @@ ateapi:
   image:
     repository: ghcr.io/agent-director/ateapi
     pullPolicy: IfNotPresent
-  database:
-    host: "platform-db"
-  rustfs:
-    secretName: "rustfs-auth-secret" # pragma: allowlist secret
-    host: "rustfs"
-    port: 9000
   resources:
     limits:
       cpu: 200m
@@ -30,12 +24,6 @@ atecontroller:
   image:
     repository: ghcr.io/agent-director/atecontroller
     pullPolicy: IfNotPresent
-  database:
-    host: "platform-db"
-  rustfs:
-    secretName: "rustfs-auth-secret" # pragma: allowlist secret
-    host: "rustfs"
-    port: 9000
   resources:
     limits:
       cpu: 200m
@@ -47,8 +35,13 @@ atecontroller:
   tolerations: []
   affinity: {}
 
-postgres:
+database:
   host: "platform-db"
+
+rustfs:
+  secretName: "rustfs-auth-secret" # pragma: allowlist secret
+  host: "rustfs"
+  port: 9000
 
 tls:
   secretName: agent-substrate-tls # pragma: allowlist secret

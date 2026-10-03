@@ -1,6 +1,5 @@
 {{- if .Values.sandboxedContainers.enabled }}
 
----
 apiVersion: v1
 kind: Namespace
 metadata:

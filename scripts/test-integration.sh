@@ -4,14 +4,36 @@ set -e
 KIND_CLUSTER_NAME=${1:-e2e-cluster}
 NAMESPACE="platform"
 
-echo "=== Building all images concurrently ==="
+echo "=== Building all images concurrently (Dynamic Discovery) ==="
 pids=()
-docker buildx build --load -t ghcr.io/agent-director/ateapi:local --target ateapi -f images/agent-substrate/Dockerfile . & pids+=($!)
-docker buildx build --load -t ghcr.io/agent-director/atecontroller:local --target atecontroller -f images/agent-substrate/Dockerfile . & pids+=($!)
-docker buildx build --load -t frontend:local -f images/frontend/Dockerfile . & pids+=($!)
-docker buildx build --load -t unified-api:local -f images/unified-api/Dockerfile . & pids+=($!)
-docker buildx build --load -t ghcr.io/agent-director/platform-worker:local -f images/platform-worker/Dockerfile . & pids+=($!)
-docker buildx build --load -t ghcr.io/agent-director/mcp-server:local -f images/mcp-server/Dockerfile . & pids+=($!)
+IMAGES_TO_LOAD=()
+
+for dockerfile in $(find images -name Dockerfile); do
+    DIR_NAME=$(basename $(dirname $dockerfile))
+    
+    # Identify multi-stage exports (ignoring common build stages)
+    TARGETS=$(grep -iE "^FROM .* AS " $dockerfile | awk '{print $NF}' | grep -viE "^(builder|deps|runner|base)$" || true)
+    
+    if [ -n "$TARGETS" ]; then
+        for target in $TARGETS; do
+            IMG_GHCR="ghcr.io/agent-director/${target}:local"
+            IMG_LOCAL="${target}:local"
+            
+            echo "Building target '$target' from $DIR_NAME..."
+            docker buildx build --load -t "$IMG_GHCR" -t "$IMG_LOCAL" --target "$target" -f "$dockerfile" . &
+            pids+=($!)
+            IMAGES_TO_LOAD+=("$IMG_GHCR" "$IMG_LOCAL")
+        done
+    else
+        IMG_GHCR="ghcr.io/agent-director/${DIR_NAME}:local"
+        IMG_LOCAL="${DIR_NAME}:local"
+        
+        echo "Building $DIR_NAME..."
+        docker buildx build --load -t "$IMG_GHCR" -t "$IMG_LOCAL" -f "$dockerfile" . &
+        pids+=($!)
+        IMAGES_TO_LOAD+=("$IMG_GHCR" "$IMG_LOCAL")
+    fi
+done
 
 # Wait for all builds to finish
 fail=0
@@ -24,16 +46,9 @@ if [ "$fail" -gt 0 ]; then
     exit 1
 fi
 
-echo "=== Loading images into Kind cluster ($KIND_CLUSTER_NAME) ==="
-# Speedup: Load all images in a single archive/call to avoid redundant layer hashing
-kind load docker-image \
-    ghcr.io/agent-director/ateapi:local \
-    ghcr.io/agent-director/atecontroller:local \
-    frontend:local \
-    unified-api:local \
-    ghcr.io/agent-director/platform-worker:local \
-    ghcr.io/agent-director/mcp-server:local \
-    --name $KIND_CLUSTER_NAME
+echo "=== Loading all compiled artifacts into Kind cluster ($KIND_CLUSTER_NAME) ==="
+# Speedup: Load all images in a single API call to avoid redundant layer hashing
+kind load docker-image "${IMAGES_TO_LOAD[@]}" --name $KIND_CLUSTER_NAME
 
 echo "=== Deploying Platform and Substrate ==="
 export IMAGE_TAG="local"

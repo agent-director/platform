@@ -167,5 +167,3 @@ postgresql:
 # Temporarily disabled until Tier 0.15 Temporal V1 Migration
 temporal:
   enabled: false
-workers:
-  enabled: false
