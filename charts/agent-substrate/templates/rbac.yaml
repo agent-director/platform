@@ -93,3 +93,41 @@ subjects:
 - kind: ServiceAccount
   name: {{ include "agent-substrate.fullname" . }}-api
   namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader
+  namespace: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["egress-mitm-ca-pool"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader-binding
+  namespace: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader
+subjects:
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
