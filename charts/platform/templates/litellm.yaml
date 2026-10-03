@@ -6,6 +6,7 @@ metadata:
 data:
   litellm_config.yaml: |
 {{ .Files.Get "files/litellm_config.yaml" | indent 4 }}
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,6 +62,7 @@ spec:
         - name: litellm-middleware
           configMap:
             name: {{ include "platform.fullname" . }}-litellm-middleware
+
 ---
 apiVersion: v1
 kind: Service
@@ -77,6 +79,7 @@ spec:
       name: http
   selector:
     app: litellm
+
 ---
 apiVersion: v1
 kind: ConfigMap

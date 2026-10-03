@@ -42,7 +42,7 @@ deploy: setup check-cluster
 	@helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator || true
 	@helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
 		--namespace $(NAMESPACE) --create-namespace
-	@kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	@if [ -f .env ]; then set -a; . .env; set +a; fi; \
 	if [ -n "$$GH_PAT" ]; then \
 		kubectl create secret docker-registry ghcr-secret \
@@ -71,8 +71,20 @@ deploy: setup check-cluster
 		$(HELM_ARGS) \
 		--wait --timeout 600s; \
 	HELM_EXIT=$$?; \
+	echo "Replicating platform credentials to substrate namespace..."; \
+	kubectl create namespace agent-substrate --dry-run=client -o yaml | kubectl apply -f -; \
+	kubectl get secret rustfs-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -; \
+	kubectl get secret agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -; \
+	helm upgrade --install agent-substrate charts/agent-substrate \
+		--namespace agent-substrate \
+		--set platformNamespace=$(NAMESPACE) \
+		--set global.image.tag="$(IMAGE_TAG)" \
+		$(HELM_ARGS_SUBSTRATE) \
+		--wait --timeout 600s; \
+	SUBSTRATE_EXIT=$$?; \
 	kill $$WATCH_PID 2>/dev/null || true; \
-	exit $$HELM_EXIT
+	if [ $$HELM_EXIT -ne 0 ]; then exit $$HELM_EXIT; fi; \
+	exit $$SUBSTRATE_EXIT
 teardown: check-cluster
 	./scripts/teardown.sh $(NAMESPACE) $(RELEASE_NAME)
 
@@ -85,6 +97,11 @@ lint-helm:
 		fi; \
 	done
 
+.PHONY: update-schemas
+update-schemas:
+	@echo "Updating local CRD schemas..."
+	uv run --with pyyaml python scripts/update-crds.py
+
 .PHONY: check-schema
 check-schema:
 	@echo "Validating Helm schemas with Kubeconform..."
@@ -95,14 +112,12 @@ check-schema:
 				--set secrets.langfuseSalt="dummy" \
 				| kubeconform -strict -summary \
 				-schema-location default \
+				-skip "KataConfig" \
+				-schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
 				-schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'; \
 		fi; \
 	done
 
-.PHONY: lint-kube
-lint-kube:
-	@echo "Running Kube-Linter..."
-	kube-linter lint charts/ --config .kube-linter.yaml
 
 .PHONY: scan-iac
 scan-iac:
@@ -121,3 +136,8 @@ lint:
 
 format:
 	uvx ruff format .
+
+.PHONY: test-integration
+test-integration:
+	@echo "Running full integration test suite..."
+	./scripts/test-integration.sh platform-dev

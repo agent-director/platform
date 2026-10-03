@@ -5,12 +5,12 @@ metadata:
   labels:
     app: postgres
 spec:
-  teamId: "agent-director"
+  teamId: {{ .Values.database.teamId | quote }}
   volume:
     size: 10Gi
-  numberOfInstances: 2
+  numberOfInstances: 1
   users:
-    agent-director:
+    {{ .Values.database.superuser }}:
       - superuser
       - createdb
     platform: []
@@ -20,8 +20,9 @@ spec:
     platform: platform
     langfuse: langfuse
     temporal: temporal
+    temporal_visibility: temporal
   postgresql:
-    version: "15"
+    version: {{ .Values.database.version | quote }}
   resources:
     requests:
       cpu: 500m

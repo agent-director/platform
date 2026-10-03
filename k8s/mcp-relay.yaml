@@ -24,7 +24,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: mcp-relay
-          image: "ghcr.io/wgordon17/relay:latest"
+          image: "ghcr.io/agent-director/relay:latest"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false

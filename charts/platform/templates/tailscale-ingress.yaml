@@ -6,6 +6,7 @@ metadata:
 data:
   Caddyfile: |
 {{ tpl .Values.tailscaleIngress.caddyConfig . | indent 4 }}
+
 ---
 apiVersion: apps/v1
 kind: Deployment

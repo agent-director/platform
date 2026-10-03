@@ -1,0 +1,3 @@
+{{- if eq .Release.Namespace "ate-system" }}
+{{- fail "DEPLOYMENT REJECTED (Security Constraint): The agent-substrate control plane must NOT be deployed into the 'ate-system' namespace. 'ate-system' is reserved strictly for isolated upstream components like the Egress MITM secret. Please deploy into a dedicated control plane namespace." }}
+{{- end }}

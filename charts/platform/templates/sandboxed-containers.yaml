@@ -1,0 +1,49 @@
+{{- if .Values.sandboxedContainers.enabled }}
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-sandboxed-containers-operator
+  labels:
+    openshift.io/cluster-monitoring: "true"
+    app.kubernetes.io/name: sandboxed-containers-operator
+
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-sandboxed-containers-operator
+  namespace: openshift-sandboxed-containers-operator
+  labels:
+    app.kubernetes.io/name: sandboxed-containers-operator
+spec:
+  targetNamespaces:
+  - openshift-sandboxed-containers-operator
+
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: sandboxed-containers-operator
+  namespace: openshift-sandboxed-containers-operator
+  labels:
+    app.kubernetes.io/name: sandboxed-containers-operator
+spec:
+  channel: {{ .Values.sandboxedContainers.channel | quote }}
+  installPlanApproval: Automatic
+  name: sandboxed-containers-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+
+---
+apiVersion: kataconfiguration.openshift.io/v1
+kind: KataConfig
+metadata:
+  name: cluster-kataconfig
+  # KataConfig is a cluster-scoped resource, no namespace needed
+  labels:
+    app.kubernetes.io/name: sandboxed-containers-operator
+spec:
+  # Default empty spec provisions Kata across all eligible worker nodes
+  checkNodeEligibility: {{ .Values.sandboxedContainers.checkNodeEligibility | default true }}
+{{- end }}

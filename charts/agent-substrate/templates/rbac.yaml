@@ -1,0 +1,166 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.workloadNamespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+
+---
+# 1. CLUSTER SCOPE: Shared Pod Watcher (Workaround for upstream defect)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-pod-observer
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-pod-observer-binding
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "agent-substrate.fullname" . }}-pod-observer
+subjects:
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+
+---
+# 2. CLUSTER SCOPE: Controller Core (Nodes, Namespaces, Substrate CRDs)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-controller-core
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["ate.dev"]
+  resources: ["workerpools", "workerpools/status", "workerpools/finalizers", "sandboxconfigs", "actortemplates", "csidriverconfigs"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-controller-core-binding
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "agent-substrate.fullname" . }}-controller-core
+subjects:
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+
+---
+# 3. NAMESPACE SCOPE: Workload Management (Pods, Deployments, NetPols)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-workload-manager
+  namespace: {{ .Values.workloadNamespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-workload-manager-binding
+  namespace: {{ .Values.workloadNamespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "agent-substrate.fullname" . }}-workload-manager
+subjects:
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}
+
+---
+# 4. NAMESPACE SCOPE: Least-Privilege Secret Reader (Egress MITM)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader
+  namespace: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["egress-mitm-ca-pool"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader-binding
+  namespace: ate-system
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader
+subjects:
+- kind: ServiceAccount
+  name: {{ include "agent-substrate.fullname" . }}-controller
+  namespace: {{ .Release.Namespace }}

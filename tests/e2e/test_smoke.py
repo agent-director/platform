@@ -1,10 +1,11 @@
+import os
 import subprocess
 import pytest
 
-NAMESPACE = "platform"
+NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 
-def check_pod_ready(label_selector: str):
+def check_pod_ready(label_selector: str, namespace: str = NAMESPACE):
     """Wait for a pod matching the label selector to be ready."""
     cmd = [
         "kubectl",
@@ -14,7 +15,7 @@ def check_pod_ready(label_selector: str):
         "-l",
         label_selector,
         "-n",
-        NAMESPACE,
+        namespace,
         "--timeout=120s",
     ]
     try:
@@ -23,29 +24,60 @@ def check_pod_ready(label_selector: str):
         pytest.fail(f"Pod matching {label_selector} not ready. Error: {e.stderr}")
 
 
-def test_mcp_server_running():
-    check_pod_ready("app=mcp-server")
-
-
-def test_openshell_sandbox_running():
-    check_pod_ready("app=openshell")
-
-
-def test_postgres_operator_running():
-    # Zalando postgres operator creates pods labeled app.kubernetes.io/name=postgres-operator
-    check_pod_ready("app.kubernetes.io/name=postgres-operator")
-
-
-def test_spilo_database_running():
-    # The actual database pods are labeled application=spilo
+def test_core_platform_components_ready():
+    # Zalando Postgres cluster
     check_pod_ready("application=spilo")
 
+    # LiteLLM Proxy
+    check_pod_ready("app=litellm")
 
-def test_langfuse_running():
-    check_pod_ready("app=langfuse")
+    # Tailscale Ingress
+    if os.environ.get("TEST_TAILSCALE", "false") == "true":
+        check_pod_ready("app=tailscale-ingress")
+
+    # Minio
+    check_pod_ready("app=rustfs")
 
 
-def test_temporal_running():
-    # Bitnami temporal chart usually uses app.kubernetes.io/name=temporal
-    # Just check if at least one temporal component is running
-    check_pod_ready("app.kubernetes.io/name=temporal")
+def test_agent_substrate_components_ready():
+    # AteAPI
+    check_pod_ready("app.kubernetes.io/component=ateapi", namespace="agent-substrate")
+
+    # Functionally test the API
+    cmd_get_pod = [
+        "kubectl",
+        "get",
+        "pods",
+        "-n",
+        "agent-substrate",
+        "-l",
+        "app.kubernetes.io/component=ateapi",
+        "-o",
+        "jsonpath={.items[0].metadata.name}",
+    ]
+    pod_name = subprocess.run(
+        cmd_get_pod, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    cmd_check_port = [
+        "kubectl",
+        "exec",
+        "-n",
+        "agent-substrate",
+        pod_name,
+        "--",
+        "bash",
+        "-c",
+        "cat /proc/net/tcp | grep -q ':C383'",
+    ]
+    try:
+        subprocess.run(cmd_check_port, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        pytest.fail(
+            f"ateapi pod is running but not listening on gRPC port 50051. Error: {e.stderr}"
+        )
+
+    # AteController
+    check_pod_ready(
+        "app.kubernetes.io/component=atecontroller", namespace="agent-substrate"
+    )
