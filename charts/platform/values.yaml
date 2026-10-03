@@ -105,17 +105,18 @@ litellm:
     port: 4000
 
 temporal:
+  cassandra:
+    enabled: false
+  elasticsearch:
+    enabled: false
   prometheus:
     enabled: false
+  postgresql:
+    enabled: true
   server:
     securityContext:
       runAsUser: null
       fsGroup: null
-  admintools:
-    securityContext:
-      runAsUser: null
-      fsGroup: null
-  server:
     additionalVolumes:
       - name: temporal-scratch
         emptyDir:
@@ -123,8 +124,14 @@ temporal:
     additionalVolumeMounts:
       - name: temporal-scratch
         mountPath: /var/lib/temporal
+  admintools:
+    securityContext:
+      runAsUser: null
+      fsGroup: null
 
 # OpenShift Sandboxed Containers (Kata) Operator
+# OpenShift Sandboxed Containers (Kata) Operator
+
 sandboxedContainers:
   enabled: true
-  channel: "stable"
+  checkNodeEligibility: false
