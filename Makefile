@@ -78,6 +78,7 @@ deploy: setup check-cluster
 	helm upgrade --install agent-substrate charts/agent-substrate \
 		--namespace agent-substrate \
 		--set platformNamespace=$(NAMESPACE) \
+		--set global.image.tag="$(IMAGE_TAG)" \
 		$(HELM_ARGS_SUBSTRATE) \
 		--wait --timeout 600s; \
 	SUBSTRATE_EXIT=$$?; \
