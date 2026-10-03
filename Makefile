@@ -73,7 +73,7 @@ deploy: setup check-cluster
 	HELM_EXIT=$$?; \
 	@echo "Replicating platform credentials to substrate namespace..."
 	@kubectl create namespace agent-substrate --dry-run=client -o yaml | kubectl apply -f -
-	@kubectl get secret minio-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
+	@kubectl get secret rustfs-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
 	@kubectl get secret agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -
 	helm upgrade --install agent-substrate charts/agent-substrate \
 		--namespace agent-substrate \
