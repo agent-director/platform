@@ -40,24 +40,32 @@ def fetch_zalando_postgres_crd():
 
 def fetch_agent_substrate_crds():
     print("Fetching Agent Substrate CRDs...")
-    version = "v0.1.0"
+    version = None
     try:
         with open("images/agent-substrate/Dockerfile", "r") as f:
             for line in f:
-                if "github.com/agent-substrate/substrate.git" in line:
-                    parts = line.split()
-                    if "-b" in parts:
-                        version = parts[parts.index("-b") + 1]
+                if line.startswith("ARG AGENT_SUBSTRATE_VERSION="):
+                    version = line.strip().split("=")[1]
+                    break
     except Exception as e:
-        print(f"Could not parse version from Dockerfile, defaulting to {version}: {e}")
+        print(f"Error reading Dockerfile: {e}")
+        sys.exit(1)
+        
+    if not version:
+        print("Failed to parse Agent Substrate version from images/agent-substrate/Dockerfile! Aborting.")
+        sys.exit(1)
 
     print(f"Detected Agent Substrate version: {version}")
 
-    crds = [
-        "ate.dev_csidriverconfigs.yaml",
-        "ate.dev_sandboxconfigs.yaml",
-        "ate.dev_workerpools.yaml",
-    ]
+    api_url = f"https://api.github.com/repos/agent-substrate/substrate/contents/manifests/ate-install/generated?ref={version}"
+    try:
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib.request.urlopen(req)
+        directory_contents = json.loads(response.read().decode('utf-8'))
+        crds = [item['name'] for item in directory_contents if item['name'].endswith('.yaml')]
+    except Exception as e:
+        print(f"Failed to fetch CRD list from GitHub API: {e}")
+        sys.exit(1)
     os.makedirs("charts/agent-substrate/crds", exist_ok=True)
 
     for crd in crds:
