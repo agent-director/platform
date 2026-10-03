@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim AS builder
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 /uv /bin/uv
 
 WORKDIR /app
 COPY pyproject.toml .

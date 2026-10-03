@@ -17,7 +17,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.3.0"
+rev = "v0.16.8"
 hooks = [
   { id = "ruff", priority = 0 },
   { id = "ruff-format", priority = 0 }
@@ -32,13 +32,13 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/gitleaks/gitleaks"
-rev = "v8.18.2"
+rev = "v8.30.1"
 hooks = [
   { id = "gitleaks", priority = 0, exclude = "^\\.secrets\\.baseline$" }
 ]
 [[repos]]
 repo = "https://github.com/rhysd/actionlint"
-rev = "v1.6.27"
+rev = "v1.7.12"
 hooks = [
   { id = "actionlint", priority = 0 }
 ]
@@ -59,7 +59,7 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/hadolint/hadolint"
-rev = "v2.12.0"
+rev = "v2.15.1"
 hooks = [
   { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
 ]
