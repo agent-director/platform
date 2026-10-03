@@ -1,12 +1,21 @@
 import os
 from unittest.mock import mock_open, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
+import gateway.unified_api
 from gateway.unified_api import app
 
 # Ensure ENV is not 'dev' so we can test headers
 os.environ.pop("ENV", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_allowlist_cache():
+    gateway.unified_api._allowlist_cache = {}
+    yield
+
 
 client = TestClient(app)
 

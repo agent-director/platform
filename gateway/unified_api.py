@@ -8,57 +8,31 @@ import uuid
 from typing import Any
 
 import httpx
-
-# Pre-compiled at module scope
-MALICIOUS_REGEX = re.compile(r"\.\./|<script>|system\(|exec\(", re.IGNORECASE)
-MAX_BODY_SIZE = 10 * 1024 * 1024
 import yaml  # type: ignore
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-
-# At top of file:
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 
-# In module body:
+# Pre-compiled at module scope
+MALICIOUS_REGEX = re.compile(r"\.\./|<script>|system\(|exec\(", re.IGNORECASE)
+MAX_BODY_SIZE = 10 * 1024 * 1024
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Unified API BFF")
 
 http_client = httpx.AsyncClient(timeout=30.0)
 
-db_pool: AsyncConnectionPool | None = None
-checkpointer: AsyncPostgresSaver | None = None
-
 
 @app.on_event("startup")
 async def startup_event():
-    global db_pool, checkpointer
-    db_uri = os.environ.get("DATABASE_URL")
-    if db_uri:
-        db_pool = AsyncConnectionPool(
-            db_uri,
-            min_size=2,
-            max_size=10,
-            kwargs={
-                "autocommit": True,
-                "row_factory": dict_row,
-                "prepare_threshold": 0,
-            },
-        )
-        await db_pool.open()
-        checkpointer = AsyncPostgresSaver(db_pool)
-        await checkpointer.setup()
+    pass
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await http_client.aclose()
-    if db_pool:
-        await db_pool.close()
 
 
 allowed_origins = os.environ.get(
@@ -116,8 +90,7 @@ def get_current_user(
         expected_token = os.environ.get("INTERNAL_TOKEN") or os.environ.get(
             "CHECKPOINT_AUTH_TOKEN"
         )
-        if not expected_token or auth_header != f"Bearer {expected_token}":
-            if os.environ.get("ENV") != "dev":
+        if (not expected_token or auth_header != f"Bearer {expected_token}") and os.environ.get("ENV") != "dev":
                 raise HTTPException(
                     status_code=401, detail="Invalid internal service token"
                 )
@@ -237,84 +210,6 @@ async def create_workflow(req: WorkflowRequest, user: str = Depends(get_current_
     return {"id": "wf_12345", "status": "started", "user": user}
 
 
-def verify_thread_access(thread_id: str, user: str) -> None:
-    internal_user = os.environ.get("INTERNAL_SERVICE_USER", "orchestrator@internal")
-    if user == internal_user:
-        return
-    if ":" in thread_id:
-        owner = thread_id.split(":", 1)[0]
-        if owner != user and user not in _allowlist_cache.get("admins", []):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access to thread checkpoint"
-            )
-
-
-@app.get("/api/checkpoints/{thread_id}")
-async def get_checkpoint(
-    thread_id: str,
-    checkpoint_ns: str = "",
-    checkpoint_id: str = "",
-    user: str = Depends(get_current_user),
-):
-    if not checkpointer:
-        raise HTTPException(status_code=500, detail="Database not configured")
-    verify_thread_access(thread_id, user)
-    config = {
-        "configurable": {
-            "thread_id": thread_id,
-            "checkpoint_ns": checkpoint_ns,
-            "checkpoint_id": checkpoint_id,
-        }
-    }
-    tup = await checkpointer.aget_tuple(config)
-    if not tup:
-        raise HTTPException(status_code=404, detail="Checkpoint not found")
-    return {
-        "config": tup.config,
-        "checkpoint": tup.checkpoint,
-        "metadata": tup.metadata,
-        "parent_config": tup.parent_config,
-    }
-
-
-@app.post("/api/checkpoints/{thread_id}")
-async def save_checkpoint(
-    thread_id: str, req: Request, user: str = Depends(get_current_user)
-):
-    if not checkpointer:
-        raise HTTPException(status_code=500, detail="Database not configured")
-    verify_thread_access(thread_id, user)
-    data = await req.json()
-    payload_thread_id = data.get("config", {}).get("configurable", {}).get("thread_id")
-    if payload_thread_id != thread_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Thread ID in URL does not match config.configurable.thread_id",
-        )
-    config = await checkpointer.aput(
-        data["config"], data["checkpoint"], data["metadata"], data["new_versions"]
-    )
-    return {"config": config}
-
-
-@app.post("/api/checkpoints/{thread_id}/writes")
-async def save_checkpoint_writes(
-    thread_id: str, req: Request, user: str = Depends(get_current_user)
-):
-    if not checkpointer:
-        raise HTTPException(status_code=500, detail="Database not configured")
-    verify_thread_access(thread_id, user)
-    data = await req.json()
-    payload_thread_id = data.get("config", {}).get("configurable", {}).get("thread_id")
-    if payload_thread_id != thread_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Thread ID in URL does not match config.configurable.thread_id",
-        )
-    await checkpointer.aput_writes(data["config"], data["writes"], data["task_id"])
-    return {"status": "ok"}
-
-
 @app.get("/api/workflows/{workflow_id}/state")
 async def get_workflow_state(workflow_id: str, user: str = Depends(get_current_user)):
     # Retrieve state (Stub)
@@ -371,7 +266,7 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
             "Authorization": f"Bearer {github_token}",
             "Accept": "application/vnd.github.v3+json",
         }
-        prs_url = f"https://api.github.com/repos/{repo}/pulls?state=open&head={repo.split('/')[0]}:config-update-"
+        f"https://api.github.com/repos/{repo}/pulls?state=open&head={repo.split('/')[0]}:config-update-"
 
         config_prs = []
         for page in range(1, 10):

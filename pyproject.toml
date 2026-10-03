@@ -6,9 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "temporalio",
-    "langgraph",
     "litellm",
-    "langgraph-checkpoint-postgres",
     "mcp",
     "psycopg[binary]",
     "fastapi",
