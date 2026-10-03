@@ -51,12 +51,12 @@ spec:
               - ALL
         livenessProbe:
           tcpSocket:
-            port: 50051
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
         readinessProbe:
           tcpSocket:
-            port: 50051
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:
