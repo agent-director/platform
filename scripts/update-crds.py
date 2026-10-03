@@ -50,7 +50,7 @@ def fetch_agent_substrate_crds():
     except Exception as e:
         print(f"Error reading Dockerfile: {e}")
         sys.exit(1)
-        
+
     if not version:
         print("Failed to parse Agent Substrate version from images/agent-substrate/Dockerfile! Aborting.")
         sys.exit(1)
@@ -62,7 +62,7 @@ def fetch_agent_substrate_crds():
         req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
         response = urllib.request.urlopen(req)
         directory_contents = json.loads(response.read().decode('utf-8'))
-        crds = [item['name'] for item in directory_contents if item['name'].endswith('.yaml')]
+        crds = [item['name'] for item in directory_contents if item['name'].endswith('\.yaml') and item['name'].startswith('ate.dev_')]
     except Exception as e:
         print(f"Failed to fetch CRD list from GitHub API: {e}")
         sys.exit(1)

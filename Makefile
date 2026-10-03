@@ -80,8 +80,10 @@ deploy: setup check-cluster
 		--set platformNamespace=$(NAMESPACE) \
 		$(HELM_ARGS_SUBSTRATE) \
 		--wait --timeout 600s; \
+	SUBSTRATE_EXIT=$$?; \
 	kill $$WATCH_PID 2>/dev/null || true; \
-	exit $$HELM_EXIT
+	if [ $$HELM_EXIT -ne 0 ]; then exit $$HELM_EXIT; fi; \
+	exit $$SUBSTRATE_EXIT
 teardown: check-cluster
 	./scripts/teardown.sh $(NAMESPACE) $(RELEASE_NAME)
 
