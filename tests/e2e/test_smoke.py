@@ -68,7 +68,7 @@ def test_agent_substrate_components_ready():
         "--",
         "bash",
         "-c",
-        "cat /proc/net/tcp | grep -q ':C383'",
+        "cat /proc/net/tcp /proc/net/tcp6 | grep -q ':C383'",
     ]
     try:
         subprocess.run(cmd_check_port, check=True, capture_output=True, text=True)
