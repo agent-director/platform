@@ -143,5 +143,21 @@ spec:
       - ipBlock:
           cidr: {{ . }}
       {{- end }}
+      {{- else }}
+      {{- $endpoints := lookup "v1" "Endpoints" "default" "kubernetes" }}
+      {{- if and $endpoints $endpoints.subsets }}
+      {{- range $subset := $endpoints.subsets }}
+      {{- range $address := $subset.addresses }}
+      - ipBlock:
+          cidr: {{ $address.ip }}/32
+      {{- end }}
+      {{- end }}
+      {{- else }}
+      - ipBlock:
+          cidr: 10.96.0.0/12 # Fallback if lookup fails (e.g. offline dry-run)
+      - ipBlock:
+          cidr: 172.16.0.0/12 # Fallback Node IP block for host-network API Server endpoints
+      {{- end }}
+      {{- end }}
     - to:
       - podSelector: {} # Allow intra-namespace
