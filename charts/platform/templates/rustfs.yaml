@@ -93,6 +93,9 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: {{ .Release.Namespace }}
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: agent-substrate
   egress:
   - to:
     - namespaceSelector:
