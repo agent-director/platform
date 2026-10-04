@@ -201,3 +201,7 @@ spec:
       - namespaceSelector:
           matchLabels:
             kubernetes.io/metadata.name: kube-system # Allow DNS/KubeAPI
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: default
