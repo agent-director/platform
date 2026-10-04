@@ -2,6 +2,8 @@ global:
   image:
     tag: latest
   apiServerCIDRs: []
+  tls:
+    useOcpServingCert: false
 
 ateapi:
   replicaCount: 1

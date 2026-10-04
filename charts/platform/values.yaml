@@ -1,7 +1,8 @@
 global:
   image:
     tag: "latest"
-
+  tls:
+    useOcpServingCert: false
 fullnameOverride: ""
 
 adminAllowlist:
@@ -77,9 +78,6 @@ tailscaleIngress:
             reverse_proxy frontend:3000
         }
     }
-
-tls:
-  useOcpServingCert: false
 
 unifiedApi:
   enabled: true
