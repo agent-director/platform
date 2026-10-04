@@ -6,6 +6,7 @@ FROM docker.io/library/golang:1.27.1@sha256:e0174e51e81218523251d85d248a90d24c3d
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # Single source of truth for upstream tracking
+# renovate: datasource=github-tags depName=agent-substrate/substrate
 ARG AGENT_SUBSTRATE_VERSION=v0.3.0
 
 WORKDIR /build
