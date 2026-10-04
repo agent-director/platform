@@ -99,11 +99,20 @@ jobs:
           curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           tar -zxvf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
           sudo mv linux-amd64/helm /usr/local/bin/helm
+      - name: Generate Kind Config
+        run: |
+          cat << 'EOF' > .github/kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          featureGates:
+            ClusterTrustBundle: true
+          EOF
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.8.0
         with:
-          cluster_name: e2e-cluster
+          cluster_name: platform-dev
+          config: .github/kind-config.yaml
 
       - name: Export Cluster URL
         run: |
