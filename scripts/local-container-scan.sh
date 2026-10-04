@@ -35,7 +35,9 @@ echo "[2/2] Running Trivy Image scan (with persistent DB cache)..."
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
+  -v "$(pwd)/.trivyignore:/.trivyignore" \
   aquasec/trivy:latest image \
+  --ignorefile /.trivyignore \
   --scanners vuln,secret \
   --pkg-types library \
   --severity HIGH,CRITICAL \

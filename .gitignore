@@ -34,3 +34,7 @@ rendered.yaml
 frontend/node_modules/
 frontend/.next/
 frontend/next-env.d.ts
+
+# Local scans & execution
+.local-rootfs-*/
+.local-scans/

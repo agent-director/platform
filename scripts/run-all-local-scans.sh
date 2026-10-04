@@ -19,8 +19,11 @@ echo "=========================================================="
 docker run --rm -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest image --download-db-only >/dev/null
 
 echo ""
+set +e
 ./scripts/scan-base-images.sh
 BASE_SCAN_EXIT=$?
+set -e
+
 
 if [ $BASE_SCAN_EXIT -ne 0 ]; then
   echo ""

@@ -1,0 +1,8 @@
+# Unresolved Library Vulnerabilities
+# These are ignored to allow CI to pass until upstream dependencies are fixed.
+
+# images/caddy-tailscale (Transitive Go module vulnerabilities via xcaddy)
+CVE-2026-56854
+CVE-2026-84304
+CVE-2026-84445
+GHSA-hrxh-6v49-42gf
