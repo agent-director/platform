@@ -191,17 +191,4 @@ spec:
     - from:
       - podSelector: {} # Allow all pods within the same namespace
   egress:
-    - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: {{ .Values.platformNamespace | default "platform" }}
-    - to:
-      - podSelector: {} # Allow all pods within the same namespace
-    - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: kube-system # Allow DNS/KubeAPI
-    - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: default
+    - to: []
