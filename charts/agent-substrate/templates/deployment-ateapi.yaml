@@ -53,7 +53,7 @@ spec:
         resources:
           {{- toYaml .Values.ateapi.resources | nindent 10 }}
         args:
-        - "--grpc-listen-addr=:50051"
+        - "--grpc-listen-addr=0.0.0.0:50051"
         - "--postgres-connection-string=$(POSTGRES_URL)"
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
         - "--authentication-config=/etc/tls/auth.yaml"
@@ -191,4 +191,18 @@ spec:
     - from:
       - podSelector: {} # Allow all pods within the same namespace
   egress:
-    - to: []
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system # Allow DNS
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Values.platformNamespace | default "platform" }} # Allow Postgres/RustFS
+    - to:
+      - ipBlock:
+          cidr: 10.96.0.0/12 # Allow Kubernetes Services
+      - ipBlock:
+          cidr: 172.16.0.0/12 # Allow Node IP for host-network API Server endpoints
+    - to:
+      - podSelector: {} # Allow intra-namespace
