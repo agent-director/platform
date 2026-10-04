@@ -58,6 +58,7 @@ spec:
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
         - "--authentication-config=/etc/tls/auth.yaml"
         - "--actor-id-ca-pool=/etc/tls/empty.json"
+        - "--actor-id-jwt-pool=/etc/tls/empty.json"
         readinessProbe:
           tcpSocket:
             port: 50051
