@@ -33,6 +33,33 @@ metadata:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 
 ---
+# WORKAROUND: Upstream v0.3.0 missing WithNamespace on informers
+# Grant cluster-scoped watch/list for ateapi to bypass informer errors
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-api-observer
+rules:
+  - apiGroups: ["ate.dev"]
+    resources: ["csidriverconfigs", "sandboxconfigs", "workerpools"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "agent-substrate.fullname" . }}-api-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "agent-substrate.fullname" . }}-api-observer
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "agent-substrate.fullname" . }}-api
+    namespace: {{ .Release.Namespace }}
+---
 # 1. CLUSTER SCOPE: Shared Pod Watcher (Workaround for upstream defect)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
