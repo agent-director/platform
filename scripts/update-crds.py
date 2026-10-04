@@ -67,7 +67,7 @@ def fetch_agent_substrate_crds():
         crds = [
             item["name"]
             for item in directory_contents
-            if item["name"].endswith("\.yaml") and item["name"].startswith("ate.dev_")
+            if item["name"].endswith(".yaml") and item["name"].startswith("ate.dev_")
         ]
     except Exception as e:
         print(f"Failed to fetch CRD list from GitHub API: {e}")
