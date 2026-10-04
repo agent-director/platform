@@ -114,7 +114,7 @@ spec:
               name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
               key: username
         - name: POSTGRES_URL
-          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres"
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres?sslmode=verify-ca&sslrootcert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
         volumeMounts:
         - name: sa-token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
