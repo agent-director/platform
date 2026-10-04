@@ -16,7 +16,6 @@ spec:
       labels:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: atecontroller
-      annotations:
     spec:
       automountServiceAccountToken: false
       securityContext:

@@ -1,7 +1,9 @@
 skip-check:
   # Helm charts use dynamic parameterization (Checkov false positives on static eval)
   - CKV_K8S_14 # Image Tag should be fixed
+  - CKV_K8S_15 # Image Pull Policy should be Always (Local development uses local tags and IfNotPresent)
   - CKV_K8S_21 # The default namespace should not be used
+  - CKV_K8S_35 # Prefer using secrets as files (accepted pattern for this spike)
   - CKV_K8S_43 # Image should use digest
 
 skip-path:
