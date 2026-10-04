@@ -61,10 +61,8 @@
         "^\\.github/workflows/.*\\.ya?ml$"
       ],
       "matchStrings": [
-        "HELM_VERSION=\"(?<currentValue>v[0-9\\.]+)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "helm/helm"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
+      ]
     }
   ]
 }

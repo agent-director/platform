@@ -94,7 +94,8 @@ jobs:
 
       - name: Set up Helm natively
         run: |
-          HELM_VERSION="v3.16.1"
+          # renovate: datasource=github-releases depName=helm/helm
+          HELM_VERSION="v3.22.0"
           curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           tar -zxvf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
           sudo mv linux-amd64/helm /usr/local/bin/helm
