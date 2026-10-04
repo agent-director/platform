@@ -69,5 +69,9 @@ Dynamically resolve Kubernetes API Server Egress CIDRs
 {{- end }}
 {{- end }}
 {{- end }}
+{{- $svc := lookup "v1" "Service" "default" "kubernetes" }}
+{{- if $svc }}
+- ipBlock:
+    cidr: {{ $svc.spec.clusterIP }}/32
 {{- end }}
 {{- end }}
