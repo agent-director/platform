@@ -158,7 +158,7 @@ kind: Service
 metadata:
   name: ateapi
   annotations:
-    {{- if .Values.tls.useOcpServingCert }}
+    {{- if .Values.global.tls.useOcpServingCert }}
     service.beta.openshift.io/serving-cert-secret-name: {{ .Values.tls.secretName | default "agent-substrate-tls" | quote }}
     {{- end }}
 spec:
@@ -204,10 +204,6 @@ spec:
       {{- range .Values.global.apiServerCIDRs }}
       - ipBlock:
           cidr: {{ . }}
-      {{- end }}
-      {{- else }}
-      - ipBlock:
-          cidr: 10.96.0.0/12 # Fallback internal Kubernetes Services
       {{- end }}
     - to:
       - podSelector: {} # Allow intra-namespace

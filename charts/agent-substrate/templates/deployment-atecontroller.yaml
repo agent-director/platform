@@ -143,9 +143,5 @@ spec:
       - ipBlock:
           cidr: {{ . }}
       {{- end }}
-      {{- else }}
-      - ipBlock:
-          cidr: 10.96.0.0/12 # Fallback internal Kubernetes Services
-      {{- end }}
     - to:
       - podSelector: {} # Allow intra-namespace
