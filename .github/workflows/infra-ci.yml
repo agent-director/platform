@@ -99,20 +99,16 @@ jobs:
           curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           tar -zxvf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
           sudo mv linux-amd64/helm /usr/local/bin/helm
-      - name: Generate Kind Config
+      - name: Set up Kind natively
         run: |
-          cat << 'EOF' > .github/kind-config.yaml
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          featureGates:
-            ClusterTrustBundle: true
-          EOF
+          # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+          KIND_VERSION="v0.24.0"
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
 
-      - name: Create k8s Kind Cluster
-        uses: helm/kind-action@v1.8.0
-        with:
-          cluster_name: platform-dev
-          config: .github/kind-config.yaml
+      - name: Create k8s Kind Cluster via Makefile
+        run: make cluster-up
 
       - name: Export Cluster URL
         run: |
