@@ -6,6 +6,10 @@ metadata:
     app: postgres
 spec:
   teamId: {{ .Values.database.teamId | quote }}
+  {{- if .Values.tls.useOcpServingCert }}
+  serviceAnnotations:
+    service.beta.openshift.io/serving-cert-secret-name: "platform-db-tls"
+  {{- end }}
   volume:
     size: 10Gi
   numberOfInstances: 1
