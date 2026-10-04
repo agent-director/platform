@@ -85,6 +85,8 @@ spec:
               fieldPath: metadata.uid
         - name: OTEL_RESOURCE_ATTRIBUTES
           value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
+        - name: GODEBUG
+          value: "tls13=0,tlsmlkem=0"
         - name: ATE_STORAGE_BACKEND
           value: "s3"
         - name: AWS_ENDPOINT_URL_S3
@@ -114,7 +116,7 @@ spec:
               name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
               key: username
         - name: POSTGRES_URL
-          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres?sslmode=disable"
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres?sslmode=require"
         volumeMounts:
         - name: sa-token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
