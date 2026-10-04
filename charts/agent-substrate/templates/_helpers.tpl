@@ -49,3 +49,25 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{/*
+Dynamically resolve Kubernetes API Server Egress CIDRs
+*/}}
+{{- define "agent-substrate.apiServerEgress" -}}
+{{- if .Values.global.apiServerCIDRs }}
+{{- range .Values.global.apiServerCIDRs }}
+- ipBlock:
+    cidr: {{ . }}
+{{- end }}
+{{- else }}
+{{- $endpoints := lookup "v1" "Endpoints" "default" "kubernetes" }}
+{{- if and $endpoints $endpoints.subsets }}
+{{- range $subset := $endpoints.subsets }}
+{{- range $address := $subset.addresses }}
+- ipBlock:
+    cidr: {{ $address.ip }}/32
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
