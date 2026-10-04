@@ -138,9 +138,14 @@ spec:
           matchLabels:
             kubernetes.io/metadata.name: kube-system # Allow DNS
     - to:
+      {{- if .Values.global.apiServerCIDRs }}
+      {{- range .Values.global.apiServerCIDRs }}
       - ipBlock:
-          cidr: 10.96.0.0/12 # Allow Kubernetes Services
+          cidr: {{ . }}
+      {{- end }}
+      {{- else }}
       - ipBlock:
-          cidr: 172.16.0.0/12 # Allow Node IP for host-network API Server endpoints
+          cidr: 10.96.0.0/12 # Fallback internal Kubernetes Services
+      {{- end }}
     - to:
       - podSelector: {} # Allow intra-namespace

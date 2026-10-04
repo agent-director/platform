@@ -10,15 +10,15 @@ IMAGES_TO_LOAD=()
 
 for dockerfile in $(find images -name Dockerfile); do
     DIR_NAME=$(basename $(dirname $dockerfile))
-    
+
     # Identify multi-stage exports (ignoring common build stages)
     TARGETS=$(grep -iE "^FROM .* AS " $dockerfile | awk '{print $NF}' | grep -viE "^(builder|deps|runner|base)$" || true)
-    
+
     if [ -n "$TARGETS" ]; then
         for target in $TARGETS; do
             IMG_GHCR="ghcr.io/agent-director/${target}:local"
             IMG_LOCAL="${target}:local"
-            
+
             echo "Building target '$target' from $DIR_NAME..."
             docker buildx build --load -t "$IMG_GHCR" -t "$IMG_LOCAL" --target "$target" -f "$dockerfile" . &
             pids+=($!)
@@ -27,7 +27,7 @@ for dockerfile in $(find images -name Dockerfile); do
     else
         IMG_GHCR="ghcr.io/agent-director/${DIR_NAME}:local"
         IMG_LOCAL="${DIR_NAME}:local"
-        
+
         echo "Building $DIR_NAME..."
         docker buildx build --load -t "$IMG_GHCR" -t "$IMG_LOCAL" -f "$dockerfile" . &
         pids+=($!)
@@ -52,8 +52,8 @@ kind load docker-image "${IMAGES_TO_LOAD[@]}" --name $KIND_CLUSTER_NAME
 
 echo "=== Deploying Platform and Substrate ==="
 export IMAGE_TAG="local"
-make deploy HELM_ARGS="--set tailscaleIngress.enabled=false --set sandboxedContainers.enabled=false --set global.image.tag=local"
-
+API_SERVER_IP=$(kubectl get endpoints kubernetes -n default -o jsonpath='{.subsets[0].addresses[0].ip}')
+make deploy HELM_ARGS="--set tailscaleIngress.enabled=false --set sandboxedContainers.enabled=false --set global.image.tag=local --set global.apiServerCIDRs[0]=${API_SERVER_IP}/32 --set global.apiServerCIDRs[1]=10.96.0.1/32"
 echo "=== Waiting for all pods to be Ready ==="
 # Ensure all pods are running as expected BEFORE attempting any smoke tests
 kubectl wait --for=condition=Ready pods --all -n $NAMESPACE --timeout=600s
