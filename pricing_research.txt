@@ -1,0 +1,50 @@
+Query: IDrive e2 S3 pricing
+Snippets:
+
+Query: Storj DCS pricing
+Snippets:
+
+Query: Scaleway object storage pricing 2025
+Snippets:
+
+Query: Linode Akamai object storage pricing
+Snippets:
+
+Query: Contabo object storage pricing
+Snippets:
+
+Query: OVHcloud object storage pricing
+Snippets:
+
+Query: Bunny.net storage pricing
+Snippets:
+
+Query: Wasabi pricing
+Snippets:
+
+Query: Backblaze B2 pricing
+Snippets:
+
+Query: Cloudflare R2 pricing
+Snippets:
+
+Query: AWS S3 Glacier Deep Archive pricing
+Snippets:
+
+Query: GCP Cloud Storage Archive pricing
+Snippets:
+
+Query: Azure Blob Storage Archive pricing
+Snippets:
+
+Query: Filebase pricing
+Snippets:
+
+Query: TebbiT storage pricing
+Snippets:
+
+Query: Polycloud pricing
+Snippets:
+
+Query: Tardigrade pricing
+Snippets:

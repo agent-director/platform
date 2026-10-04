@@ -46,6 +46,7 @@ tailscaleIngress:
   # The TS_AUTHKEY should be provided via secret:
   # kubectl create secret generic tailscale-auth --from-literal=TS_AUTHKEY=tskey-auth-xxxx
   secretName: tailscale-auth
+
   caddyConfig: |
     {
         tailscale {
@@ -76,6 +77,9 @@ tailscaleIngress:
             reverse_proxy frontend:3000
         }
     }
+
+tls:
+  useOcpServingCert: false
 
 unifiedApi:
   enabled: true

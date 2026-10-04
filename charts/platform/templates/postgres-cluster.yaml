@@ -23,6 +23,8 @@ spec:
     temporal_visibility: temporal
   postgresql:
     version: {{ .Values.database.version | quote }}
+  tls:
+    secretName: "platform-db-tls" # pragma: allowlist secret
   resources:
     requests:
       cpu: 500m

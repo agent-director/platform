@@ -12,8 +12,12 @@ KUBE_API_URL ?= $(if $(findstring 127.0.0.1,$(CURRENT_API_URL)),$(CURRENT_API_UR
 
 
 cluster-up:
-	@echo "Creating local kind cluster..."
-	@kind create cluster --name platform-dev || true
+	@echo "Creating local kind cluster with ClusterTrustBundle feature gate enabled..."
+	@echo "kind: Cluster" > kind-config.yaml
+	@echo "apiVersion: kind.x-k8s.io/v1alpha4" >> kind-config.yaml
+	@echo "featureGates:" >> kind-config.yaml
+	@echo "  ClusterTrustBundle: true" >> kind-config.yaml
+	@kind create cluster --name platform-dev --config kind-config.yaml || true
 
 cluster-down:
 	@echo "Deleting local kind cluster..."
@@ -75,6 +79,7 @@ deploy: setup check-cluster
 	kubectl create namespace agent-substrate --dry-run=client -o yaml | kubectl apply -f -; \
 	kubectl get secret rustfs-auth-secret -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -; \
 	kubectl get secret agent-director-admin.platform-db.credentials.postgresql.acid.zalan.do -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -; \
+	kubectl get secret platform-db-tls -n $(NAMESPACE) -o json | jq 'del(.metadata.uid, .metadata.resourceVersion, .metadata.creationTimestamp, .metadata.namespace)' | kubectl apply -n agent-substrate -f -; \
 	helm upgrade --install agent-substrate charts/agent-substrate \
 		--namespace agent-substrate \
 		--set platformNamespace=$(NAMESPACE) \
