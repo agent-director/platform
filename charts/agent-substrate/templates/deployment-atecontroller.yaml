@@ -41,7 +41,7 @@ spec:
       containers:
       - name: atecontroller
         image: "{{ .Values.atecontroller.image.repository }}:{{ .Values.atecontroller.image.tag | default .Values.global.image.tag | default "latest" }}"
-        imagePullPolicy: {{ .Values.atecontroller.image.pullPolicy | default "IfNotPresent" }}
+        imagePullPolicy: {{ .Values.atecontroller.image.pullPolicy | default "Always" }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

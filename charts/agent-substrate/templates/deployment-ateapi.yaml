@@ -41,7 +41,7 @@ spec:
       containers:
       - name: ateapi
         image: "{{ .Values.ateapi.image.repository }}:{{ .Values.ateapi.image.tag | default .Values.global.image.tag | default "latest" }}"
-        imagePullPolicy: {{ .Values.ateapi.image.pullPolicy | default "IfNotPresent" }}
+        imagePullPolicy: {{ .Values.ateapi.image.pullPolicy | default "Always" }}
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
