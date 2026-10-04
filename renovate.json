@@ -54,6 +54,17 @@
       ],
       "datasourceTemplate": "github-tags",
       "depNameTemplate": "agent-substrate/substrate"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^\\.github/workflows/.*\\.ya?ml$"
+      ],
+      "matchStrings": [
+        "HELM_VERSION=\"(?<currentValue>v[0-9\\.]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "helm/helm"
     }
   ]
 }
