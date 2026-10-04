@@ -58,7 +58,6 @@ spec:
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
         - "--authentication-config=/etc/tls/auth.yaml"
         - "--actor-id-ca-pool=/etc/tls/bundle.pem"
-        - "--atelet-client-cred-bundle=/etc/tls/bundle.pem"
         readinessProbe:
           tcpSocket:
             port: 50051
