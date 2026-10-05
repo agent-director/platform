@@ -98,7 +98,6 @@ fi
 
 echo ""
 echo "Adding Helm repositories..."
-helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo add temporal https://go.temporal.io/helm-charts
 helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator
 helm repo update

@@ -162,10 +162,6 @@ sandboxedContainers:
   channel: "stable"
   checkNodeEligibility: false
 
-# Disable legacy Bitnami PostgreSQL subchart (we use Zalando Operator)
-postgresql:
-  enabled: false
-
 # Temporarily disabled until Tier 0.15 Temporal V1 Migration
 temporal:
   enabled: false
