@@ -1,7 +1,7 @@
 # Placeholder Dockerfile for all microservices
 # To be replaced with actual multi-stage builds in the next epic.
 FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim
-RUN pip uninstall -y pip setuptools wheel || true
+RUN uv pip uninstall --system pip setuptools wheel || true
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 

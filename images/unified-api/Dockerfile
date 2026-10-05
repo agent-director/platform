@@ -14,7 +14,7 @@ COPY gateway/ ./gateway/
 FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim
 
 # Strip the globally bundled pip/setuptools/wheel to resolve CVEs and drastically reduce production attack surface
-RUN pip uninstall -y pip setuptools wheel || true
+RUN uv pip uninstall --system pip setuptools wheel || true
 
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
