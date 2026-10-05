@@ -1,9 +1,6 @@
 # Builder stage
 FROM docker.io/library/golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS builder
 
-# Install git
-# hadolint ignore=DL3008
-
 # Single source of truth for upstream tracking
 # renovate: datasource=github-tags depName=agent-substrate/substrate
 ARG AGENT_SUBSTRATE_VERSION=v0.3.0

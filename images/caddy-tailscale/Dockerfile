@@ -2,7 +2,7 @@ FROM caddy:2.11.7-builder@sha256:f5b1a66449d305280e559dba0ab9f7ce9a2a14c527c79d7
 
 RUN xcaddy build --output /usr/bin/caddy --with github.com/tailscale/caddy-tailscale
 
-# hadolint ignore=DL4006
+SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN /usr/bin/caddy version && \
     /usr/bin/caddy list-modules | grep tailscale
 

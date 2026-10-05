@@ -5,6 +5,7 @@ severity:
   - CRITICAL
 scanners:
   - vuln
+  - secret
 db:
   skip-update: true
   java-skip-update: true
