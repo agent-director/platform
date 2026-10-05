@@ -14,22 +14,23 @@ RUN git clone --depth 1 -b ${AGENT_SUBSTRATE_VERSION} https://github.com/agent-s
 RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -o /out/atecontroller ./cmd/atecontroller
 
+RUN echo "substrate:x:10001:10001::/home/substrate:/sbin/nologin" > /out/passwd && \
+    echo "substrate:x:10001:" > /out/group
+
 # ateapi image
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS ateapi
+FROM scratch AS ateapi
+COPY --from=builder /out/passwd /etc/passwd
+COPY --from=builder /out/group /etc/group
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /out/ateapi /usr/local/bin/ateapi
-# hadolint ignore=DL3041
-RUN echo "substrate:x:10001:10001::/home/substrate:/sbin/nologin" >> /etc/passwd && \
-    echo "substrate:x:10001:" >> /etc/group && \
-    mkdir -p /home/substrate && chown 10001:10001 /home/substrate
 USER 10001
 ENTRYPOINT ["/usr/local/bin/ateapi"]
 
 # atecontroller image
-FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5@sha256:8ebe2ad8fdf3cab3e5a53c1edc69194c98209cfadab24b884f4ad9ebcf7bbbfc AS atecontroller
+FROM scratch AS atecontroller
+COPY --from=builder /out/passwd /etc/passwd
+COPY --from=builder /out/group /etc/group
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /out/atecontroller /usr/local/bin/atecontroller
-# hadolint ignore=DL3041
-RUN echo "substrate:x:10001:10001::/home/substrate:/sbin/nologin" >> /etc/passwd && \
-    echo "substrate:x:10001:" >> /etc/group && \
-    mkdir -p /home/substrate && chown 10001:10001 /home/substrate
 USER 10001
 ENTRYPOINT ["/usr/local/bin/atecontroller"]
