@@ -30,12 +30,21 @@ docker buildx build \
   .
 
 echo ""
+IGNORE_ARGS=""
+MOUNT_ARGS=""
+if [ -f ".trivyignore" ]; then
+  IGNORE_ARGS="--ignorefile /.trivyignore"
+  MOUNT_ARGS="-v $(pwd)/.trivyignore:/.trivyignore"
+fi
+
 echo "[2/2] Running Trivy Image scan (with persistent DB cache)..."
 # Run Trivy targeting the local daemon image
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
+  $MOUNT_ARGS \
   aquasec/trivy:latest image \
+  $IGNORE_ARGS \
   --scanners vuln,secret \
   --pkg-types library \
   --severity HIGH,CRITICAL \
