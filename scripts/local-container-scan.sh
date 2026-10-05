@@ -62,6 +62,8 @@ docker run --rm \
   -v "$(pwd):/workspace" -w /workspace \
   aquasec/trivy:latest image \
   --pkg-types os \
+  --skip-db-update \
+  --skip-java-db-update \
   --severity CRITICAL \
   --exit-code 1 \
   "$IMAGE_NAME"

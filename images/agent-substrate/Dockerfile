@@ -1,5 +1,5 @@
 # Builder stage
-FROM docker.io/library/golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS builder
+FROM docker.io/library/golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5 AS builder
 
 # Single source of truth for upstream tracking
 # renovate: datasource=github-tags depName=agent-substrate/substrate

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 WORKDIR /app
@@ -11,7 +11,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY gateway/ ./gateway/
 
 # Runtime stage
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim
 
 # Strip the globally bundled pip/setuptools/wheel to resolve CVEs and drastically reduce production attack surface
 RUN pip uninstall -y pip setuptools wheel || true
