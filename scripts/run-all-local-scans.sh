@@ -16,21 +16,8 @@ echo "=========================================================="
 echo "      UPDATING TRIVY DATABASE CACHE (SEQUENTIAL)          "
 echo "=========================================================="
 # Prevent bbolt write locks by pulling the DB sequentially once
-docker run --rm -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest image --download-db-only >/dev/null
+docker run --rm -v trivy-cache:/root/.cache/trivy -v "$(pwd):/workspace" -w /workspace aquasec/trivy:latest image -c "" --download-db-only >/dev/null
 
-echo ""
-set +e
-./scripts/scan-base-images.sh
-BASE_SCAN_EXIT=$?
-set -e
-
-
-if [ $BASE_SCAN_EXIT -ne 0 ]; then
-  echo ""
-  echo "⚠️ WARNING: Base OS images have vulnerabilities. These must be fixed upstream or base images swapped."
-  echo "Continuing to scan application-level dependencies..."
-  echo ""
-fi
 
 # Strict discovery: Match CI exactly by finding all actual Dockerfiles
 COMPONENTS=()
@@ -54,16 +41,14 @@ echo "=========================================================="
 
 for ctx in "${COMPONENTS[@]}"; do
   img=$(basename "$ctx")
-  # Run the scan in the background, redirecting output to isolate logs
+  # Run in background now that DB updates are skipped (no bbolt lock!)
   (
     ./scripts/local-container-scan.sh "$ctx" > ".local-scans/$img.log" 2>&1
     echo $? > ".local-scans/$img.status"
   ) &
 done
 
-# Wait for ALL background processes to finish (does not fail fast)
 wait
-
 echo ""
 echo "=========================================================="
 echo "                 SCAN RESULTS SUMMARY                     "

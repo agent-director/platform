@@ -1,0 +1,13 @@
+exit-code: 1
+vulnerability:
+  ignore-unfixed: true
+severity:
+  - CRITICAL
+scanners:
+  - vuln
+db:
+  skip-update: true
+  java-skip-update: true
+pkg-types:
+  - os
+  - library

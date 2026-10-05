@@ -1,9 +1,8 @@
 # Builder stage
-FROM docker.io/library/golang:1.27.1@sha256:e0174e51e81218523251d85d248a90d24c3d5e81543b4f07a5d66229397db190 AS builder
+FROM docker.io/library/golang:1.27.1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS builder
 
 # Install git
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # Single source of truth for upstream tracking
 # renovate: datasource=github-tags depName=agent-substrate/substrate

@@ -43,16 +43,42 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
 
-      # Step 2: Run Trivy against the local daemon image
-      - name: Run Trivy vulnerability scanner
+      # Step 2: Run Trivy against the local daemon image (Dual-Pass Strategy)
+      - name: 📦 Trivy App Dependencies (Enforcement)
         uses: aquasecurity/trivy-action@master # v0.28.0
         with:
           image-ref: ${{ inputs.image }}:${{ github.sha }}
           format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
           vuln-type: 'library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+        env:
+          TRIVY_SKIP_DB_UPDATE: "false"
+          TRIVY_JAVA_SKIP_UPDATE: "false"
+
+      - name: ⚠️ Trivy OS Dependencies (Warning)
+        uses: aquasecurity/trivy-action@master # v0.28.0
+        with:
+          image-ref: ${{ inputs.image }}:${{ github.sha }}
+          format: 'table'
+          vuln-type: 'os'
+          severity: 'HIGH'
+          exit-code: '0'
+        env:
+          TRIVY_SKIP_DB_UPDATE: "false"
+          TRIVY_JAVA_SKIP_UPDATE: "false"
+
+      - name: 🛑 Trivy OS Dependencies (Enforcement)
+        uses: aquasecurity/trivy-action@master # v0.28.0
+        with:
+          image-ref: ${{ inputs.image }}:${{ github.sha }}
+          format: 'table'
+          vuln-type: 'os'
+          severity: 'CRITICAL'
+          exit-code: '1'
+        env:
+          TRIVY_SKIP_DB_UPDATE: "false"
+          TRIVY_JAVA_SKIP_UPDATE: "false"
 
       # Step 3: Trivy passed. Now push the exact same image to GHCR.
       # Buildx natively uses the cached layers from the step above.

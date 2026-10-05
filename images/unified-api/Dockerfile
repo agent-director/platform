@@ -2,6 +2,7 @@
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Install project dependencies
@@ -11,11 +12,12 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY gateway/ ./gateway/
 
 # Runtime stage
-FROM python:3.14-slim
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
 
 # Strip the globally bundled pip/setuptools/wheel to resolve CVEs and drastically reduce production attack surface
 RUN pip uninstall -y pip setuptools wheel || true
 
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy the pre-built environment

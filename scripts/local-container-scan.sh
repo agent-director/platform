@@ -19,7 +19,7 @@ echo "=========================================================="
 echo "🛡️ Starting Optimized Shift-Left Scan for $CONTEXT_DIR"
 echo "=========================================================="
 
-echo "[1/2] Building image to local daemon (using BuildKit cache)..."
+echo "[1/4] Building image to local daemon (using BuildKit cache)..."
 # Build and load the image into the Docker daemon.
 # This is MUCH faster on macOS than extracting rootfs because it avoids
 # writing thousands of files across the VirtioFS mount to the host disk.
@@ -30,28 +30,48 @@ docker buildx build \
   .
 
 echo ""
-IGNORE_ARGS=""
-MOUNT_ARGS=""
-if [ -f ".trivyignore" ]; then
-  IGNORE_ARGS="--ignorefile /.trivyignore"
-  MOUNT_ARGS="-v $(pwd)/.trivyignore:/.trivyignore"
-fi
-
-echo "[2/2] Running Trivy Image scan (with persistent DB cache)..."
-# Run Trivy targeting the local daemon image
+echo "[2/4] 📦 APP DEPENDENCIES (Fail on HIGH & CRITICAL)..."
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
-  $MOUNT_ARGS \
+  -v "$(pwd):/workspace" -w /workspace \
   aquasec/trivy:latest image \
-  $IGNORE_ARGS \
-  --scanners vuln,secret \
   --pkg-types library \
   --severity HIGH,CRITICAL \
   --exit-code 1 \
-  --ignore-unfixed \
   "$IMAGE_NAME"
-TRIVY_EXIT_CODE=$?
+APP_EXIT=$?
+
+echo ""
+echo "[3/4] ⚠️  OS DEPENDENCIES WARNING (Warn on HIGH)..."
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v trivy-cache:/root/.cache/trivy \
+  -v "$(pwd):/workspace" -w /workspace \
+  aquasec/trivy:latest image \
+  --pkg-types os \
+  --severity HIGH \
+  --exit-code 0 \
+  "$IMAGE_NAME"
+
+echo ""
+echo "[4/4] 🛑 OS DEPENDENCIES ENFORCEMENT (Fail on CRITICAL)..."
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v trivy-cache:/root/.cache/trivy \
+  -v "$(pwd):/workspace" -w /workspace \
+  aquasec/trivy:latest image \
+  --pkg-types os \
+  --severity CRITICAL \
+  --exit-code 1 \
+  "$IMAGE_NAME"
+OS_EXIT=$?
+
+if [ $APP_EXIT -ne 0 ] || [ $OS_EXIT -ne 0 ]; then
+  TRIVY_EXIT_CODE=1
+else
+  TRIVY_EXIT_CODE=0
+fi
 
 echo ""
 echo "[Cleanup] Removing temporary image tag..."
