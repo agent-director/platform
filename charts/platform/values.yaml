@@ -1,12 +1,28 @@
 global:
   image:
     tag: "latest"
-
+  tls:
+    useOcpServingCert: false
 fullnameOverride: ""
+
+adminAllowlist:
+  - "admin@example.com"
 
 imagePullSecrets:
   - name: ghcr-secret
 
+database:
+  teamId: "agent-director"
+  superuser: "agent-director-admin"
+  version: "18"
+
+rustfs:
+  enabled: true
+  image: "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff"
+  persistence:
+    size: "10Gi"
+  accessKey: "rustfsadmin"
+  secretKey: "rustfsadmin" # pragma: allowlist secret
 gitSync:
   repo: "https://github.com/agent-director/platform.git"
   branch: "main"
@@ -14,6 +30,7 @@ gitSync:
 secrets:
   langfuseNextauthSecret: "secret"
   langfuseSalt: "salt"
+  litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
 
 # Unprivileged Sidecar Bridge Ingress
 tailscaleIngress:
@@ -30,6 +47,7 @@ tailscaleIngress:
   # The TS_AUTHKEY should be provided via secret:
   # kubectl create secret generic tailscale-auth --from-literal=TS_AUTHKEY=tskey-auth-xxxx
   secretName: tailscale-auth
+
   caddyConfig: |
     {
         tailscale {
@@ -68,7 +86,7 @@ unifiedApi:
     repository: unified-api
     tag: local
     pullPolicy: IfNotPresent
-  githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO" # MUST CHANGE THIS!
+  githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO"
   service:
     port: 8000
 
@@ -88,3 +106,62 @@ litellm:
   enabled: true
   service:
     port: 4000
+
+temporal:
+  cassandra:
+    enabled: false
+  elasticsearch:
+    enabled: false
+  prometheus:
+    enabled: false
+  postgresql:
+    enabled: false
+  mysql:
+    enabled: false
+  server:
+    config:
+      persistence:
+        default:
+          driver: "sql"
+          sql:
+            driver: "postgres12"
+            host: "platform-db"
+            port: 5432
+            database: "temporal"
+            user: "temporal"
+            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
+        visibility:
+          driver: "sql"
+          sql:
+            driver: "postgres12"
+            host: "platform-db"
+            port: 5432
+            database: "temporal_visibility"
+            user: "temporal"
+            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
+    securityContext:
+      runAsUser: null
+      fsGroup: null
+    additionalVolumes:
+      - name: temporal-scratch
+        emptyDir:
+          sizeLimit: 1Gi
+    additionalVolumeMounts:
+      - name: temporal-scratch
+        mountPath: /var/lib/temporal
+  admintools:
+    securityContext:
+      runAsUser: null
+      fsGroup: null
+
+# OpenShift Sandboxed Containers (Kata) Operator# OpenShift Sandboxed Containers (Kata) Operator
+# OpenShift Sandboxed Containers (Kata) Operator
+
+sandboxedContainers:
+  enabled: true
+  channel: "stable"
+  checkNodeEligibility: false
+
+# Temporarily disabled until Tier 0.15 Temporal V1 Migration
+temporal:
+  enabled: false

@@ -1,0 +1,53 @@
+global:
+  image:
+    tag: latest
+  apiServerCIDRs: []
+  tls:
+    useOcpServingCert: false
+
+ateapi:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/agent-director/ateapi
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+atecontroller:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/agent-director/atecontroller
+    pullPolicy: Always
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+database:
+  host: "platform-db"
+
+rustfs:
+  secretName: "rustfs-auth-secret" # pragma: allowlist secret
+  host: "rustfs"
+  port: 9000
+
+tls:
+  secretName: agent-substrate-tls # pragma: allowlist secret
+
+platformNamespace: platform
+
+workloadNamespace: agent-workloads

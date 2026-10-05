@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atecontroller
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: atecontroller
+spec:
+  replicas: {{ .Values.atecontroller.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: atecontroller
+  template:
+    metadata:
+      labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: atecontroller
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: {{ include "agent-substrate.fullname" . }}-controller
+
+      {{- with .Values.atecontroller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atecontroller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.atecontroller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: atecontroller
+        image: "{{ .Values.atecontroller.image.repository }}:{{ .Values.atecontroller.image.tag | default .Values.global.image.tag | default "latest" }}"
+        imagePullPolicy: {{ .Values.atecontroller.image.pullPolicy | default "Always" }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.atecontroller.resources | nindent 10 }}
+
+        command: ["/usr/local/bin/atecontroller"]
+        args:
+        - "--ateapi-conn-spec=ateapi:50051"
+        - "--ateapi-client-cert=/etc/tls/bundle.pem"
+        - "--ateapi-ca-file=/etc/tls/bundle.pem"
+        - "--ateapi-server-name=ateapi"
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
+        volumeMounts:
+        - name: sa-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+        - name: tls
+          mountPath: /etc/tls
+          readOnly: true
+      volumes:
+        - name: sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+        - name: tls
+          secret:
+            secretName: agent-substrate-tls # pragma: allowlist secret
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atecontroller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: atecontroller
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: atecontroller
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - podSelector: {} # Allow all pods within the same namespace
+  egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system # Allow DNS
+    - to:
+{{ include "agent-substrate.apiServerEgress" . | indent 6 }}
+    - to:
+      - podSelector: {} # Allow intra-namespace

@@ -53,6 +53,7 @@ spec:
         - name: litellm-config
           configMap:
             name: {{ include "platform.fullname" . }}-litellm-config
+
 ---
 apiVersion: v1
 kind: Service

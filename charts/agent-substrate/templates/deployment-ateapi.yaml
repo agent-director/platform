@@ -1,0 +1,203 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ateapi
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ateapi
+spec:
+  replicas: {{ .Values.ateapi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ateapi
+  template:
+    metadata:
+      labels:
+        {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ateapi
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ include "agent-substrate.fullname" . }}-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+
+      {{- with .Values.ateapi.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ateapi.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ateapi.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: ateapi
+        image: "{{ .Values.ateapi.image.repository }}:{{ .Values.ateapi.image.tag | default .Values.global.image.tag | default "latest" }}"
+        imagePullPolicy: {{ .Values.ateapi.image.pullPolicy | default "Always" }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          {{- toYaml .Values.ateapi.resources | nindent 10 }}
+        args:
+        - "--grpc-listen-addr=0.0.0.0:50051"
+        - "--postgres-connection-string=$(POSTGRES_URL)"
+        - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
+        - "--authentication-config=/etc/tls/auth.yaml"
+        - "--actor-id-ca-pool=/etc/tls/empty.json"
+        - "--actor-id-jwt-pool=/etc/tls/empty.json"
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        ports:
+        - containerPort: 50051
+          name: grpc
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: k8s.namespace.name=$(POD_NAMESPACE),k8s.pod.name=$(POD_NAME),k8s.pod.uid=$(POD_UID),service.instance.id=$(POD_UID)
+        - name: ATE_STORAGE_BACKEND
+          value: "s3"
+        - name: AWS_ENDPOINT_URL_S3
+          value: {{ printf "http://%s.%s.svc.cluster.local:%v" (.Values.rustfs.host | default "rustfs") .Values.platformNamespace (.Values.rustfs.port | default 9000) | quote }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.rustfs.secretName | quote }}
+              key: accessKey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.rustfs.secretName | quote }}
+              key: secretKey
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: AWS_S3_USE_PATH_STYLE
+          value: "true"
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
+              key: password
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
+              key: username
+        - name: POSTGRES_URL
+          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres?sslmode=require&connect_timeout=10"
+        volumeMounts:
+        - name: sa-token
+          mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+          readOnly: true
+        - name: tls
+          mountPath: /etc/tls
+          readOnly: true
+        - name: db-tls
+          mountPath: /etc/db-tls
+          readOnly: true
+      volumes:
+        - name: sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+        - name: tls
+          secret:
+            secretName: agent-substrate-tls # pragma: allowlist secret
+        - name: db-tls
+          secret:
+            secretName: platform-db-tls # pragma: allowlist secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ateapi
+  annotations:
+    {{- if .Values.global.tls.useOcpServingCert }}
+    service.beta.openshift.io/serving-cert-secret-name: {{ .Values.tls.secretName | default "agent-substrate-tls" | quote }}
+    {{- end }}
+spec:
+  selector:
+    {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ateapi
+  ports:
+  - port: 50051
+    targetPort: 50051
+    name: grpc
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ateapi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "agent-substrate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ateapi
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "agent-substrate.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ateapi
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - podSelector: {} # Allow all pods within the same namespace
+  egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system # Allow DNS
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: {{ .Values.platformNamespace | default "platform" }} # Allow Postgres/RustFS
+    - to:
+{{ include "agent-substrate.apiServerEgress" . | indent 6 }}
+    - to:
+      - podSelector: {} # Allow intra-namespace

@@ -21,7 +21,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: langfuse
-          image: "langfuse/langfuse:v2.0.0"
+          image: "langfuse/langfuse:2"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -40,6 +40,27 @@ spec:
               mountPath: /tmp
           ports:
             - containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /api/public/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /api/public/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /api/public/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 30
           env:
             - name: PG_PASSWORD
               valueFrom:
@@ -63,6 +84,7 @@ spec:
       volumes:
         - name: tmp-volume
           emptyDir: {}
+
 ---
 apiVersion: v1
 kind: Service

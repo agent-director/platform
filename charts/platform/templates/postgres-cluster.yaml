@@ -5,12 +5,16 @@ metadata:
   labels:
     app: postgres
 spec:
-  teamId: "agent-director"
+  teamId: {{ .Values.database.teamId | quote }}
+  {{- if .Values.global.tls.useOcpServingCert }}
+  serviceAnnotations:
+    service.beta.openshift.io/serving-cert-secret-name: "platform-db-tls"
+  {{- end }}
   volume:
     size: 10Gi
-  numberOfInstances: 2
+  numberOfInstances: 1
   users:
-    agent-director:
+    {{ .Values.database.superuser }}:
       - superuser
       - createdb
     platform: []
@@ -20,8 +24,11 @@ spec:
     platform: platform
     langfuse: langfuse
     temporal: temporal
+    temporal_visibility: temporal
   postgresql:
-    version: "15"
+    version: {{ .Values.database.version | quote }}
+  tls:
+    secretName: "platform-db-tls" # pragma: allowlist secret
   resources:
     requests:
       cpu: 500m

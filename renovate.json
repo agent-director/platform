@@ -1,23 +1,57 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Managed by khepri-deps/renovate — global config provides weekly Monday schedule, 14-day release cooldown, and vulnerability alert bypass."
+    "Managed by khepri-deps/renovate \u2014 global config provides weekly Monday schedule, 14-day release cooldown, and vulnerability alert bypass."
   ],
   "packageRules": [
     {
-      "matchDatasources": ["deb"],
-      "matchFileNames": ["images/caddy-tailscale/Dockerfile"],
+      "matchDatasources": [
+        "deb"
+      ],
+      "matchFileNames": [
+        "images/caddy-tailscale/Dockerfile"
+      ],
       "registryUrls": [
         "https://deb.debian.org/debian?suite=bookworm&components=main&binaryArch=amd64",
         "https://deb.debian.org/debian-security?suite=bookworm-security&components=main&binaryArch=amd64"
       ]
     },
     {
-      "matchDatasources": ["deb"],
-      "matchFileNames": ["images/sandbox/Dockerfile"],
+      "matchDatasources": [
+        "deb"
+      ],
+      "matchFileNames": [
+        "images/sandbox/Dockerfile"
+      ],
       "registryUrls": [
         "https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64",
         "https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "agent-substrate/substrate"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "uv run --with pyyaml python scripts/update-crds.py"
+        ],
+        "fileFilters": [
+          "charts/agent-substrate/crds/*.yaml"
+        ],
+        "executionMode": "branch"
+      }
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^\\.github/workflows/.*\\.ya?ml$",
+        "^images/.*/Dockerfile$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]
