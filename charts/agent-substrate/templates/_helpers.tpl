@@ -75,3 +75,4 @@ Dynamically resolve Kubernetes API Server Egress CIDRs
     cidr: {{ $svc.spec.clusterIP }}/32
 {{- end }}
 {{- end }}
+{{- end }}
