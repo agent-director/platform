@@ -52,7 +52,7 @@ kind load docker-image "${IMAGES_TO_LOAD[@]}" --name $KIND_CLUSTER_NAME
 
 echo "=== Deploying Platform and Substrate ==="
 export IMAGE_TAG="local"
-make deploy HELM_ARGS="--set tailscaleIngress.enabled=false --set sandboxedContainers.enabled=false --set global.image.tag=local --set ateapi.image.pullPolicy=IfNotPresent --set atecontroller.image.pullPolicy=IfNotPresent"
+make deploy HELM_ARGS="--set tailscaleIngress.enabled=false --set sandboxedContainers.enabled=false" HELM_ARGS_SUBSTRATE="--set ateapi.image.pullPolicy=IfNotPresent --set atecontroller.image.pullPolicy=IfNotPresent"
 echo "=== Waiting for all pods to be Ready ==="
 # Ensure all pods are running as expected BEFORE attempting any smoke tests
 kubectl wait --for=condition=Ready pods --all -n $NAMESPACE --timeout=600s
