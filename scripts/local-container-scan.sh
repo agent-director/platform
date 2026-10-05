@@ -13,7 +13,7 @@ if [ ! -f "$CONTEXT_DIR/Dockerfile" ]; then
   exit 1
 fi
 
-IMAGE_NAME="gordon-scan-$(basename "$CONTEXT_DIR")"
+IMAGE_NAME="local-scan-$(basename "$CONTEXT_DIR")"
 
 echo "=========================================================="
 echo "🛡️ Starting Optimized Shift-Left Scan for $CONTEXT_DIR"
