@@ -13,11 +13,7 @@ KUBE_API_URL ?= $(if $(findstring 127.0.0.1,$(CURRENT_API_URL)),$(CURRENT_API_UR
 
 cluster-up:
 	@echo "Creating local kind cluster with ClusterTrustBundle feature gate enabled..."
-	@echo "kind: Cluster" > kind-config.yaml
-	@echo "apiVersion: kind.x-k8s.io/v1alpha4" >> kind-config.yaml
-	@echo "featureGates:" >> kind-config.yaml
-	@echo "  ClusterTrustBundle: true" >> kind-config.yaml
-	@kind create cluster --name platform-dev --config kind-config.yaml || true
+	@kind create cluster --name platform-dev --config <(printf "kind: Cluster\napiVersion: kind.x-k8s.io/v1alpha4\nfeatureGates:\n  ClusterTrustBundle: true\n") || true
 
 cluster-down:
 	@echo "Deleting local kind cluster..."
