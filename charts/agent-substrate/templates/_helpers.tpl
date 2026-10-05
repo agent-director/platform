@@ -60,12 +60,12 @@ Dynamically resolve Kubernetes API Server Egress CIDRs
     cidr: {{ . }}
 {{- end }}
 {{- else }}
-{{- $endpoints := lookup "v1" "Endpoints" "default" "kubernetes" }}
-{{- if and $endpoints $endpoints.subsets }}
-{{- range $subset := $endpoints.subsets }}
-{{- range $address := $subset.addresses }}
+{{- $es := lookup "discovery.k8s.io/v1" "EndpointSlice" "default" "kubernetes" }}
+{{- if and $es $es.endpoints }}
+{{- range $endpoint := $es.endpoints }}
+{{- range $address := $endpoint.addresses }}
 - ipBlock:
-    cidr: {{ $address.ip }}/32
+    cidr: {{ $address }}/32
 {{- end }}
 {{- end }}
 {{- end }}
