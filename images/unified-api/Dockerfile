@@ -1,25 +1,24 @@
 # syntax=docker/dockerfile:1
-FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder
+FROM ghcr.io/astral-sh/uv:trixie-slim AS builder
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 
 # Install project dependencies
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev
+RUN uv sync --frozen --no-install-project --no-dev && \
+    rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
+
 # Copy the application code
 COPY gateway/ ./gateway/
-
 # Runtime stage
-FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim
-
-# Strip the globally bundled pip/setuptools/wheel to resolve CVEs and drastically reduce production attack surface
-RUN uv pip uninstall --system pip setuptools wheel || true
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# Copy the pre-built environment
+# Copy the downloaded Python and pre-built environment
+COPY --from=builder /opt/python /opt/python
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/gateway /app/gateway
 
