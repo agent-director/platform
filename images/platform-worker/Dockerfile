@@ -1,17 +1,14 @@
 # Placeholder Dockerfile for all microservices
 # To be replaced with actual multi-stage builds in the next epic.
 FROM ghcr.io/astral-sh/uv:trixie-slim AS builder
-ENV UV_PYTHON_INSTALL_DIR=/opt/python
-RUN uv venv /app/.venv --python 3.14 && \
-    rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
+WORKDIR /app
+RUN uv venv /app/.venv --python 3.14
 
-FROM debian:trixie-slim
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /opt/python /opt/python
+# hadolint ignore=DL3007
+FROM cgr.dev/chainguard/python:latest
+WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-RUN echo "Microservice pending implementation."
-
-# Keep the container running so Kubernetes doesn't crash-loop it immediately
-CMD ["sh", "-c", "echo 'Microservice stub running...'; while true; do sleep 3600; done"]
+# Keep the container running using native Python (no shell available in distroless)
+ENTRYPOINT ["python", "-c", "import time; print('Microservice stub running...', flush=True); time.sleep(3600000)"]
