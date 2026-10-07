@@ -6,13 +6,13 @@ WORKDIR /app
 
 # Install project dependencies
 COPY .python-version pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev && \
+RUN uv sync --frozen --no-install-project --no-dev --python 3.14 && \
     rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
 # Copy the application code
 COPY gateway/ ./gateway/
 
 # Runtime stage: True distroless
-FROM gcr.io/distroless/base-debian13@sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd
+FROM gcr.io/distroless/cc-debian13@sha256:159783207c2cd44c2aa5715961d13c8612368ac9bd450f887e3f08fc8ea461e3
 
 WORKDIR /app
 
