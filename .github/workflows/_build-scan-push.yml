@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.1 (approximate pinning)
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
@@ -33,7 +33,7 @@ jobs:
 
       # Step 1: Build and load into local daemon (NOT pushed yet)
       - name: Build image for scanning
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ${{ inputs.dockerfile }}
@@ -83,7 +83,7 @@ jobs:
       # Step 3: Trivy passed. Now push the exact same image to GHCR.
       # Buildx natively uses the cached layers from the step above.
       - name: Push image to GHCR
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ${{ inputs.dockerfile }}
