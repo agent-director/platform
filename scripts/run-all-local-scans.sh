@@ -35,9 +35,15 @@ fi
 mkdir -p .local-scans
 rm -f .local-scans/*.log .local-scans/*.status
 
+if [ "$CI" == "true" ]; then
+  echo "=========================================================="
+  echo "      STARTING SEQUENTIAL SCANS FOR ${#COMPONENTS[@]} IMAGES (CI Mode)"
+  echo "=========================================================="
+else
 echo "=========================================================="
 echo "      STARTING PARALLEL SCANS FOR ${#COMPONENTS[@]} IMAGES"
 echo "=========================================================="
+fi
 
 for ctx in "${COMPONENTS[@]}"; do
   img=$(basename "$ctx")
@@ -46,6 +52,9 @@ for ctx in "${COMPONENTS[@]}"; do
     ./scripts/local-container-scan.sh "$ctx" > ".local-scans/$img.log" 2>&1
     echo $? > ".local-scans/$img.status"
   ) &
+  if [ "$CI" == "true" ]; then
+    wait
+  fi
 done
 
 wait
