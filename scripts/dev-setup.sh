@@ -13,6 +13,21 @@ for cmd in uv helm kubectl jq openssl hadolint; do
     fi
 done
 
+if [ -f ".tool-versions" ]; then
+    EXPECTED_HELM=$(grep "helm" .tool-versions | awk '{print $2}')
+    if [ -n "$EXPECTED_HELM" ]; then
+        ACTUAL_HELM=$(helm version --template '{{.Version}}' 2>/dev/null | sed 's/^v//')
+        # Handle variations where helm version includes commit hash, e.g. v3.22.0+g1234
+        ACTUAL_HELM_BASE=$(echo "$ACTUAL_HELM" | cut -d'+' -f1)
+        if [ "$ACTUAL_HELM_BASE" != "$EXPECTED_HELM" ]; then
+            echo "⚠️  WARNING: Local Helm version (v$ACTUAL_HELM_BASE) does not match CI version (v$EXPECTED_HELM) from .tool-versions."
+            echo "   Please install Helm v$EXPECTED_HELM to prevent rendering inconsistencies."
+            if [ "$CI" == "true" ]; then
+                exit 1
+            fi
+        fi
+    fi
+fi
 
 validate_gh_token() {
     local token="$1"
