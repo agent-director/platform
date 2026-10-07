@@ -55,6 +55,17 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 - Branch naming: kebab-case descriptive names prefixed with conventional commit types (`feat/`, `fix/`, `chore/`, `refactor/`, `test/`).
 - Never stack branches — every feature branch is independent.
 
+
+## Architecture & Monorepo Structure
+
+We use an **Nx-managed Modular Monorepo**. To ensure isolated dependencies, cacheable CI runs, and strict architectural boundaries, code MUST be placed in the correct directory:
+
+- **`apps/` (Deployable Runtimes):** Containers, web servers, and UI bundles that get executed or deployed. They should remain "thin" and mostly wire up shared libraries.
+  - Examples: `apps/core` (API), `apps/ui` (React), `apps/sandbox-exec` (Daemon), `apps/charts` (Helm).
+- **`libs/` (Shared Code & Contracts):** The bulk of the codebase. Reusable Python modules, UI components, and API schemas.
+  - Examples: `libs/contracts` (Shared OpenAPI/Types).
+- **`tools/` (Generators & Automation):** Scripts, Copier templates, and DX improvements used to maintain the codebase, not shipped to users.
+  - Examples: `tools/toolkit-template` (Scaffolding), `tools/scripts` (BATS/Bash).
 ## Tooling & Execution
 
 Always use `uv` for Python execution and dependency management:

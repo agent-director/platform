@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Install project dependencies
 COPY .python-version pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev --python 3.14 && \
+RUN uv sync --frozen --no-install-project --no-dev && \
     rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
 # Copy the application code
 COPY gateway/ ./gateway/
