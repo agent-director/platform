@@ -6,7 +6,7 @@ echo " Agent Director - Dev Setup"
 echo "========================================"
 
 # Check dependencies
-for cmd in uv helm kubectl jq openssl; do
+for cmd in uv helm kubectl jq openssl hadolint; do
     if ! command -v $cmd &> /dev/null; then
         echo "Error: '$cmd' is not installed."
         exit 1

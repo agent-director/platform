@@ -61,7 +61,7 @@ hooks = [
 repo = "https://github.com/hadolint/hadolint"
 rev = "v2.12.0"
 hooks = [
-  { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
+  { id = "hadolint", priority = 0, files = "Dockerfile" }
 ]
 
 [[repos]]
