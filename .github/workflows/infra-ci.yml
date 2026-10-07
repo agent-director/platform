@@ -9,6 +9,10 @@ permissions:
   packages: read
   pull-requests: read
 
+env:
+  # renovate: datasource=github-releases depName=helm/helm
+  HELM_VERSION: "v3.22.0"
+
 jobs:
 
   scan-and-lint:
@@ -32,7 +36,7 @@ jobs:
         run: |
           mkdir -p ~/.local/bin
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -fsSL https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
           curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar -xzf - -C ~/.local/bin kubeconform
           curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz | tar -xzf - -C ~/.local/bin trivy
           curl -fsSL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 -o ~/.local/bin/hadolint
@@ -79,8 +83,6 @@ jobs:
 
       - name: Set up Helm natively
         run: |
-          # renovate: datasource=github-releases depName=helm/helm
-          HELM_VERSION="v3.22.0"
           curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
           tar -zxvf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
           sudo mv linux-amd64/helm /usr/local/bin/helm
