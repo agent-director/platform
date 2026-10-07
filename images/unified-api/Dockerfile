@@ -12,8 +12,7 @@ RUN uv sync --frozen --no-install-project --no-dev --python 3.14 && \
 COPY gateway/ ./gateway/
 
 # Runtime stage: True distroless
-# hadolint ignore=DL3007
-FROM gcr.io/distroless/base-debian13:latest
+FROM gcr.io/distroless/base-debian13@sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd
 
 WORKDIR /app
 
@@ -24,6 +23,7 @@ COPY --from=builder /app/gateway /app/gateway
 
 # Make sure the virtualenv is on the path
 ENV PATH="/app/.venv/bin:$PATH"
+USER 65532:65532
 
 # Run the bare uvicorn binary directly from the virtual environment
 ENTRYPOINT ["uvicorn", "gateway.unified_api:app", "--host", "0.0.0.0", "--port", "8000"]

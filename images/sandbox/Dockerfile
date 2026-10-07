@@ -6,12 +6,12 @@ WORKDIR /app
 RUN uv venv /app/.venv --python 3.14 && \
     rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
 
-# hadolint ignore=DL3007
-FROM gcr.io/distroless/base-debian13:latest
+FROM gcr.io/distroless/base-debian13@sha256:389cad21f73e4c37b94ffe5b13736d5a92bd5bd3c6c6b38c2be1c881e14ba2bd
 WORKDIR /app
 COPY --from=builder /opt/python /opt/python
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
+USER 65532:65532
 
 # Keep the container running using native Python (no shell available in distroless)
 ENTRYPOINT ["python", "-c", "import time; print('Microservice stub running...', flush=True); time.sleep(3600000)"]

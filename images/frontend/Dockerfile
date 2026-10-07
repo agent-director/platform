@@ -9,8 +9,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ .
 RUN npm run build
-# hadolint ignore=DL3006,DL3007
-FROM gcr.io/distroless/nodejs26-debian13:latest
+FROM gcr.io/distroless/nodejs26-debian13@sha256:3535dc89b77aad3c749e90e81b84d5b0af721fe491930294de6d6d2d6a34e67f
 WORKDIR /app
 
 ENV NODE_ENV=production
