@@ -31,12 +31,15 @@ jobs:
       - name: Install System Dependencies
         run: |
           HELM_VERSION="v$(grep '^helm ' .tool-versions | awk '{print $2}')"
+          KUBECONFORM_VERSION="v$(grep '^kubeconform ' .tool-versions | awk '{print $2}')"
+          TRIVY_VERSION="$(grep '^trivy ' .tool-versions | awk '{print $2}')"
+          HADOLINT_VERSION="v$(grep '^hadolint ' .tool-versions | awk '{print $2}')"
           mkdir -p ~/.local/bin
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
-          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar -xzf - -C ~/.local/bin kubeconform
-          curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v0.75.0/trivy_0.75.0_Linux-64bit.tar.gz | tar -xzf - -C ~/.local/bin trivy
-          curl -fsSL https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-Linux-x86_64 -o ~/.local/bin/hadolint
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin kubeconform
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xzf - -C ~/.local/bin trivy
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
           chmod +x ~/.local/bin/hadolint
 
       - name: Environment Setup
@@ -86,9 +89,8 @@ jobs:
           sudo mv linux-amd64/helm /usr/local/bin/helm
       - name: Set up Kind natively
         run: |
-          # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-          KIND_VERSION="v0.33.0"
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
+          KIND_VERSION="v$(grep '^kind ' .tool-versions | awk '{print $2}')"
+          curl -Lo ./kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
           chmod +x ./kind
           sudo mv ./kind /usr/local/bin/kind
 

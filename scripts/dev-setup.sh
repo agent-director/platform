@@ -13,20 +13,46 @@ for cmd in uv helm kubectl jq openssl hadolint; do
     fi
 done
 
-if [ -f ".tool-versions" ]; then
-    EXPECTED_HELM=$(grep "helm" .tool-versions | awk '{print $2}')
-    if [ -n "$EXPECTED_HELM" ]; then
-        ACTUAL_HELM=$(helm version --template '{{.Version}}' 2>/dev/null | sed 's/^v//')
-        # Handle variations where helm version includes commit hash, e.g. v3.22.0+g1234
-        ACTUAL_HELM_BASE=$(echo "$ACTUAL_HELM" | cut -d'+' -f1)
-        if [ "$ACTUAL_HELM_BASE" != "$EXPECTED_HELM" ]; then
-            echo "⚠️  WARNING: Local Helm version (v$ACTUAL_HELM_BASE) does not match CI version (v$EXPECTED_HELM) from .tool-versions."
-            echo "   Please install Helm v$EXPECTED_HELM to prevent rendering inconsistencies."
-            if [ "$CI" == "true" ]; then
-                exit 1
-            fi
+check_version() {
+    local tool=$1
+    local expected=$2
+    local actual=$3
+
+    # Strip 'v' prefix for comparison
+    expected=${expected#v}
+    actual=${actual#v}
+
+    if [ "$actual" != "$expected" ]; then
+        echo "⚠️  WARNING: Local $tool version (v$actual) does not match CI version (v$expected) from .tool-versions."
+        echo "   Please install $tool v$expected to prevent pipeline drift."
+        if [ "$CI" == "true" ]; then
+            exit 1
         fi
     fi
+}
+
+if [ -f ".tool-versions" ]; then
+    echo "Verifying local tool versions against .tool-versions..."
+
+    EXP=$(grep '^helm ' .tool-versions | awk '{print $2}')
+    ACT=$(helm version --template '{{.Version}}' 2>/dev/null | cut -d'+' -f1)
+    [ -n "$EXP" ] && check_version "helm" "$EXP" "$ACT"
+
+    EXP=$(grep '^kubeconform ' .tool-versions | awk '{print $2}')
+    ACT=$(kubeconform -v 2>/dev/null)
+    [ -n "$EXP" ] && check_version "kubeconform" "$EXP" "$ACT"
+
+    EXP=$(grep '^trivy ' .tool-versions | awk '{print $2}')
+    ACT=$(trivy --version 2>/dev/null | grep 'Version:' | awk '{print $2}')
+    [ -n "$EXP" ] && check_version "trivy" "$EXP" "$ACT"
+
+    EXP=$(grep '^hadolint ' .tool-versions | awk '{print $2}')
+    ACT=$(hadolint --version 2>/dev/null | awk '{print $4}')
+    [ -n "$EXP" ] && check_version "hadolint" "$EXP" "$ACT"
+
+    EXP=$(grep '^kind ' .tool-versions | awk '{print $2}')
+    ACT=$(kind version 2>/dev/null | awk '{print $2}')
+    [ -n "$EXP" ] && check_version "kind" "$EXP" "$ACT"
 fi
 
 validate_gh_token() {
