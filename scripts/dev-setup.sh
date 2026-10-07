@@ -43,7 +43,7 @@ if [ -f ".tool-versions" ]; then
     [ -n "$EXP" ] && check_version "kubeconform" "$EXP" "$ACT"
 
     EXP=$(grep '^trivy ' .tool-versions | awk '{print $2}')
-    ACT=$(trivy --version 2>/dev/null | grep 'Version:' | awk '{print $2}')
+    ACT=$(trivy --version 2>/dev/null | grep 'Version:' | head -n 1 | awk '{print $2}')
     [ -n "$EXP" ] && check_version "trivy" "$EXP" "$ACT"
 
     EXP=$(grep '^hadolint ' .tool-versions | awk '{print $2}')
