@@ -42,6 +42,10 @@ jobs:
           curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
           chmod +x ~/.local/bin/hadolint
 
+      - name: Download Trivy Database
+        run: |
+          TRIVY_SKIP_DB_UPDATE="false" TRIVY_JAVA_SKIP_DB_UPDATE="false" trivy image --download-db-only
+
       - name: Environment Setup
         env:
           GH_USER: ${{ github.actor }}
