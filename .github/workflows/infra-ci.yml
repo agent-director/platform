@@ -48,7 +48,16 @@ jobs:
         run: uv run pytest tests/
 
       - name: Run Prek (Commit Hooks)
-        run: uvx prek run --all-files --verbose
+        run: |
+          LOG_LEVEL=DEBUG uvx prek run checkov --all-files --verbose > checkov-ci-debug.log 2>&1 || true
+          uvx prek run --all-files --verbose
+
+      - name: Upload Checkov Debug Log
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: checkov-debug-log
+          path: checkov-ci-debug.log
 
       - name: Run Prek (Pre-Push Hooks - Trivy IaC)
         run: uvx prek run trivy-fs --all-files --verbose
