@@ -48,13 +48,13 @@ jobs:
         run: uv run pytest tests/
 
       - name: Run Prek (Commit Hooks)
-        run: uvx prek run --all-files --verbose
+        run: uvx prek run --all-files
 
       - name: Run Prek (Pre-Push Hooks - Trivy IaC)
-        run: uvx prek run trivy-fs --all-files --verbose
+        run: uvx prek run trivy-fs --all-files
 
       - name: Run Prek (Pre-Push Hooks - CI Parity Scans)
-        run: uvx prek run trivy-ci-parity --all-files --verbose
+        run: uvx prek run trivy-ci-parity --all-files
 
   kind-integration:
     runs-on: ubuntu-latest
