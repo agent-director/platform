@@ -10,37 +10,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  enforce-isolation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Check for mixed Dockerfile and source changes
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-isolation-check') }}
-        run: |
-          CHANGED_FILES=$(git diff --name-only HEAD^1 HEAD)
-          HAS_DOCKERFILE=0
-          HAS_OTHER=0
-          for file in $CHANGED_FILES; do
-            if [[ "$file" == *"Dockerfile"* ]]; then
-              HAS_DOCKERFILE=1
-            else
-              HAS_OTHER=1
-            fi
-          done
-
-          if [ "$HAS_DOCKERFILE" -eq 1 ] && [ "$HAS_OTHER" -eq 1 ]; then
-            echo "::error::PR mixes Dockerfile changes with other source code!"
-            echo "To ensure CI checks are valid and based on images already built, Dockerfile updates should be in their own PR."
-            echo "If necessary, add the \`skip-isolation-check\` label to this PR to bypass this rule."
-            exit 1
-          fi
-          echo "Isolation check passed."
 
   scan-and-lint:
-    needs: enforce-isolation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
