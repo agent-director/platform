@@ -54,7 +54,7 @@ hooks = [
 repo = "https://github.com/bridgecrewio/checkov"
 rev = "3.2.66"
 hooks = [
-  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/" }
+  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/", pass_filenames = false }
 ]
 
 [[repos]]
@@ -74,8 +74,8 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
-  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/" },
-  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/" },
+  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false },
+  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"] },
   { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"] }
 ]
