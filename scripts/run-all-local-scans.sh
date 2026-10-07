@@ -72,10 +72,15 @@ for ctx in "${COMPONENTS[@]}"; do
   if [ "$STATUS" -eq 0 ]; then
     printf "✅ %-30s PASSED\n" "$img"
   else
-    printf "❌ %-30s FAILED\n" "$img"
-    echo "   --- App Vulnerability Summary for $img ---"
-    # Print from 'Report Summary' or 'Total:' to EOF, skipping noise
-    awk '/Report Summary/,0' ".local-scans/$img.log" | sed 's/^/   /'
+    if grep -q "Report Summary" ".local-scans/$img.log" 2>/dev/null; then
+      printf "❌ %-30s FAILED (Vulnerabilities Found)\n" "$img"
+      echo "   --- Vulnerability Summary for $img ---"
+      awk '/Report Summary/,0' ".local-scans/$img.log" | sed 's/^/   /'
+    else
+      printf "🚨 %-30s ERROR (Build or Execution Crash)\n" "$img"
+      echo "   --- Last 15 lines of Error Log for $img ---"
+      tail -n 15 ".local-scans/$img.log" | sed 's/^/   /'
+    fi
     echo ""
     FAILURES=$((FAILURES + 1))
   fi
