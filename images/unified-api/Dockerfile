@@ -1,23 +1,24 @@
 # syntax=docker/dockerfile:1
 FROM ghcr.io/astral-sh/uv:trixie-slim AS builder
 
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 
 # Install project dependencies
 COPY pyproject.toml uv.lock ./
-# We must sync using the exact python version Chainguard uses
-RUN uv sync --frozen --no-install-project --no-dev --python 3.14
+RUN uv sync --frozen --no-install-project --no-dev --python 3.14 && \
+    rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
 # Copy the application code
 COPY gateway/ ./gateway/
 
 # Runtime stage: True distroless
 # hadolint ignore=DL3007
-FROM cgr.dev/chainguard/python:latest
+FROM gcr.io/distroless/base-debian13:latest
 
 WORKDIR /app
 
 # Copy the pre-built environment
+COPY --from=builder /opt/python /opt/python
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/gateway /app/gateway
 
