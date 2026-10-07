@@ -54,7 +54,7 @@ hooks = [
 repo = "https://github.com/bridgecrewio/checkov"
 rev = "3.3.26"
 hooks = [
-  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/", language_version = "python3.12" }
+  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/" }
 ]
 
 [[repos]]
