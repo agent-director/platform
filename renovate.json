@@ -64,7 +64,7 @@
         "pre-commit/pre-commit-hooks",
         "https://github.com/pre-commit/pre-commit-hooks"
       ],
-      "abandonmentThreshold": "5 years"
+      "abandonmentThreshold": "2 years"
     }
   ],
   "customManagers": [
