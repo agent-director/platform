@@ -1,5 +1,6 @@
 import os
 import subprocess
+
 import pytest
 
 NAMESPACE = os.environ.get("NAMESPACE", "platform")

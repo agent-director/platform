@@ -1,5 +1,6 @@
 import re
-from typing import Any, Optional
+from typing import Any
+
 from litellm.integrations.custom_logger import CustomLogger
 
 
@@ -19,8 +20,8 @@ class ShuntMiddleware(CustomLogger):
         self,
         user_api_key_dict: dict,
         cache: Any = None,
-        data: Optional[dict] = None,
-        call_type: Optional[str] = None,
+        data: dict | None = None,
+        call_type: str | None = None,
         **kwargs,
     ):
         """
@@ -47,11 +48,10 @@ class ShuntMiddleware(CustomLogger):
                             raise ValueError(
                                 "Blocked by ShuntMiddleware: Malicious input detected."
                             )
-                    elif isinstance(part, str):
-                        if not self._is_safe_input(part):
-                            raise ValueError(
-                                "Blocked by ShuntMiddleware: Malicious input detected."
-                            )
+                    elif isinstance(part, str) and not self._is_safe_input(part):
+                        raise ValueError(
+                            "Blocked by ShuntMiddleware: Malicious input detected."
+                        )
 
         if data is not None:
             return data
@@ -63,4 +63,3 @@ class ShuntMiddleware(CustomLogger):
         """
         Telemetry and tracking.
         """
-        pass

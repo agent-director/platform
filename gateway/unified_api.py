@@ -1,18 +1,18 @@
-import os
-import yaml  # type: ignore
-import httpx
-from gateway.shunt_middleware import apply_shunt_middleware
-from fastapi import FastAPI, Depends, HTTPException, Request, Header
-import time
 import asyncio
 import base64
-from fastapi.responses import JSONResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Dict, Any, Optional
-
-
 import logging
+import os
+import time
+from typing import Any
+
+import httpx
+import yaml  # type: ignore
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
+from gateway.shunt_middleware import apply_shunt_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -61,18 +61,20 @@ LITELLM_URL = os.environ.get("LITELLM_URL", "http://litellm:4000")
 
 @app.middleware("http")
 async def verify_csrf_header(request: Request, call_next):
-    if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
-        if request.headers.get("X-Requested-With") != "XMLHttpRequest":
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "detail": "CSRF verification failed: Missing X-Requested-With header"
-                },
-            )
+    if (
+        request.method in ["POST", "PUT", "PATCH", "DELETE"]
+        and request.headers.get("X-Requested-With") != "XMLHttpRequest"
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "CSRF verification failed: Missing X-Requested-With header"
+            },
+        )
     return await call_next(request)
 
 
-def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -> str:
+def get_current_user(tailscale_user_login: str | None = Header(None)) -> str:
     if not tailscale_user_login:
         if os.environ.get("ENV") == "dev":
             return "dev@example.com"
@@ -82,7 +84,7 @@ def get_current_user(tailscale_user_login: Optional[str] = Header(None)) -> str:
     return tailscale_user_login
 
 
-_allowlist_cache: Dict[str, Any] = {}
+_allowlist_cache: dict[str, Any] = {}
 _ALLOWLIST_TTL = 300
 
 
@@ -164,7 +166,7 @@ async def chat_proxy(request: Request, user: str = Depends(get_current_user)):
 
 class WorkflowRequest(BaseModel):
     name: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
 
 
 @app.post("/api/workflows")
@@ -210,11 +212,11 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
     try:
         data = yaml.safe_load(req.config_yaml)
         if not isinstance(data, dict):
-            raise ValueError("YAML must be a dictionary")
+            raise TypeError("YAML must be a dictionary")
         if "model_list" not in data or not isinstance(data["model_list"], list):
             raise ValueError("Configuration must contain a valid 'model_list'")
-    except (yaml.YAMLError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {str(e)}")
+    except (yaml.YAMLError, ValueError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML provided: {e!s}")
 
     github_token = os.environ.get("GITHUB_TOKEN")
 

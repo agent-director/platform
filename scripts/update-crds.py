@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import urllib.request
-import yaml  # type: ignore
 import json
 import os
 import sys
+import urllib.request
+
+import yaml  # type: ignore
 
 
 def fetch_zalando_postgres_crd():
@@ -12,7 +13,7 @@ def fetch_zalando_postgres_crd():
     try:
         req = urllib.request.urlopen(url)
         crd = yaml.safe_load(req.read())
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to fetch CRD: {e}")
         sys.exit(1)
 
@@ -47,7 +48,7 @@ def fetch_agent_substrate_crds():
                 if line.startswith("ARG AGENT_SUBSTRATE_VERSION="):
                     version = line.strip().split("=")[1]
                     break
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Error reading Dockerfile: {e}")
         sys.exit(1)
 
@@ -69,7 +70,7 @@ def fetch_agent_substrate_crds():
             for item in directory_contents
             if item["name"].endswith(".yaml") and item["name"].startswith("ate.dev_")
         ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to fetch CRD list from GitHub API: {e}")
         sys.exit(1)
     os.makedirs("charts/agent-substrate/crds", exist_ok=True)
@@ -83,7 +84,7 @@ def fetch_agent_substrate_crds():
             with open(out_path, "w") as out_f:
                 out_f.write(content)
             print(f"Successfully fetched {crd}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Failed to fetch {crd}: {e}")
             sys.exit(1)
 

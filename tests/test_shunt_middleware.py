@@ -1,5 +1,6 @@
 import json
-from gateway.shunt_middleware import truncate_context, apply_shunt_middleware
+
+from gateway.shunt_middleware import apply_shunt_middleware, truncate_context
 
 
 def test_truncate_context_pins_system_messages():

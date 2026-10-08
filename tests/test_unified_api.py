@@ -1,6 +1,8 @@
 import os
+from unittest.mock import mock_open, patch
+
 from fastapi.testclient import TestClient
-from unittest.mock import patch, mock_open
+
 from gateway.unified_api import app
 
 # Ensure ENV is not 'dev' so we can test headers
@@ -90,8 +92,9 @@ def test_chat_proxy():
 
     # Mocking httpx.AsyncClient.send to avoid real network call
     class MockResponse:
-        status_code = 200
-        headers = {}
+        def __init__(self):
+            self.status_code = 200
+            self.headers = {}
 
         async def aiter_raw(self):
             yield b"data: test\\n\\n"
@@ -115,42 +118,42 @@ def test_update_config_valid_yaml():
     }
     payload = {"config_yaml": "model_list: []\nrouter_settings: {}"}
 
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}):
-            with patch("httpx.AsyncClient.get") as mock_get:
+    with (
+        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
+        patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
+        patch("httpx.AsyncClient.get") as mock_get,
+    ):
 
-                def mock_get_side_effect(url, **kwargs):
-                    class MockResponse:
-                        def __init__(self, json_data, status_code):
-                            self._json = json_data
-                            self.status_code = status_code
+        def mock_get_side_effect(url, **kwargs):
+            class MockResponse:
+                def __init__(self, json_data, status_code):
+                    self._json = json_data
+                    self.status_code = status_code
 
-                        def json(self):
-                            return self._json
+                def json(self):
+                    return self._json
 
-                    if "pulls?state=open" in url:
-                        return MockResponse([], 200)
-                    if "git/refs/heads" in url:
-                        return MockResponse({"object": {"sha": "123"}}, 200)
-                    if "contents" in url:
-                        return MockResponse({"sha": "abc456"}, 200)
-                    return MockResponse({"default_branch": "main"}, 200)
+            if "pulls?state=open" in url:
+                return MockResponse([], 200)
+            if "git/refs/heads" in url:
+                return MockResponse({"object": {"sha": "123"}}, 200)
+            if "contents" in url:
+                return MockResponse({"sha": "abc456"}, 200)
+            return MockResponse({"default_branch": "main"}, 200)
 
-                mock_get.side_effect = mock_get_side_effect
-                with patch("httpx.AsyncClient.post") as mock_post:
-                    from unittest.mock import MagicMock
+        mock_get.side_effect = mock_get_side_effect
+        with patch("httpx.AsyncClient.post") as mock_post:
+            from unittest.mock import MagicMock
 
-                    mock_post.return_value.status_code = 201
-                    mock_post.return_value.json = MagicMock(
-                        return_value={"html_url": "http://test.com/pr/1"}
-                    )
-                    with patch("httpx.AsyncClient.put") as mock_put:
-                        mock_put.return_value.status_code = 200
-                        response = client.post(
-                            "/api/config", json=payload, headers=headers
-                        )
-                        assert response.status_code == 200
-                        assert response.json()["status"] == "pr_created"
+            mock_post.return_value.status_code = 201
+            mock_post.return_value.json = MagicMock(
+                return_value={"html_url": "http://test.com/pr/1"}
+            )
+            with patch("httpx.AsyncClient.put") as mock_put:
+                mock_put.return_value.status_code = 200
+                response = client.post("/api/config", json=payload, headers=headers)
+                assert response.status_code == 200
+                assert response.json()["status"] == "pr_created"
 
 
 def test_update_config_invalid_yaml():

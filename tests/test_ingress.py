@@ -2,8 +2,9 @@ import os
 import shutil
 import subprocess
 import tempfile
-import yaml  # type: ignore
+
 import pytest
+import yaml  # type: ignore
 
 RELEASE_NAME = "test-release-platform"
 
@@ -75,12 +76,12 @@ def test_tailscale_deployment(manifests):
     assert caddy_sc.get("readOnlyRootFilesystem") is True
     assert "ALL" in caddy_sc.get("capabilities", {}).get("drop", [])
 
-    assert (
-        deployment["spec"]["strategy"]["type"] == "Recreate"
-    ), "Deployment strategy should be Recreate"
-    assert (
-        deployment["spec"].get("replicas") == 1
-    ), "Deployment replicas must be strictly 1"
+    assert deployment["spec"]["strategy"]["type"] == "Recreate", (
+        "Deployment strategy should be Recreate"
+    )
+    assert deployment["spec"].get("replicas") == 1, (
+        "Deployment replicas must be strictly 1"
+    )
 
 
 def test_caddy_config(manifests):
@@ -116,13 +117,15 @@ def test_caddyfile_structural_validation(manifests):
     try:
         subprocess.run(["docker", "info"], check=True, capture_output=True)
         res = subprocess.run(
-            ["docker", "image", "inspect", "caddy:2.7.6"], capture_output=True
+            ["docker", "image", "inspect", "caddy:2.7.6"],
+            capture_output=True,
+            check=False,
         )
         if res.returncode == 0:
             has_docker = True
         else:
             pull_res = subprocess.run(
-                ["docker", "pull", "caddy:2.7.6"], capture_output=True
+                ["docker", "pull", "caddy:2.7.6"], capture_output=True, check=False
             )
             if pull_res.returncode == 0:
                 has_docker = True
@@ -145,6 +148,7 @@ def test_caddyfile_structural_validation(manifests):
                 ["caddy", "validate", "--config", tmp_path, "--adapter", "caddyfile"],
                 capture_output=True,
                 text=True,
+                check=False,
             )
         else:
             result = subprocess.run(
@@ -163,6 +167,7 @@ def test_caddyfile_structural_validation(manifests):
                 ],
                 capture_output=True,
                 text=True,
+                check=False,
             )
 
         # If we are using the caddy-tailscale plugin, the standard Caddy binary will fail to validate
@@ -172,9 +177,9 @@ def test_caddyfile_structural_validation(manifests):
             or "unrecognized directive: tailscale_auth" in result.stderr
             or "unrecognized directive: bind" in result.stderr
         )
-        assert (
-            result.returncode == 0 or is_plugin_error
-        ), f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
+        assert result.returncode == 0 or is_plugin_error, (
+            f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
+        )
     finally:
         os.unlink(tmp_path)
 
@@ -195,15 +200,15 @@ def test_network_policies(manifests):
         manifests, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
     )
     assert egress_np is not None, "Tailscale Egress NP should be created"
-    assert "Ingress" in egress_np["spec"].get(
-        "policyTypes", []
-    ), "Must have Ingress policy type"
-    assert "Egress" in egress_np["spec"].get(
-        "policyTypes", []
-    ), "Must have Egress policy type"
-    assert (
-        "ingress" in egress_np["spec"] and egress_np["spec"]["ingress"] == []
-    ), "Must have empty ingress rules (default deny)"
+    assert "Ingress" in egress_np["spec"].get("policyTypes", []), (
+        "Must have Ingress policy type"
+    )
+    assert "Egress" in egress_np["spec"].get("policyTypes", []), (
+        "Must have Egress policy type"
+    )
+    assert "ingress" in egress_np["spec"] and egress_np["spec"]["ingress"] == [], (
+        "Must have empty ingress rules (default deny)"
+    )
 
     egress_ports = get_egress_ports(egress_np)
     for rule in egress_np["spec"].get("egress", []):
