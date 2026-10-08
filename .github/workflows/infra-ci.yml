@@ -16,14 +16,14 @@ jobs:
   scan-and-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
 
       - name: Get Date for Cache
         id: date
         run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Trivy Database
-        uses: actions/cache@v4.3.0
+        uses: actions/cache@v6.1.0
         with:
           path: ~/.cache/trivy
           key: trivy-db-${{ steps.date.outputs.date }}
@@ -81,7 +81,7 @@ jobs:
       GH_USER: ${{ github.actor }}
       GH_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4.4.0
+      - uses: actions/checkout@v7.0.1
 
       - name: Install System Dependencies
         run: |
