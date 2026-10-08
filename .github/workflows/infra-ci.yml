@@ -59,7 +59,14 @@ jobs:
       - name: Run Pytest
         run: uv run pytest tests/
 
+      - name: Install gh-actions-lock extension
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh extension install github/gh-actions-lock --pin v0.1.6
+
       - name: Run Prek (Commit Hooks)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: uvx prek run --all-files --verbose
 
       - name: Run Prek (Pre-Push Hooks - Trivy IaC)
