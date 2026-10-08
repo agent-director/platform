@@ -44,27 +44,39 @@
     },
     {
       "matchPackageNames": [
-        "bridgecrewio/checkov",
-        "https://github.com/bridgecrewio/checkov"
-      ],
-      "datasourceTemplate": "github-releases"
-    },
-    {
-      "matchPackageNames": [
-        "trivy",
-        "aquasecurity/trivy"
-      ],
-      "matchManagers": [
-        "asdf"
-      ],
-      "datasourceTemplate": "github-tags"
-    },
-    {
-      "matchPackageNames": [
         "pre-commit/pre-commit-hooks",
         "https://github.com/pre-commit/pre-commit-hooks"
       ],
       "abandonmentThreshold": "2 years"
+    },
+    {
+      "matchManagers": [
+        "asdf"
+      ],
+      "matchPackageNames": [
+        "trivy",
+        "aquasecurity/trivy"
+      ],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "jsonata"
+      ],
+      "matchPackageNames": [
+        "bridgecrewio/checkov",
+        "https://github.com/bridgecrewio/checkov"
+      ],
+      "enabled": false
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "aquasecurity/trivy-action"
+      ],
+      "enabled": false
     }
   ],
   "customManagers": [
@@ -77,6 +89,37 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "^\\.tool-versions$"
+      ],
+      "matchStrings": [
+        "trivy (?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "aquasecurity/trivy",
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "^prek\\.toml$"
+      ],
+      "matchStrings": [
+        "repo = \"https://github\\.com/(?<depName>bridgecrewio/checkov)\"\\s*rev = \"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "^\\.github/workflows/.*\\.ya?ml$"
+      ],
+      "matchStrings": [
+        "uses: (?<depName>aquasecurity/trivy-action)@(?<currentValue>[^\\s]+)"
+      ],
+      "datasourceTemplate": "github-releases"
     }
   ]
 }
