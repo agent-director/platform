@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Managed by khepri-deps/renovate \u2014 global config provides weekly Monday schedule, 14-day release cooldown, and vulnerability alert bypass."
+    "Managed by khepri-deps/renovate — global config provides weekly Monday schedule, 14-day release cooldown, and vulnerability alert bypass."
   ],
   "packageRules": [
     {
@@ -41,6 +41,30 @@
         ],
         "executionMode": "branch"
       }
+    },
+    {
+      "matchPackageNames": [
+        "bridgecrewio/checkov",
+        "https://github.com/bridgecrewio/checkov"
+      ],
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "matchPackageNames": [
+        "trivy",
+        "aquasecurity/trivy"
+      ],
+      "matchManagers": [
+        "asdf"
+      ],
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "matchPackageNames": [
+        "pre-commit/pre-commit-hooks",
+        "https://github.com/pre-commit/pre-commit-hooks"
+      ],
+      "abandonmentThreshold": "2 years"
     }
   ],
   "customManagers": [

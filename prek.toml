@@ -24,13 +24,6 @@ hooks = [
 ]
 
 [[repos]]
-repo = "https://github.com/Yelp/detect-secrets"
-rev = "v1.5.0"
-hooks = [
-  { id = "detect-secrets", priority = 0, args = ["--baseline", ".secrets.baseline"] }
-]
-
-[[repos]]
 repo = "https://github.com/gitleaks/gitleaks"
 rev = "v8.18.2"
 hooks = [
@@ -74,6 +67,7 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
+  { id = "actions-lock", name = "GH Actions Lock", entry = "gh actions-lock --no-migrate-local-actions", language = "system", files = "^\\.github/workflows/", pass_filenames = false },
   { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false },
   { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },

@@ -51,7 +51,7 @@ jobs:
 
       # Step 2: Run Trivy against the local daemon image (Dual-Pass Strategy)
       - name: 📦 Trivy App Dependencies (Enforcement)
-        uses: aquasecurity/trivy-action@master # v0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ inputs.image }}:${{ github.sha }}
           format: 'table'
@@ -63,7 +63,7 @@ jobs:
           TRIVY_JAVA_SKIP_UPDATE: "false"
 
       - name: ⚠️ Trivy OS Dependencies (Warning)
-        uses: aquasecurity/trivy-action@master # v0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ inputs.image }}:${{ github.sha }}
           format: 'table'
@@ -75,7 +75,7 @@ jobs:
           TRIVY_JAVA_SKIP_UPDATE: "false"
 
       - name: 🛑 Trivy OS Dependencies (Enforcement)
-        uses: aquasecurity/trivy-action@master # v0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ inputs.image }}:${{ github.sha }}
           format: 'table'
