@@ -19,13 +19,42 @@ echo "=========================================================="
 docker run --rm -v trivy-cache:/root/.cache/trivy -v "$(pwd):/workspace" -w /workspace aquasec/trivy:latest image -c "" --download-db-only >/dev/null
 
 
-# Strict discovery: Match CI exactly by finding all actual Dockerfiles
+# Strict discovery: Delta execution via git diff if possible
 COMPONENTS=()
-for df in images/*/Dockerfile; do
-  if [ -f "$df" ]; then
-    COMPONENTS+=("$(dirname "$df")")
+
+if [ "$1" == "all" ]; then
+  # Force all explicitly
+  for df in images/*/Dockerfile; do
+    if [ -f "$df" ]; then COMPONENTS+=("$(dirname "$df")"); fi
+  done
+else
+  # Check git diff against origin/main
+  DIFF=$(git diff --name-only origin/main...HEAD 2>/dev/null || true)
+
+  if echo "$DIFF" | grep -qE "^(pyproject\.toml|uv\.lock|frontend/|\.python-version|\.tool-versions)"; then
+    # Core dependency files changed, build everything
+    for df in images/*/Dockerfile; do
+      if [ -f "$df" ]; then COMPONENTS+=("$(dirname "$df")"); fi
+    done
+  else
+    # Only build specific modified images
+    CHANGED_DIRS=$(echo "$DIFF" | grep '^images/' | cut -d'/' -f1,2 | sort -u || true)
+
+    if [ -z "$CHANGED_DIRS" ] && [ -d .git ]; then
+      echo "No image files or core dependencies modified in this branch compared to main. Skipping local scans."
+      exit 0
+    fi
+
+    for df in images/*/Dockerfile; do
+      if [ -f "$df" ]; then
+        dir_path=$(dirname "$df")
+        if [ -z "$CHANGED_DIRS" ] || echo "$CHANGED_DIRS" | grep -q "^$dir_path$"; then
+          COMPONENTS+=("$dir_path")
+        fi
+      fi
+    done
   fi
-done
+fi
 
 if [ ${#COMPONENTS[@]} -eq 0 ]; then
   echo "No images found to scan."

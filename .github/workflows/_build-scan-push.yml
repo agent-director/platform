@@ -11,6 +11,10 @@ on:
       image:
         required: true
         type: string
+      push_image:
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -85,6 +89,7 @@ jobs:
       # Step 3: Trivy passed. Now push the exact same image to GHCR.
       # Buildx natively uses the cached layers from the step above.
       - name: Push image to GHCR
+        if: inputs.push_image
         uses: docker/build-push-action@v6.19.2
         with:
           context: .

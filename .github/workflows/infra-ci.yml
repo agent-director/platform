@@ -65,8 +65,6 @@ jobs:
       - name: Run Prek (Pre-Push Hooks - Trivy IaC)
         run: uvx prek run trivy-fs --all-files --verbose
 
-      - name: Run Prek (Pre-Push Hooks - CI Parity Scans)
-        run: uvx prek run trivy-ci-parity --all-files --verbose
 
   kind-integration:
     runs-on: ubuntu-latest

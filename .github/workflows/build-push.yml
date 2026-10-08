@@ -3,6 +3,7 @@
 name: Build and Push Images
 
 on:
+  pull_request:
   push:
     branches: [ main ]
   workflow_dispatch: {}
@@ -45,3 +46,4 @@ jobs:
     with:
       dockerfile: ${{ matrix.component.path }}
       image: ghcr.io/${{ github.repository_owner }}/${{ matrix.component.name }}
+      push_image: ${{ github.event_name != 'pull_request' }}
