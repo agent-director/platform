@@ -12,3 +12,5 @@ db:
 pkg-types:
   - os
   - library
+skip-dirs:
+  - hack
