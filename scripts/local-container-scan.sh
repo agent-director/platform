@@ -35,7 +35,7 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
   -v "$(pwd):/workspace" -w /workspace \
-  aquasec/trivy:latest image \
+  aquasec/trivy:0.75.0 image \
   --pkg-types library \
   --severity HIGH,CRITICAL \
   --exit-code 1 \
@@ -48,7 +48,7 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
   -v "$(pwd):/workspace" -w /workspace \
-  aquasec/trivy:latest image \
+  aquasec/trivy:0.75.0 image \
   --pkg-types os \
   --severity HIGH \
   --exit-code 0 \
@@ -60,7 +60,7 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v trivy-cache:/root/.cache/trivy \
   -v "$(pwd):/workspace" -w /workspace \
-  aquasec/trivy:latest image \
+  aquasec/trivy:0.75.0 image \
   --pkg-types os \
   --skip-db-update \
   --skip-java-db-update \

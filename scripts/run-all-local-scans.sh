@@ -16,7 +16,7 @@ echo "=========================================================="
 echo "      UPDATING TRIVY DATABASE CACHE (SEQUENTIAL)          "
 echo "=========================================================="
 # Prevent bbolt write locks by pulling the DB sequentially once
-docker run --rm -v trivy-cache:/root/.cache/trivy -v "$(pwd):/workspace" -w /workspace aquasec/trivy:latest image -c "" --download-db-only >/dev/null
+docker run --rm -v trivy-cache:/root/.cache/trivy -v "$(pwd):/workspace" -w /workspace aquasec/trivy:0.75.0 image -c "" --download-db-only >/dev/null
 
 
 # Strict discovery: Delta execution via git diff if possible
