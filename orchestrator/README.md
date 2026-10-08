@@ -1,6 +1,6 @@
 # Orchestrator
 
-The `orchestrator` module handles the **Automation Plane** of the Two-Plane architecture.
+The `orchestrator` module handles the **Automation Plane** of the One-Plane architecture.
 
 ## Overview
 This plane is responsible for long-running, durable agent workflows (e.g., CI pipelines, background code reviews). It utilizes **Temporal** for robust, retriable orchestrations and **LangGraph** for managing the state and memory of agentic processes.

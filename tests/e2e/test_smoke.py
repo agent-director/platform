@@ -25,19 +25,25 @@ def check_pod_ready(label_selector: str, namespace: str = NAMESPACE):
         pytest.fail(f"Pod matching {label_selector} not ready. Error: {e.stderr}")
 
 
-def test_core_platform_components_ready():
-    # Zalando Postgres cluster
-    check_pod_ready("application=spilo")
+@pytest.mark.parametrize(
+    "label_selector",
+    [
+        "application=spilo",
+        "app=langfuse",
+        "app.kubernetes.io/name=temporal",
+        "app=unified-api",
+        "app=litellm",
+        "app=rustfs",
+        "app=workers",
+    ],
+)
+def test_core_platform_components_ready(label_selector: str):
+    check_pod_ready(label_selector)
 
-    # LiteLLM Proxy
-    check_pod_ready("app=litellm")
 
-    # Tailscale Ingress
+def test_tailscale_components_ready():
     if os.environ.get("TEST_TAILSCALE", "false") == "true":
         check_pod_ready("app=tailscale-ingress")
-
-    # Minio
-    check_pod_ready("app=rustfs")
 
 
 def test_agent_substrate_components_ready():

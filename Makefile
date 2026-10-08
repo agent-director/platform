@@ -134,11 +134,11 @@ scan-local:
 		./scripts/run-all-local-scans.sh "all"; \
 	fi
 test:
-	uv run pytest tests/
+	uv run pytest tests/ -m "not e2e" -m "not e2e"
 
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
-	uv run pytest tests/e2e/
+	uv run pytest tests/ -m "not e2e"e2e/
 
 lint:
 	uvx prek run --all-files

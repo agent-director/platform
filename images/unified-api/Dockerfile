@@ -5,9 +5,10 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 
 # Install project dependencies
-COPY .python-version pyproject.toml uv.lock ./
+COPY README.md .python-version pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev && \
     rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
+
 # Copy the application code
 COPY gateway/ ./gateway/
 

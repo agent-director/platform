@@ -1,7 +1,7 @@
 # ADR 001: Two-Plane Architecture for Agent Orchestration
 
 ## Status
-Accepted
+Superseded by ADR 003
 
 ## Context
 The `agent-director` must support two fundamentally different types of agentic workloads:

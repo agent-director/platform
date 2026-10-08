@@ -15,9 +15,20 @@ spec:
       labels:
         app: unified-api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: unified-api
-          image: "{{ .Values.unifiedApi.image.repository }}:{{ .Values.unifiedApi.image.tag }}"
+          image: '{{ .Values.global.image.repository | default "ghcr.io/agent-director" }}/unified-api:{{ .Values.global.image.tag | default "latest" }}'
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -30,6 +41,13 @@ spec:
               cpu: 500m
               memory: 512Mi
           env:
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
+                  key: password
+            - name: DATABASE_URL
+              value: "postgres://agent-platform:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/agent-platform"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -39,6 +57,8 @@ spec:
             - name: GITHUB_REPO
               value: {{ .Values.unifiedApi.githubRepo | quote }}
           volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
             - name: admin-allowlist
               mountPath: /etc/unified-api
               readOnly: true
@@ -47,6 +67,8 @@ spec:
               subPath: litellm_config.yaml
               readOnly: true
       volumes:
+        - name: tmp-volume
+          emptyDir: {}
         - name: admin-allowlist
           configMap:
             name: admin-allowlist

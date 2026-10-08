@@ -1,30 +1,41 @@
+{{- if .Values.promptfoo.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "platform.fullname" . }}-promptfoo-data
+  labels:
+    app: promptfoo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mcp-relay
-  namespace: platform
+  name: {{ include "platform.fullname" . }}-promptfoo
   labels:
-    app: mcp-relay
+    app: promptfoo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mcp-relay
+      app: promptfoo
   template:
     metadata:
       labels:
-        app: mcp-relay
+        app: promptfoo
     spec:
-      imagePullSecrets:
-        - name: ghcr-secret
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
       containers:
-        - name: mcp-relay
-          image: "ghcr.io/agent-director/relay:latest"
+        - name: promptfoo
+          image: "ghcr.io/promptfoo/promptfoo:latest"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -41,24 +52,26 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+            - name: promptfoo-data
+              mountPath: /home/promptfoo/.promptfoo
           ports:
-            - containerPort: 9000
-          env:
-            - name: TEMPORAL_URL
-              value: "platform-temporal-frontend.platform.svc.cluster.local:7233"
+            - containerPort: 3000
       volumes:
         - name: tmp-volume
           emptyDir: {}
+        - name: promptfoo-data
+          persistentVolumeClaim:
+            claimName: {{ include "platform.fullname" . }}-promptfoo-data
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mcp-relay
-  namespace: platform
+  name: {{ include "platform.fullname" . }}-promptfoo
 spec:
   ports:
-    - port: 9000
-      targetPort: 9000
+    - port: 3000
+      targetPort: 3000
       protocol: TCP
   selector:
-    app: mcp-relay
+    app: promptfoo
+{{- end }}

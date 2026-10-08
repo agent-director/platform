@@ -106,6 +106,9 @@ litellm:
   enabled: true
   service:
     port: 4000
+promptfoo:
+  enabled: true
+
 
 temporal:
   cassandra:

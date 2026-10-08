@@ -2,7 +2,9 @@ import asyncio
 import base64
 import logging
 import os
+import re
 import time
+import uuid
 from typing import Any
 
 import httpx
@@ -12,13 +14,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from gateway.shunt_middleware import apply_shunt_middleware
+# Pre-compiled at module scope
+MALICIOUS_REGEX = re.compile(r"\.\./|<script>|system\(|exec\(", re.IGNORECASE)
+MAX_BODY_SIZE = 10 * 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Unified API BFF")
 
 http_client = httpx.AsyncClient(timeout=30.0)
+
+
+@app.on_event("startup")
+async def startup_event():
+    pass
 
 
 @app.on_event("shutdown")
@@ -41,9 +50,7 @@ app.add_middleware(
 def get_allowlist_path():
     return os.environ.get(
         "ADMIN_ALLOWLIST_PATH",
-        "/etc/unified-api/allowlist.yaml"
-        if os.path.exists("/etc/unified-api/allowlist.yaml")
-        else "admin-allowlist.yaml",
+        "/etc/unified-api/allowlist.yaml",
     )
 
 
@@ -74,7 +81,23 @@ async def verify_csrf_header(request: Request, call_next):
     return await call_next(request)
 
 
-def get_current_user(tailscale_user_login: str | None = Header(None)) -> str:
+def get_current_user(
+    request: Request, tailscale_user_login: str | None = Header(None)
+) -> str:
+    internal_user = os.environ.get("INTERNAL_SERVICE_USER", "orchestrator@internal")
+    if tailscale_user_login == internal_user:
+        auth_header = request.headers.get("Authorization", "")
+        expected_token = os.environ.get("INTERNAL_TOKEN") or os.environ.get(
+            "CHECKPOINT_AUTH_TOKEN"
+        )
+        if (
+            not expected_token or auth_header != f"Bearer {expected_token}"
+        ) and os.environ.get("ENV") != "dev":
+            raise HTTPException(
+                status_code=401, detail="Invalid internal service token"
+            )
+        return internal_user
+
     if not tailscale_user_login:
         if os.environ.get("ENV") == "dev":
             return "dev@example.com"
@@ -122,13 +145,27 @@ def verify_admin(user: str = Depends(get_current_user)) -> str:
 @app.post("/v1/chat/completions")
 async def chat_proxy(request: Request, user: str = Depends(get_current_user)):
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Payload too large")
-    raw_body = await request.body()
-    if len(raw_body) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Payload too large")
+    if content_length:
+        try:
+            if int(content_length) > MAX_BODY_SIZE:
+                raise HTTPException(status_code=413, detail="Payload too large")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length header")
 
-    body = await asyncio.to_thread(apply_shunt_middleware, raw_body, user)
+    async def validated_stream():
+        total_bytes = 0
+        buffer = ""
+        async for chunk in request.stream():
+            total_bytes += len(chunk)
+            if total_bytes > MAX_BODY_SIZE:
+                raise HTTPException(status_code=413, detail="Payload too large")
+            buffer += chunk.decode("utf-8", errors="ignore")
+            if MALICIOUS_REGEX.search(buffer):
+                raise HTTPException(status_code=400, detail="Malicious input detected.")
+            buffer = buffer[-20:]
+            yield chunk
+
+    body = validated_stream()
 
     headers = dict(request.headers)
     for h in ["host", "content-length", "x-requested-with"]:
@@ -231,24 +268,34 @@ async def update_config(req: ConfigUpdateRequest, user: str = Depends(verify_adm
             "Authorization": f"Bearer {github_token}",
             "Accept": "application/vnd.github.v3+json",
         }
-        prs_url = f"https://api.github.com/repos/{repo}/pulls?state=open"
-        resp = await client.get(prs_url, headers=headers)
+        f"https://api.github.com/repos/{repo}/pulls?state=open&head={repo.split('/')[0]}:config-update-"
 
-        if resp.status_code == 200:
-            prs = resp.json()
-            config_prs = [
+        config_prs = []
+        for page in range(1, 10):
+            page_url = f"https://api.github.com/repos/{repo}/pulls?state=open&per_page=100&page={page}"
+            page_resp = await client.get(page_url, headers=headers)
+            if page_resp.status_code != 200:
+                break
+            page_prs = page_resp.json()
+            if not page_prs:
+                break
+            matching_prs = [
                 pr
-                for pr in prs
+                for pr in page_prs
                 if pr.get("head", {}).get("ref", "").startswith("config-update-")
             ]
-            if config_prs:
-                raise HTTPException(
-                    status_code=409, detail="A configuration PR is already open"
-                )
+            if matching_prs:
+                config_prs.extend(matching_prs)
+                break
+            if len(page_prs) < 100:
+                break
+
+        if config_prs:
+            raise HTTPException(
+                status_code=409, detail="A configuration PR is already open"
+            )
 
         # Real GitOps PR Implementation
-        import uuid
-
         branch_name = f"config-update-{uuid.uuid4().hex[:8]}"
 
         # 1. Get default branch SHA
