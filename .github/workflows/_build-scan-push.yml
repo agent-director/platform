@@ -46,8 +46,8 @@ jobs:
           load: true
           push: false
           tags: ${{ inputs.image }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ inputs.image }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.image }}
+          cache-from: type=registry,ref=${{ inputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ inputs.image }}:buildcache,mode=max
 
       # Step 2: Run Trivy against the local daemon image (Dual-Pass Strategy)
       - name: 📦 Trivy App Dependencies (Enforcement)
@@ -97,5 +97,5 @@ jobs:
           push: true
           tags: ${{ inputs.image }}:${{ github.sha }}
           # Keep caching enabled here so it picks up the previous run instantly
-          cache-from: type=gha,scope=${{ inputs.image }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.image }}
+          cache-from: type=registry,ref=${{ inputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ inputs.image }}:buildcache,mode=max

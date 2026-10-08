@@ -17,6 +17,8 @@ workflows:
     '.github/workflows/update-schemas.yml':
         - 'actions/checkout@v4.4.0'
         - 'astral-sh/setup-uv@v4.2.0'
+    '.github/workflows/verify-actions-lock.yml':
+        - 'actions/checkout@v4.4.0'
 dependencies:
     'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9':
         ref: 'v6.1.0'
