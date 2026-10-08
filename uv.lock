@@ -58,7 +58,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "pytest-cov", specifier = "==7.1.0" },
     { name = "types-pyyaml" },
 ]
 
