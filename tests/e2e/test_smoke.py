@@ -59,24 +59,43 @@ def test_agent_substrate_components_ready():
         cmd_get_pod, check=True, capture_output=True, text=True
     ).stdout.strip()
 
-    cmd_check_port = [
+    # Instead of exec'ing into the distroless container (which has no shell),
+    # we port-forward and verify the port is accepting connections.
+    import socket
+    import time
+
+    cmd_port_forward = [
         "kubectl",
-        "exec",
+        "port-forward",
         "-n",
         "agent-substrate",
         pod_name,
-        "--",
-        "bash",
-        "-c",
-        "cat /proc/net/tcp /proc/net/tcp6 | grep -q ':C383'",
+        "50051:50051",
     ]
-    try:
-        subprocess.run(cmd_check_port, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        pytest.fail(
-            f"ateapi pod is running but not listening on gRPC port 50051. Error: {e.stderr}"
-        )
 
+    pf_process = subprocess.Popen(
+        cmd_port_forward, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+
+    connected = False
+    try:
+        # Give port-forward a moment to establish
+        for _ in range(15):
+            time.sleep(1)
+            try:
+                with socket.create_connection(("127.0.0.1", 50051), timeout=1):
+                    connected = True
+                    break
+            except OSError:
+                continue
+    finally:
+        pf_process.terminate()
+        pf_process.wait()
+
+    if not connected:
+        pytest.fail(
+            "ateapi pod is running but not accepting connections on gRPC port 50051 via port-forward."
+        )
     # AteController
     check_pod_ready(
         "app.kubernetes.io/component=atecontroller", namespace="agent-substrate"

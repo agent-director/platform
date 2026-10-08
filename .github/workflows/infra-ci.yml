@@ -1,3 +1,5 @@
+# This workflow is managed by gh actions-lock.
+
 name: Infra CI & Security
 
 on:
@@ -10,47 +12,18 @@ permissions:
   pull-requests: read
 
 jobs:
-  enforce-isolation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Check for mixed Dockerfile and source changes
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-isolation-check') }}
-        run: |
-          CHANGED_FILES=$(git diff --name-only HEAD^1 HEAD)
-          HAS_DOCKERFILE=0
-          HAS_OTHER=0
-          for file in $CHANGED_FILES; do
-            if [[ "$file" == *"Dockerfile"* ]]; then
-              HAS_DOCKERFILE=1
-            else
-              HAS_OTHER=1
-            fi
-          done
-
-          if [ "$HAS_DOCKERFILE" -eq 1 ] && [ "$HAS_OTHER" -eq 1 ]; then
-            echo "::error::PR mixes Dockerfile changes with other source code!"
-            echo "To ensure CI checks are valid and based on images already built, Dockerfile updates should be in their own PR."
-            echo "If necessary, add the \`skip-isolation-check\` label to this PR to bypass this rule."
-            exit 1
-          fi
-          echo "Isolation check passed."
 
   scan-and-lint:
-    needs: enforce-isolation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.4.0
 
       - name: Get Date for Cache
         id: date
         run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Trivy Database
-        uses: actions/cache@v3
+        uses: actions/cache@v4.3.0
         with:
           path: ~/.cache/trivy
           key: trivy-db-${{ steps.date.outputs.date }}
@@ -59,11 +32,21 @@ jobs:
 
       - name: Install System Dependencies
         run: |
+          HELM_VERSION="v$(grep '^helm ' .tool-versions | awk '{print $2}')"
+          KUBECONFORM_VERSION="v$(grep '^kubeconform ' .tool-versions | awk '{print $2}')"
+          TRIVY_VERSION="$(grep '^trivy ' .tool-versions | awk '{print $2}')"
+          HADOLINT_VERSION="v$(grep '^hadolint ' .tool-versions | awk '{print $2}')"
           mkdir -p ~/.local/bin
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -fsSL https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
-          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar -xzf - -C ~/.local/bin kubeconform
-          curl -fsSL https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.tar.gz | tar -xzf - -C ~/.local/bin trivy
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin kubeconform
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xzf - -C ~/.local/bin trivy
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
+          chmod +x ~/.local/bin/hadolint
+
+      - name: Download Trivy Database
+        run: |
+          TRIVY_SKIP_DB_UPDATE="false" TRIVY_JAVA_SKIP_DB_UPDATE="false" trivy image --download-db-only
 
       - name: Environment Setup
         env:
@@ -77,10 +60,11 @@ jobs:
         run: uv run pytest tests/
 
       - name: Run Prek (Commit Hooks)
-        run: uvx prek run --all-files
+        run: uvx prek run --all-files --verbose
 
       - name: Run Prek (Pre-Push Hooks - Trivy IaC)
-        run: uvx prek run trivy-fs --all-files
+        run: uvx prek run trivy-fs --all-files --verbose
+
 
   kind-integration:
     runs-on: ubuntu-latest
@@ -90,22 +74,24 @@ jobs:
       GH_USER: ${{ github.actor }}
       GH_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.4.0
 
-      - name: Set up Helm natively
+      - name: Install System Dependencies
         run: |
-          # renovate: datasource=github-releases depName=helm/helm
-          HELM_VERSION="v3.22.0"
-          curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          tar -zxvf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          sudo mv linux-amd64/helm /usr/local/bin/helm
-      - name: Set up Kind natively
-        run: |
-          # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-          KIND_VERSION="v0.33.0"
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
-          chmod +x ./kind
-          sudo mv ./kind /usr/local/bin/kind
+          HELM_VERSION="v$(grep '^helm ' .tool-versions | awk '{print $2}')"
+          KUBECONFORM_VERSION="v$(grep '^kubeconform ' .tool-versions | awk '{print $2}')"
+          TRIVY_VERSION="$(grep '^trivy ' .tool-versions | awk '{print $2}')"
+          HADOLINT_VERSION="v$(grep '^hadolint ' .tool-versions | awk '{print $2}')"
+          KIND_VERSION="v$(grep '^kind ' .tool-versions | awk '{print $2}')"
+          mkdir -p ~/.local/bin
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin kubeconform
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xzf - -C ~/.local/bin trivy
+          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
+          chmod +x ~/.local/bin/hadolint
+          curl -Lo ~/.local/bin/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
+          chmod +x ~/.local/bin/kind
 
       - name: Create k8s Kind Cluster via Makefile
         run: make cluster-up

@@ -1,21 +1,29 @@
 # syntax=docker/dockerfile:1
-FROM python:3.11-slim AS builder
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+FROM ghcr.io/astral-sh/uv:trixie-slim AS builder
 
-WORKDIR /app
-COPY pyproject.toml .
-# Install dependencies into a virtual environment
-RUN uv pip compile pyproject.toml -o requirements.txt && \
-    uv venv /opt/venv && \
-    VIRTUAL_ENV=/opt/venv uv pip install -r requirements.txt
-
-FROM python:3.11-slim
-
-ENV PATH="/opt/venv/bin:$PATH"
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 
-COPY --from=builder /opt/venv /opt/venv
-COPY gateway/unified_api.py /app/gateway/unified_api.py
-COPY gateway/shunt_middleware.py /app/gateway/shunt_middleware.py
+# Install project dependencies
+COPY .python-version pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev && \
+    rm -rf /opt/python/*/lib/python*/site-packages/pip* /opt/python/*/lib/python*/site-packages/setuptools* /opt/python/*/bin/pip*
+# Copy the application code
+COPY gateway/ ./gateway/
 
-CMD ["uvicorn", "gateway.unified_api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Runtime stage: True distroless
+FROM gcr.io/distroless/cc-debian13@sha256:159783207c2cd44c2aa5715961d13c8612368ac9bd450f887e3f08fc8ea461e3
+
+WORKDIR /app
+
+# Copy the pre-built environment
+COPY --from=builder /opt/python /opt/python
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/gateway /app/gateway
+
+# Make sure the virtualenv is on the path
+ENV PATH="/app/.venv/bin:$PATH"
+USER 65532:65532
+
+# Run the bare uvicorn binary directly from the virtual environment
+ENTRYPOINT ["uvicorn", "gateway.unified_api:app", "--host", "0.0.0.0", "--port", "8000"]

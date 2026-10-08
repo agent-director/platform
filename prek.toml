@@ -52,16 +52,16 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/bridgecrewio/checkov"
-rev = "3.2.66"
+rev = "3.3.26"
 hooks = [
   { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/" }
 ]
 
 [[repos]]
 repo = "https://github.com/hadolint/hadolint"
-rev = "v2.12.0"
+rev = "v2.15.1"
 hooks = [
-  { id = "hadolint-docker", priority = 0, files = "Dockerfile" }
+  { id = "hadolint", priority = 0, files = "Dockerfile" }
 ]
 
 [[repos]]
@@ -74,7 +74,8 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
-  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", pass_filenames = false, files = "^charts/" },
-  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", pass_filenames = false, files = "^charts/" },
-  { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", pass_filenames = false, stages = ["pre-push", "manual"] }
+  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false },
+  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
+  { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
+  { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"], pass_filenames = false }
 ]
