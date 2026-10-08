@@ -16,7 +16,6 @@ dependencies = [
     "watchdog",
     "httpx",
     "orjson",
-    "sniffio>=1.3.1",
 ]
 
 [dependency-groups]
