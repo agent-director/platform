@@ -99,6 +99,15 @@ lint-helm:
 		fi; \
 	done
 
+.PHONY: check-helm-deps
+check-helm-deps:
+	@echo "Checking Helm dependencies..."
+	@for d in charts/*; do \
+		if [ -d "$$d" ] && [ -f "$$d/Chart.yaml" ]; then \
+			helm dependency build "$$d" > /dev/null; \
+		fi; \
+	done
+
 .PHONY: update-schemas
 update-schemas:
 	@echo "Updating local CRD schemas..."
