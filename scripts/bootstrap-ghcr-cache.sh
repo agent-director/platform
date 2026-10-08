@@ -57,10 +57,18 @@ done
 
 echo "✅ GHCR packages seeded successfully."
 echo ""
-echo "Once you have clicked the links above and granted Write access to the repository,"
-echo "run the following block to permanently turn global registry caching back on:"
-echo ""
-echo "sed -i '' 's/type=gha,scope=\\${{ inputs.image }}/type=registry,ref=\\${{ inputs.image }}:buildcache/g' .github/workflows/_build-scan-push.yml"
-echo "sed -i '' 's/type=gha,mode=max,scope=\\${{ inputs.image }}/type=registry,ref=\\${{ inputs.image }}:buildcache,mode=max/g' .github/workflows/_build-scan-push.yml"
-echo "git commit -am \"perf: re-enable global registry caching\" && git push"
-echo "=========================================================="
+cat << 'INSTRUCTIONS'
+Once you have clicked the links above and granted Write access to the repository,
+open .github/workflows/_build-scan-push.yml and change the Docker cache backends:
+
+From:
+  cache-from: type=gha,scope=${{ inputs.image }}
+  cache-to: type=gha,mode=max,scope=${{ inputs.image }}
+
+To:
+  cache-from: type=registry,ref=${{ inputs.image }}:buildcache
+  cache-to: type=registry,ref=${{ inputs.image }}:buildcache,mode=max
+
+Then commit and push!
+==========================================================
+INSTRUCTIONS
