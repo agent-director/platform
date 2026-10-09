@@ -50,6 +50,7 @@ caddyTailscale:
 
   caddyConfig: |
     {
+        order coraza_waf first
         tailscale {
             ephemeral {{ .Values.caddyTailscale.ephemeral }}
         }
@@ -63,9 +64,15 @@ caddyTailscale:
     }
 
     {{ include "platform.tailscaleHostname" . }}.{{ .Values.caddyTailscale.tailnet }} {
+        coraza_waf {
+            load_owasp_crs
+            directives `
+                Include @owasp_crs/*.conf
+                SecRuleEngine On
+            `
+        }
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
-        request_header X-Webauth-User {http.auth.user.tailscale_user}
         request_header X-Webauth-Name {http.auth.user.tailscale_name}
         request_header X-Webauth-Email {http.auth.user.tailscale_user}
         request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
