@@ -1,4 +1,4 @@
-FROM caddy:2.11.7-builder@sha256:f5b1a66449d305280e559dba0ab9f7ce9a2a14c527c79d7c6fb48abc8f895818 AS builder
+FROM caddy:builder-alpine AS builder
 # hadolint ignore=DL3018
 RUN apk add --no-cache mailcap && \
     xcaddy build --output /usr/bin/caddy --with github.com/tailscale/caddy-tailscale
