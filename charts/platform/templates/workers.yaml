@@ -89,5 +89,12 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agent-substrate
+      ports:
+        - protocol: TCP
+          port: 50051
 
 {{- end }}

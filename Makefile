@@ -149,12 +149,6 @@ test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
 	uv run pytest tests/ -m "e2e"
 
-
-.PHONY: test-evals
-test-evals:
-	@echo "Running Promptfoo Evals..."
-	npx promptfoo@latest eval -c tests/promptfoo/promptfooconfig.yaml
-	@echo "Evals passed! Results can be viewed by port-forwarding to the promptfoo deployment in the cluster."
 test-ci: check-cluster
 	@echo "Running Temporal Dev Server in background for CI..."
 	docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
