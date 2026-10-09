@@ -156,7 +156,7 @@ test-ci: check-cluster
 	@echo "Deploying platform without temporal..."
 	make deploy HELM_ARGS="--set temporal.enabled=false"
 	@echo "Running E2E tests..."
-	uv run pytest -m "e2e"
+	$(MAKE) test-e2e
 	@echo "Running Smoke Test..."
 	./tests/smoke_test.sh
 	@echo "Cleaning up Temporal Dev Server..."
