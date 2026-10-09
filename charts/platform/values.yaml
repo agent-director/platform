@@ -76,7 +76,6 @@ caddyTailscale:
                 SecAction "id:900990,phase:1,nolog,pass,t:none,setvar:tx.crs_setup_version=330"
             `
         }
-        rate_limit {
             zone api_abuse {
                 key {remote_host}
                 events 100
@@ -86,7 +85,7 @@ caddyTailscale:
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
         request_header X-Webauth-Name {http.auth.user.tailscale_name}
-        request_header X-Webauth-Email {http.auth.user.tailscale_user}
+        request_header X-Webauth-User {http.auth.user.tailscale_user}
         request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
 
         request_body {
@@ -121,13 +120,13 @@ frontend:
   service:
     port: 3000
 
+workers:
+  enabled: true
+  replicaCount: 1
 litellm:
   enabled: true
   service:
     port: 4000
-
-
-temporal:
   cassandra:
     enabled: false
   elasticsearch:
@@ -174,7 +173,6 @@ temporal:
       runAsUser: null
       fsGroup: null
 
-# OpenShift Sandboxed Containers (Kata) Operator# OpenShift Sandboxed Containers (Kata) Operator
 # OpenShift Sandboxed Containers (Kata) Operator
 
 sandboxedContainers:

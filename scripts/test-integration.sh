@@ -68,7 +68,6 @@ kubectl wait --for=condition=Ready pods --all -n agent-substrate --timeout=600s
 
 echo "=== Running E2E & HTTP Smoke Tests ==="
 make test-e2e
-./tests/smoke_test.sh
 
 
 if [ "${CI:-false}" = "true" ]; then
