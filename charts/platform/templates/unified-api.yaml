@@ -44,12 +44,12 @@ spec:
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "%s.%s-db.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-platform") .Release.Name | quote }}
+                  name: {{ printf "platform.%s-db.credentials.postgresql.acid.zalan.do" .Release.Name | quote }}
                   key: username
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "%s.%s-db.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-platform") .Release.Name | quote }}
+                  name: {{ printf "platform.%s-db.credentials.postgresql.acid.zalan.do" .Release.Name | quote }}
                   key: password
             - name: DATABASE_URL
               value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db:5432/postgres"
