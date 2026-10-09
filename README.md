@@ -1,6 +1,6 @@
 # Agent Director
 
-Agent Director (`agent-director`) is a  multi-agent orchestration and management platform. It combines durable, long-running agent workflows with fast, interactive user-agent sessions, all built upon a secure, isolated sandboxing environment.
+Agent Director (`agent-director`) is a multi-agent orchestration and management platform. It combines durable, long-running agent workflows with fast, interactive user-agent sessions, all built upon a secure, isolated sandboxing environment.
 
 ## Key Features
 
