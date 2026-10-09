@@ -13,3 +13,7 @@ dependencies:
     version: 0.48.0
     repository: https://victoriametrics.github.io/helm-charts/
     condition: victoriametrics.enabled
+  - name: agent-substrate
+    version: 0.1.0
+    repository: "file://../agent-substrate"
+    condition: agent-substrate.enabled
