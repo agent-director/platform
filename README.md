@@ -1,10 +1,10 @@
 # Agent Director
 
-Agent Director (`agent-director`) is a One-Plane multi-agent orchestration and management platform. It combines durable, long-running agent workflows with fast, interactive user-agent sessions, all built upon a secure, isolated sandboxing environment.
+Agent Director (`agent-director`) is a  multi-agent orchestration and management platform. It combines durable, long-running agent workflows with fast, interactive user-agent sessions, all built upon a secure, isolated sandboxing environment.
 
 ## Key Features
 
-- **One-Plane Architecture**: All components, including agent execution environments, run in the same Kubernetes cluster plane, protected by strict isolation.
+- ** Architecture**: All components, including agent execution environments, run in the same Kubernetes cluster plane, protected by strict isolation.
   - **Automation Plane**: Built on Temporal and LangGraph for long-running, durable workflows (like CI pipelines and PM standups).
   - **Interactive Plane**: For direct, real-time user-agent interaction.
 - **Gateway (Unified API + LiteLLM)**: A high-throughput gateway that routes and enforces policies on LLM requests.

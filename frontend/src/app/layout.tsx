@@ -2,7 +2,7 @@ import React from 'react';
 
 export const metadata = {
   title: 'Agent Director',
-  description: 'Unified Dashboard for One-Plane Agent Control Plane',
+  description: 'Unified Dashboard for  Agent Control Plane',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

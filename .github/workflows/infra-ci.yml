@@ -57,7 +57,7 @@ jobs:
           make setup
 
       - name: Run Pytest
-        run: uv run pytest tests/
+        run: make test
 
       - name: Install gh-actions-lock extension
         env:
@@ -110,5 +110,5 @@ jobs:
       - name: Install uv
         run: pip install uv
 
-      - name: Run Integration Suite
-        run: make test-integration
+      - name: Run CI Suite
+        run: make test-ci

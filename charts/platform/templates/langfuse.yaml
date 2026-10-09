@@ -62,13 +62,18 @@ spec:
             periodSeconds: 10
             failureThreshold: 30
           env:
-            - name: PG_PASSWORD
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: langfuse.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
+                  key: username
+            - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: langfuse.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
                   key: password
             - name: DATABASE_URL
-              value: "postgres://langfuse:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/langfuse"
+              value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db:5432/langfuse"
             - name: NEXTAUTH_URL
               value: "http://localhost:3000"
             - name: NEXTAUTH_SECRET

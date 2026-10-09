@@ -1,7 +1,7 @@
 [project]
 name = "agent-director"
 version = "0.1.0"
-description = "One-Plane multi-agent control plane"
+description = "Agent Control Plane"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

@@ -143,11 +143,12 @@ scan-local:
 		./scripts/run-all-local-scans.sh "all"; \
 	fi
 test:
-	uv run pytest tests/ -m "not e2e"
+	uv run pytest -m "not e2e"
 
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
-	uv run pytest tests/ -m "e2e"
+	uv run pytest -m "e2e"
+
 .PHONY: test-ci
 test-ci: check-cluster
 	@echo "Running Temporal Dev Server in background for CI..."
@@ -155,11 +156,12 @@ test-ci: check-cluster
 	@echo "Deploying platform without temporal..."
 	make deploy HELM_ARGS="--set temporal.enabled=false"
 	@echo "Running E2E tests..."
-	uv run pytest tests/ -m "e2e"
+	uv run pytest -m "e2e"
 	@echo "Running Smoke Test..."
 	./tests/smoke_test.sh
 	@echo "Cleaning up Temporal Dev Server..."
 	docker rm -f temporal-dev
+
 lint:
 	uvx prek run --all-files
 

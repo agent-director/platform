@@ -46,13 +46,13 @@ spec:
                 secretKeyRef:
                   name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
                   key: username
-            - name: PG_PASSWORD
+            - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
                   key: password
             - name: DATABASE_URL
-              value: "postgres://$(PGUSER):$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/agent-platform"
+              value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db:5432/postgres"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
