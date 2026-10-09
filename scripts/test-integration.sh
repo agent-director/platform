@@ -54,7 +54,7 @@ echo "=== Deploying Platform and Substrate ==="
 export IMAGE_TAG="local"
 
 DEPLOY_HELM_ARGS="--set caddyTailscale.enabled=false --set sandboxedContainers.enabled=false"
-if [ "$LIGHTWEIGHT_CI" = "true" ]; then
+if [ "${CI:-false}" = "true" ]; then
     echo "=== Running Lightweight Temporal Dev Server ==="
     docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
     DEPLOY_HELM_ARGS="$DEPLOY_HELM_ARGS --set temporal.enabled=false"
@@ -66,10 +66,12 @@ echo "=== Waiting for all pods to be Ready ==="
 kubectl wait --for=condition=Ready pods --all -n $NAMESPACE --timeout=600s
 kubectl wait --for=condition=Ready pods --all -n agent-substrate --timeout=600s
 
-echo "=== Running E2E Smoke Tests ==="
+echo "=== Running E2E & HTTP Smoke Tests ==="
 make test-e2e
+./tests/smoke_test.sh
 
-if [ "$LIGHTWEIGHT_CI" = "true" ]; then
+
+if [ "${CI:-false}" = "true" ]; then
     echo "=== Cleaning up Temporal Dev Server ==="
     docker rm -f temporal-dev || true
 fi

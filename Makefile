@@ -149,13 +149,6 @@ test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
 	uv run pytest -m "e2e"
 
-.PHONY: test-ci
-test-ci: check-cluster
-	@echo "Running Lightweight CI Integration Suite..."
-	LIGHTWEIGHT_CI=true ./scripts/test-integration.sh platform-dev
-	@echo "Running Smoke Test..."
-	./tests/smoke_test.sh
-
 lint:
 	uvx prek run --all-files
 
