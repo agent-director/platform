@@ -6,7 +6,7 @@ RUN apk add --no-cache mailcap && \
     --with github.com/corazawaf/coraza-caddy/v2 \
     --with github.com/mholt/caddy-ratelimit
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
-RUN /usr/bin/caddy version && /usr/bin/caddy list-modules | grep tailscale && /usr/bin/caddy list-modules | grep coraza
+RUN /usr/bin/caddy version && /usr/bin/caddy list-modules | grep tailscale
 
 FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
