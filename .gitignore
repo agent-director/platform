@@ -5,8 +5,7 @@ __pycache__/
 .DS_Store
 *.egg-info/
 dist/
-build/*
-!build/Dockerfile.*
+build/
 .pytest_cache/
 .coverage
 .coverage.*
