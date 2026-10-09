@@ -63,9 +63,9 @@ deploy: setup check-cluster
 	kubectl get pods -n $(NAMESPACE) -w & WATCH_PID=$$!; \
 	helm upgrade --install $(RELEASE_NAME) charts/platform \
 		--namespace $(NAMESPACE) \
-		--set tailscaleIngress.tailnet="$$TAILSCALE_DOMAIN" \
-		--set tailscaleIngress.hostname="$(USER)-$(NAMESPACE)-$(RELEASE_NAME)" \
-		--set tailscaleIngress.ephemeral=true \
+		--set caddyTailscale.tailnet="$$TAILSCALE_DOMAIN" \
+		--set caddyTailscale.hostname="$(USER)-$(NAMESPACE)-$(RELEASE_NAME)" \
+		--set caddyTailscale.ephemeral=true \
 		--set global.image.tag="$(IMAGE_TAG)" \
 		--set secrets.langfuseNextauthSecret="$${LANGFUSE_NEXTAUTH_SECRET:-dummy}" \
 		--set secrets.langfuseSalt="$${LANGFUSE_SALT:-dummy}" \
@@ -143,12 +143,24 @@ scan-local:
 		./scripts/run-all-local-scans.sh "all"; \
 	fi
 test:
-	uv run pytest tests/ -m "not e2e" -m "not e2e"
+	uv run pytest tests/ -m "not e2e"
 
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
-	uv run pytest tests/ -m "not e2e"e2e/
+	uv run pytest tests/ -m "e2e"
 
+.PHONY: test-ci
+test-ci: check-cluster
+	@echo "Running Temporal Dev Server in background for CI..."
+	docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
+	@echo "Deploying platform without temporal..."
+	make deploy HELM_ARGS="--set temporal.enabled=false"
+	@echo "Running E2E tests..."
+	uv run pytest tests/ -m "e2e"
+	@echo "Running Smoke Test..."
+	./tests/smoke_test.sh
+	@echo "Cleaning up Temporal Dev Server..."
+	docker rm -f temporal-dev
 lint:
 	uvx prek run --all-files
 

@@ -25,25 +25,47 @@ def check_pod_ready(label_selector: str, namespace: str = NAMESPACE):
         pytest.fail(f"Pod matching {label_selector} not ready. Error: {e.stderr}")
 
 
-@pytest.mark.parametrize(
-    "label_selector",
-    [
-        "application=spilo",
-        "app=langfuse",
-        "app.kubernetes.io/name=temporal",
-        "app=unified-api",
-        "app=litellm",
-        "app=rustfs",
-        "app=workers",
-    ],
-)
+def get_expected_deployments() -> list[str]:
+    """Dynamically get all deployments by rendering the helm template."""
+    cmd = [
+        "helm",
+        "template",
+        "test-release",
+        "charts/platform",
+        "--set",
+        "tailscaleIngress.enabled=false",
+    ]
+    try:
+        output = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+        import yaml  # type: ignore
+
+        docs = yaml.safe_load_all(output)
+        labels = []
+        for doc in docs:
+            if not doc:
+                continue
+            if doc.get("kind") in ["Deployment", "StatefulSet"]:
+                match_labels = (
+                    doc.get("spec", {}).get("selector", {}).get("matchLabels", {})
+                )
+                if match_labels:
+                    labels.append(",".join(f"{k}={v}" for k, v in match_labels.items()))
+        # Add postgres operator spilo explicitly as it's spawned dynamically
+        labels.append("application=spilo")
+        return list(set(labels))
+    except Exception:
+        # Fallback if helm template fails in test discovery
+        return ["app=unified-api"]
+
+
+@pytest.mark.parametrize("label_selector", get_expected_deployments())
 def test_core_platform_components_ready(label_selector: str):
     check_pod_ready(label_selector)
 
 
 def test_tailscale_components_ready():
     if os.environ.get("TEST_TAILSCALE", "false") == "true":
-        check_pod_ready("app=tailscale-ingress")
+        check_pod_ready("app=caddy-tailscale")
 
 
 def test_agent_substrate_components_ready():

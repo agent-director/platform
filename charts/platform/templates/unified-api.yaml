@@ -41,13 +41,18 @@ spec:
               cpu: 500m
               memory: 512Mi
           env:
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
+                  key: username
             - name: PG_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: agent-platform.{{ .Release.Name }}-db.credentials.postgresql.acid.zalan.do
                   key: password
             - name: DATABASE_URL
-              value: "postgres://agent-platform:$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/agent-platform"
+              value: "postgres://$(PGUSER):$(PG_PASSWORD)@{{ .Release.Name }}-db:5432/agent-platform"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:

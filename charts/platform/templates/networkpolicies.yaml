@@ -1,4 +1,4 @@
-{{- if and .Values.tailscaleIngress.enabled .Values.frontend.enabled }}
+{{- if and .Values.caddyTailscale.enabled .Values.frontend.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,24 +15,24 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              app: tailscale-ingress
+              app: caddy-tailscale
       ports:
         - protocol: TCP
           port: 3000
 {{- end }}
 
 ---
-{{- if .Values.tailscaleIngress.enabled }}
+{{- if .Values.caddyTailscale.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: {{ include "platform.fullname" . }}-tailscale-egress
   labels:
-    app: tailscale-ingress
+    app: caddy-tailscale
 spec:
   podSelector:
     matchLabels:
-      app: tailscale-ingress
+      app: caddy-tailscale
   policyTypes:
     - Ingress
     - Egress

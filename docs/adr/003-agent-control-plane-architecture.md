@@ -1,4 +1,4 @@
-# ADR 003: One-Plane Architecture
+# ADR 003: Agent Control Plane Architecture
 
 ## Status
 Accepted
@@ -7,7 +7,7 @@ Accepted
 The previous "Two-Plane Architecture" strictly separated the Data Plane (Agent Substrate) from the Control Plane (Temporal, Gateway, etc.). However, maintaining this rigid boundary introduced significant networking complexity, overhead, and maintenance burden. Components like OpenShell and the Centralized MCP server created convoluted routing paths, especially when integrating with Git and internal APIs.
 
 ## Decision
-We are moving to a "One-Plane Architecture" where all components, including agent execution environments (Agent Substrate), run in the same Kubernetes cluster plane. We will use strict isolation (read-only root, dropping capabilities, NetworkPolicies, and RWO hardlinked clones) to enforce security boundaries between agent execution and control plane services, rather than relying on an artificial network or separate cluster boundaries.
+We are moving to a "Agent Control Plane Architecture" where all components, including agent execution environments (Agent Substrate), run in the same Kubernetes cluster plane. We will use strict isolation (read-only root, dropping capabilities, NetworkPolicies, and RWO hardlinked clones) to enforce security boundaries between agent execution and control plane services, rather than relying on an artificial network or separate cluster boundaries.
 
 ## Consequences
 - **Positive:** Simplified deployment (single cluster), reduced latency, easier CI/CD (one-command local bring up via kind).

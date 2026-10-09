@@ -33,7 +33,7 @@ secrets:
   litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
 
 # Unprivileged Sidecar Bridge Ingress
-tailscaleIngress:
+caddyTailscale:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
@@ -51,7 +51,7 @@ tailscaleIngress:
   caddyConfig: |
     {
         tailscale {
-            ephemeral {{ .Values.tailscaleIngress.ephemeral }}
+            ephemeral {{ .Values.caddyTailscale.ephemeral }}
         }
         servers {
             timeouts {
@@ -62,7 +62,7 @@ tailscaleIngress:
         }
     }
 
-    {{ include "platform.tailscaleHostname" . }}.{{ .Values.tailscaleIngress.tailnet }} {
+    {{ include "platform.tailscaleHostname" . }}.{{ .Values.caddyTailscale.tailnet }} {
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
         request_header X-Webauth-User {http.auth.user.tailscale_user}

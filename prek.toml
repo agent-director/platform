@@ -69,7 +69,7 @@ repo = "local"
 hooks = [
   { id = "actions-lock", name = "GH Actions Lock", entry = "gh actions-lock --no-migrate-local-actions", language = "system", files = "^\\.github/workflows/", pass_filenames = false },
   { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false },
-  { id = "helm-dep-sync", name = "Helm Dependency Sync", entry = "make check-helm-deps", language = "system", files = "^charts/.*/Chart\\.(yaml|lock)$", pass_filenames = false },
+  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
   { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"], pass_filenames = false }
 ]

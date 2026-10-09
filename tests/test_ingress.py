@@ -54,7 +54,7 @@ def get_egress_ports(np_manifest):
 
 def test_tailscale_deployment(manifests):
     deployment = find_manifest(
-        manifests, "Deployment", f"{RELEASE_NAME}-tailscale-ingress"
+        manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
     )
     assert deployment is not None, "Tailscale deployment should be rendered"
 
@@ -193,7 +193,7 @@ def test_network_policies(manifests):
         frontend_ingress["spec"]["ingress"][0]["from"][0]["podSelector"]["matchLabels"][
             "app"
         ]
-        == "tailscale-ingress"
+        == "caddy-tailscale"
     )
 
     egress_np = find_manifest(
@@ -249,24 +249,24 @@ def test_tailscale_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": False,
+            "caddyTailscale.enabled": False,
             "frontend.enabled": True,
             "unifiedApi.enabled": True,
         },
     )
 
     deployment = find_manifest(
-        manifests, "Deployment", f"{RELEASE_NAME}-tailscale-ingress"
+        manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
     )
     assert deployment is None, "Tailscale deployment should not be rendered"
 
-    sa = find_manifest(manifests, "ServiceAccount", f"{RELEASE_NAME}-tailscale-ingress")
+    sa = find_manifest(manifests, "ServiceAccount", f"{RELEASE_NAME}-caddy-tailscale")
     assert sa is None, "Tailscale ServiceAccount should not be rendered"
 
-    role = find_manifest(manifests, "Role", f"{RELEASE_NAME}-tailscale-ingress")
+    role = find_manifest(manifests, "Role", f"{RELEASE_NAME}-caddy-tailscale")
     assert role is None, "Tailscale Role should not be rendered"
 
-    rb = find_manifest(manifests, "RoleBinding", f"{RELEASE_NAME}-tailscale-ingress")
+    rb = find_manifest(manifests, "RoleBinding", f"{RELEASE_NAME}-caddy-tailscale")
     assert rb is None, "Tailscale RoleBinding should not be rendered"
 
     cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
@@ -287,7 +287,7 @@ def test_tailscale_frontend_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": True,
+            "caddyTailscale.enabled": True,
             "frontend.enabled": False,
             "unifiedApi.enabled": True,
         },
@@ -312,7 +312,7 @@ def test_tailscale_unifiedapi_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": True,
+            "caddyTailscale.enabled": True,
             "frontend.enabled": True,
             "unifiedApi.enabled": False,
         },

@@ -19,9 +19,6 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.workers.runtimeClassName }}
-      runtimeClassName: {{ .Values.workers.runtimeClassName }}
-      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -88,7 +85,7 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app: tailscale-ingress
+              app: caddy-tailscale
       ports:
         - protocol: TCP
           port: 8080
