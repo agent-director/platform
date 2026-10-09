@@ -1,0 +1,15 @@
+description: "Platform Core Agent Evals"
+prompts:
+  - "Extract the core requirements from the following plan:\n{{plan}}"
+providers:
+  - id: "openai:gpt-4o"
+    config:
+      temperature: 0.0
+tests:
+  - vars:
+      plan: "We will build a simple unified API using FastAPI and expose it via Caddy for tailnet access."
+    assert:
+      - type: "icontains"
+        value: "FastAPI"
+      - type: "icontains"
+        value: "Caddy"
