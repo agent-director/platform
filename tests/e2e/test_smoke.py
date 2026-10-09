@@ -3,6 +3,8 @@ import subprocess
 
 import pytest
 
+pytestmark = pytest.mark.e2e
+
 NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 
@@ -53,7 +55,7 @@ def get_expected_deployments() -> list[str]:
         # Add postgres operator spilo explicitly as it's spawned dynamically
         labels.append("application=spilo")
         return list(set(labels))
-    except Exception:
+    except subprocess.CalledProcessError:
         # Fallback if helm template fails in test discovery
         return ["app=unified-api"]
 
@@ -61,9 +63,10 @@ def get_expected_deployments() -> list[str]:
 def test_api_health_via_port_forward():
     """Verify the Unified API responds to HTTP requests over port-forward."""
     import socket
-    import time
-    import httpx
     import subprocess
+    import time
+
+    import httpx
 
     cmd_port_forward = [
         "kubectl",

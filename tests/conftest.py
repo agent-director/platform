@@ -1,5 +1,5 @@
-import resource
 import platform
+import resource
 import shutil
 import subprocess
 
@@ -13,8 +13,9 @@ def chart_dir(tmp_path_factory):
     Prevents mutating the developer's working directory (Chart.lock, charts/).
     """
     tmp_dir = tmp_path_factory.mktemp("helm-charts")
-    chart_path = tmp_dir / "platform"
-    shutil.copytree("charts/platform", chart_path)
+    charts_dir = tmp_dir / "charts"
+    shutil.copytree("charts", charts_dir)
+    chart_path = charts_dir / "platform"
     subprocess.run(
         ["helm", "dependency", "build", str(chart_path)],
         check=True,

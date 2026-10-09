@@ -3,6 +3,8 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
+pytestmark = pytest.mark.e2e
+
 from gateway.unified_api import app
 
 

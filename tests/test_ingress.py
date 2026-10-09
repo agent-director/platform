@@ -176,6 +176,8 @@ def test_caddyfile_structural_validation(manifests):
             "unrecognized global option: tailscale" in result.stderr
             or "unrecognized directive: tailscale_auth" in result.stderr
             or "unrecognized directive: bind" in result.stderr
+            or "coraza_waf is not a registered directive" in result.stderr
+            or "rate_limit is not a registered directive" in result.stderr
         )
         assert result.returncode == 0 or is_plugin_error, (
             f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"

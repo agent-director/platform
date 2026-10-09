@@ -148,8 +148,9 @@ def test_chat_proxy_streaming_validator():
         yield b'tem(foo)"}]}'
 
     class MockResponse:
-        status_code = 200
-        headers = {}
+        def __init__(self):
+            self.status_code = 200
+            self.headers = {}
 
         async def aiter_raw(self):
             yield b"data: test\n\n"
@@ -235,21 +236,21 @@ def test_update_config_conflict():
         def json(self):
             return self._json
 
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}):
-            with patch("httpx.AsyncClient.get") as mock_get:
+    with (
+        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
+        patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
+        patch("httpx.AsyncClient.get") as mock_get,
+    ):
 
-                def mock_get_side_effect(url, **kwargs):
-                    if "page=1" in url:
-                        return MockResponse(
-                            [{"head": {"ref": "config-update-abc12345"}}], 200
-                        )
-                    return MockResponse([], 200)
+        def mock_get_side_effect(url, **kwargs):
+            if "page=1" in url:
+                return MockResponse([{"head": {"ref": "config-update-abc12345"}}], 200)
+            return MockResponse([], 200)
 
-                mock_get.side_effect = mock_get_side_effect
-                response = client.post("/api/config", json=payload, headers=headers)
-                assert response.status_code == 409
-                assert "A configuration PR is already open" in response.json()["detail"]
+        mock_get.side_effect = mock_get_side_effect
+        response = client.post("/api/config", json=payload, headers=headers)
+        assert response.status_code == 409
+        assert "A configuration PR is already open" in response.json()["detail"]
 
 
 def test_update_config_github_upstream_failure():
@@ -269,19 +270,21 @@ def test_update_config_github_upstream_failure():
             return self._json
 
     # Test failure to fetch repo info
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}):
-            with patch("httpx.AsyncClient.get") as mock_get:
+    with (
+        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
+        patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
+        patch("httpx.AsyncClient.get") as mock_get,
+    ):
 
-                def mock_get_side_effect(url, **kwargs):
-                    if "pulls?state=open" in url:
-                        return MockResponse([], 200)
-                    return MockResponse({}, 500)
+        def mock_get_side_effect(url, **kwargs):
+            if "pulls?state=open" in url:
+                return MockResponse([], 200)
+            return MockResponse({}, 500)
 
-                mock_get.side_effect = mock_get_side_effect
-                response = client.post("/api/config", json=payload, headers=headers)
-                assert response.status_code == 500
-                assert "Failed to fetch repo info" in response.json()["detail"]
+        mock_get.side_effect = mock_get_side_effect
+        response = client.post("/api/config", json=payload, headers=headers)
+        assert response.status_code == 500
+        assert "Failed to fetch repo info" in response.json()["detail"]
 
 
 def test_update_config_pr_creation_failure():
@@ -300,31 +303,29 @@ def test_update_config_pr_creation_failure():
         def json(self):
             return self._json
 
-    with patch("builtins.open", mock_open(read_data=allowlist_yaml)):
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}):
-            with patch("httpx.AsyncClient.get") as mock_get:
+    with (
+        patch("builtins.open", mock_open(read_data=allowlist_yaml)),
+        patch.dict(os.environ, {"GITHUB_TOKEN": "mock"}),
+        patch("httpx.AsyncClient.get") as mock_get,
+    ):
 
-                def mock_get_side_effect(url, **kwargs):
-                    if "pulls?state=open" in url:
-                        return MockResponse([], 200)
-                    if "git/refs/heads" in url:
-                        return MockResponse({"object": {"sha": "123"}}, 200)
-                    if "contents" in url:
-                        return MockResponse({"sha": "abc456"}, 200)
-                    return MockResponse({"default_branch": "main"}, 200)
+        def mock_get_side_effect(url, **kwargs):
+            if "pulls?state=open" in url:
+                return MockResponse([], 200)
+            if "git/refs/heads" in url:
+                return MockResponse({"object": {"sha": "123"}}, 200)
+            if "contents" in url:
+                return MockResponse({"sha": "abc456"}, 200)
+            return MockResponse({"default_branch": "main"}, 200)
 
-                mock_get.side_effect = mock_get_side_effect
-                with patch("httpx.AsyncClient.post") as mock_post:
-                    mock_post.return_value = MockResponse({}, 500)
-                    with patch("httpx.AsyncClient.put") as mock_put:
-                        mock_put.return_value = MockResponse({}, 200)
-                        response = client.post(
-                            "/api/config", json=payload, headers=headers
-                        )
-                        assert response.status_code == 500
-                        assert (
-                            "Failed to create Pull Request" in response.json()["detail"]
-                        )
+        mock_get.side_effect = mock_get_side_effect
+        with patch("httpx.AsyncClient.post") as mock_post:
+            mock_post.return_value = MockResponse({}, 500)
+            with patch("httpx.AsyncClient.put") as mock_put:
+                mock_put.return_value = MockResponse({}, 200)
+                response = client.post("/api/config", json=payload, headers=headers)
+                assert response.status_code == 500
+                assert "Failed to create Pull Request" in response.json()["detail"]
 
 
 def test_update_config_invalid_yaml():
