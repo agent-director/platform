@@ -73,3 +73,31 @@ spec:
           port: 3000
 {{- end }}
 {{- end }}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "platform.fullname" . }}-unified-api-ingress
+  labels:
+    app: unified-api
+spec:
+  podSelector:
+    matchLabels:
+      app: unified-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: caddy-tailscale
+        - podSelector:
+            matchLabels:
+              app: frontend
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: temporal
+      ports:
+        - protocol: TCP
+          port: 8000
