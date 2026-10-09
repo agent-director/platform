@@ -3,7 +3,8 @@ FROM caddy:2.11.7-builder@sha256:f5b1a66449d305280e559dba0ab9f7ce9a2a14c527c79d7
 RUN apk add --no-cache mailcap && \
     xcaddy build --output /usr/bin/caddy \
     --with github.com/tailscale/caddy-tailscale \
-    --with github.com/corazawaf/coraza-caddy/v2
+    --with github.com/corazawaf/coraza-caddy/v2 \
+    --with github.com/mholt/caddy-ratelimit
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
 RUN /usr/bin/caddy version && /usr/bin/caddy list-modules | grep tailscale && /usr/bin/caddy list-modules | grep coraza
 
