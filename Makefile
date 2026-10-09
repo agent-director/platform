@@ -148,7 +148,7 @@ test:
 test-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
 	uv run pytest tests/ -m "e2e"
-
+.PHONY: test-ci
 test-ci: check-cluster
 	@echo "Running Temporal Dev Server in background for CI..."
 	docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
