@@ -151,16 +151,10 @@ test-e2e: check-cluster
 
 .PHONY: test-ci
 test-ci: check-cluster
-	@echo "Running Temporal Dev Server in background for CI..."
-	docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
-	@echo "Deploying platform without temporal..."
-	make deploy HELM_ARGS="--set temporal.enabled=false"
-	@echo "Running E2E tests..."
-	$(MAKE) test-e2e
+	@echo "Running Lightweight CI Integration Suite..."
+	LIGHTWEIGHT_CI=true ./scripts/test-integration.sh platform-dev
 	@echo "Running Smoke Test..."
 	./tests/smoke_test.sh
-	@echo "Cleaning up Temporal Dev Server..."
-	docker rm -f temporal-dev
 
 lint:
 	uvx prek run --all-files

@@ -52,7 +52,15 @@ kind load docker-image "${IMAGES_TO_LOAD[@]}" --name $KIND_CLUSTER_NAME
 
 echo "=== Deploying Platform and Substrate ==="
 export IMAGE_TAG="local"
-make deploy HELM_ARGS="--set caddyTailscale.enabled=false --set sandboxedContainers.enabled=false" HELM_ARGS_SUBSTRATE="--set ateapi.image.pullPolicy=IfNotPresent --set atecontroller.image.pullPolicy=IfNotPresent"
+
+DEPLOY_HELM_ARGS="--set caddyTailscale.enabled=false --set sandboxedContainers.enabled=false"
+if [ "$LIGHTWEIGHT_CI" = "true" ]; then
+    echo "=== Running Lightweight Temporal Dev Server ==="
+    docker run -d --name temporal-dev --network kind -p 7233:7233 temporalio/admin-tools:latest temporal server start-dev
+    DEPLOY_HELM_ARGS="$DEPLOY_HELM_ARGS --set temporal.enabled=false"
+fi
+
+make deploy HELM_ARGS="$DEPLOY_HELM_ARGS" HELM_ARGS_SUBSTRATE="--set ateapi.image.pullPolicy=IfNotPresent --set atecontroller.image.pullPolicy=IfNotPresent"
 echo "=== Waiting for all pods to be Ready ==="
 # Ensure all pods are running as expected BEFORE attempting any smoke tests
 kubectl wait --for=condition=Ready pods --all -n $NAMESPACE --timeout=600s
@@ -61,4 +69,8 @@ kubectl wait --for=condition=Ready pods --all -n agent-substrate --timeout=600s
 echo "=== Running E2E Smoke Tests ==="
 make test-e2e
 
+if [ "$LIGHTWEIGHT_CI" = "true" ]; then
+    echo "=== Cleaning up Temporal Dev Server ==="
+    docker rm -f temporal-dev || true
+fi
 echo "=== Integration Test Suite Passed Successfully ==="
