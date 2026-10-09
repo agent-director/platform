@@ -69,6 +69,10 @@ caddyTailscale:
             directives `
                 Include @owasp_crs/*.conf
                 SecRuleEngine On
+                SecRequestBodyAccess On
+                SecResponseBodyAccess Off
+                # Enable JSON parsing for API traffic
+                SecAction "id:900990,phase:1,nolog,pass,t:none,setvar:tx.crs_setup_version=330"
             `
         }
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
@@ -113,8 +117,6 @@ litellm:
   enabled: true
   service:
     port: 4000
-promptfoo:
-  enabled: true
 
 
 temporal:

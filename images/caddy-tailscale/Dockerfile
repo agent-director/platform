@@ -1,9 +1,11 @@
 FROM caddy:2.11.7-builder@sha256:f5b1a66449d305280e559dba0ab9f7ce9a2a14c527c79d7c6fb48abc8f895818 AS builder
 # hadolint ignore=DL3018
 RUN apk add --no-cache mailcap && \
-    xcaddy build --output /usr/bin/caddy --with github.com/tailscale/caddy-tailscale
+    xcaddy build --output /usr/bin/caddy \
+    --with github.com/tailscale/caddy-tailscale \
+    --with github.com/corazawaf/coraza-caddy/v2
 SHELL ["/bin/ash", "-eo", "pipefail", "-c"]
-RUN /usr/bin/caddy version && /usr/bin/caddy list-modules | grep tailscale
+RUN /usr/bin/caddy version && /usr/bin/caddy list-modules | grep tailscale && /usr/bin/caddy list-modules | grep coraza
 
 FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

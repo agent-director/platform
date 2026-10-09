@@ -22,9 +22,8 @@ The central intelligence router for the platform.
   - **Authentication (Vault/Secrets):** API keys (`ANTHROPIC_API_KEY`, GCP Service Accounts for Vertex) are injected into the Gateway pods exclusively as environment variables (via Kubernetes Secrets or ExternalSecrets to Vault). `litellm_config.yaml` natively resolves these via `os.environ/` syntax, completely isolating auth from routing logic without requiring the LiteLLM UI.
 
 
-### Context Synthesis and Promptfoo
+### Context Synthesis
 To combat Context Rot and Tool Blindness without relying on synchronous middleware, the platform uses a **Parallel Archivist Workflow** and **Progressive Disclosure** (reading staged memory files).
-For objective measurement, the platform relies on **Promptfoo** to evaluate deterministic assertions and pass@k statistics, avoiding the circularity problem of LLM-as-judge. Promptfoo runs locally in the cluster and is accessible via port-forward.
 ### Agent Substrate Sandbox
 Provides the secure, isolated execution environment where agent-generated code and tool actions run. It uses RWO hardlinked clones for fast initialization.
 - Limits network access (e.g., blocking cluster-internal routing and cloud IMDS, allowing only explicitly permitted MCP/Gateway endpoints).
