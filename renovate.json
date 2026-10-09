@@ -44,23 +44,6 @@
     },
     {
       "matchPackageNames": [
-        "bridgecrewio/checkov",
-        "https://github.com/bridgecrewio/checkov"
-      ],
-      "datasourceTemplate": "github-releases"
-    },
-    {
-      "matchPackageNames": [
-        "trivy",
-        "aquasecurity/trivy"
-      ],
-      "matchManagers": [
-        "asdf"
-      ],
-      "datasourceTemplate": "github-tags"
-    },
-    {
-      "matchPackageNames": [
         "pre-commit/pre-commit-hooks",
         "https://github.com/pre-commit/pre-commit-hooks"
       ],
