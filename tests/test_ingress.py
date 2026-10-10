@@ -185,17 +185,8 @@ def test_caddyfile_structural_validation(manifests):
                 check=False,
             )
 
-        # If we are using the standard caddy binary fallback, it will fail to validate
-        # these directives. We accept these specific errors as a "pass" for structural validation.
-        is_plugin_error = (
-            "unrecognized global option: tailscale" in result.stderr
-            or "unrecognized directive: tailscale_auth" in result.stderr
-            or "unrecognized directive: bind" in result.stderr
-            or "coraza_waf is not a registered directive" in result.stderr
-            or "rate_limit is not a registered directive" in result.stderr
-        )
         # If test-caddy-custom is used, returncode should be 0.
-        assert result.returncode == 0 or is_plugin_error, (
+        assert result.returncode == 0, (
             f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
         )
     finally:
