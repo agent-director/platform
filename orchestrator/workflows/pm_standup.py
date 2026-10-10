@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from langgraph.graph import END, START, StateGraph
+from temporalio import workflow
 
 
 class PMStandupState(TypedDict):
@@ -9,21 +9,13 @@ class PMStandupState(TypedDict):
     blockers: list[str]
 
 
-def gather_updates(state: PMStandupState) -> dict:
-    return {"status": "updates_gathered"}
-
-
-def identify_blockers(state: PMStandupState) -> dict:
-    return {"blockers": ["database migration"], "status": "blockers_identified"}
-
-
-def build_pm_standup() -> StateGraph:
-    workflow = StateGraph(PMStandupState)
-
-    workflow.add_node("gather_updates", gather_updates)
-    workflow.add_node("identify_blockers", identify_blockers)
-
-    workflow.add_edge(START, "gather_updates")
-    workflow.add_edge("gather_updates", "identify_blockers")
-    workflow.add_edge("identify_blockers", END)
-    return workflow
+@workflow.defn(name="PMStandupWorkflow")
+class PMStandupWorkflow:
+    @workflow.run
+    async def run(self, job_id: str) -> dict:
+        # Stub workflow returning hardcoded dict
+        return {
+            "job_id": job_id,
+            "status": "blockers_identified",
+            "blockers": ["database migration"],
+        }

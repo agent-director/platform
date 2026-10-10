@@ -33,7 +33,7 @@ secrets:
   litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
 
 # Unprivileged Sidecar Bridge Ingress
-tailscaleIngress:
+caddyTailscale:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
@@ -50,8 +50,10 @@ tailscaleIngress:
 
   caddyConfig: |
     {
+        order coraza_waf first
+        order rate_limit before reverse_proxy
         tailscale {
-            ephemeral {{ .Values.tailscaleIngress.ephemeral }}
+            ephemeral {{ .Values.caddyTailscale.ephemeral }}
         }
         servers {
             timeouts {
@@ -62,12 +64,30 @@ tailscaleIngress:
         }
     }
 
-    {{ include "platform.tailscaleHostname" . }}.{{ .Values.tailscaleIngress.tailnet }} {
+    {{ include "platform.tailscaleHostname" . }}.{{ .Values.caddyTailscale.tailnet }} {
+        coraza_waf {
+            load_owasp_crs
+            directives `
+                Include @owasp_crs/*.conf
+                SecRuleEngine On
+                SecRequestBodyAccess On
+                SecResponseBodyAccess Off
+                # Enable JSON parsing for API traffic
+                SecAction "id:900990,phase:1,nolog,pass,t:none,setvar:tx.crs_setup_version=330"
+            `
+        }
+        rate_limit {
+            zone api_abuse {
+                key {remote_host}
+                events 100
+                window 10s
+            }
+        }
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
-        request_header X-Webauth-User {http.auth.user.tailscale_user}
         request_header X-Webauth-Name {http.auth.user.tailscale_name}
         request_header X-Webauth-Email {http.auth.user.tailscale_user}
+        request_header X-Webauth-User {http.auth.user.tailscale_user}
         request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
 
         request_body {
@@ -102,6 +122,9 @@ frontend:
   service:
     port: 3000
 
+workers:
+  enabled: true
+  replicaCount: 1
 litellm:
   enabled: true
   service:
@@ -154,7 +177,6 @@ temporal:
       runAsUser: null
       fsGroup: null
 
-# OpenShift Sandboxed Containers (Kata) Operator# OpenShift Sandboxed Containers (Kata) Operator
 # OpenShift Sandboxed Containers (Kata) Operator
 
 sandboxedContainers:

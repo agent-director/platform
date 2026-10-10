@@ -28,7 +28,7 @@ def _secure_resolve(path: str) -> Path:
             raise ValueError(f"Path traversal detected: {path}")
 
         return requested_path
-    except Exception as e:  # noqa: BLE001
+    except (RuntimeError, OSError, ValueError) as e:
         raise ValueError(f"Invalid path: {e!s}")
 
 

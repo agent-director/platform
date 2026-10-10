@@ -1,14 +1,14 @@
-{{- if .Values.tailscaleIngress.enabled }}
+{{- if .Values.caddyTailscale.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ include "platform.fullname" . }}-tailscale-data
   labels:
-    app: tailscale-ingress
+    app: caddy-tailscale
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.tailscaleIngress.storage.size }}
+      storage: {{ .Values.caddyTailscale.storage.size }}
 {{- end }}
