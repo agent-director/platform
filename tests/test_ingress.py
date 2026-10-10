@@ -29,7 +29,7 @@ def render_chart(chart_dir, values=None):
 
 @pytest.fixture(scope="module")
 def manifests(chart_dir):
-    return render_chart(chart_dir)
+    return render_chart(chart_dir, {"caddyTailscale.tailnet": "ts.net"})
 
 
 def find_manifest(manifests, kind, name):
@@ -116,14 +116,16 @@ def test_caddyfile_structural_validation(manifests):
     has_docker = False
     try:
         subprocess.run(["docker", "info"], check=True, capture_output=True)
+        # Build custom caddy image to properly validate plugins (Coraza, Tailscale, RateLimit)
         res = subprocess.run(
-            ["docker", "image", "inspect", "caddy:2.7.6"],
+            ["docker", "build", "-t", "test-caddy-custom", "images/caddy-tailscale"],
             capture_output=True,
             check=False,
         )
         if res.returncode == 0:
             has_docker = True
         else:
+            # Fallback to pulling standard caddy if build fails
             pull_res = subprocess.run(
                 ["docker", "pull", "caddy:2.7.6"], capture_output=True, check=False
             )
@@ -151,6 +153,17 @@ def test_caddyfile_structural_validation(manifests):
                 check=False,
             )
         else:
+            # Use test-caddy-custom if built, else fallback to standard caddy
+            image_to_use = (
+                "test-caddy-custom"
+                if subprocess.run(
+                    ["docker", "image", "inspect", "test-caddy-custom"],
+                    capture_output=True,
+                    check=False,
+                ).returncode
+                == 0
+                else "caddy:2.7.6"
+            )
             result = subprocess.run(
                 [
                     "docker",
@@ -159,7 +172,9 @@ def test_caddyfile_structural_validation(manifests):
                     "-i",
                     "-v",
                     f"{tmp_path}:/etc/caddy/Caddyfile",
-                    "caddy:2.7.6",
+                    "--tmpfs",
+                    "/tmp",
+                    image_to_use,
                     "caddy",
                     "validate",
                     "--config",
@@ -170,7 +185,7 @@ def test_caddyfile_structural_validation(manifests):
                 check=False,
             )
 
-        # If we are using the caddy-tailscale plugin, the standard Caddy binary will fail to validate
+        # If we are using the standard caddy binary fallback, it will fail to validate
         # these directives. We accept these specific errors as a "pass" for structural validation.
         is_plugin_error = (
             "unrecognized global option: tailscale" in result.stderr
@@ -179,6 +194,7 @@ def test_caddyfile_structural_validation(manifests):
             or "coraza_waf is not a registered directive" in result.stderr
             or "rate_limit is not a registered directive" in result.stderr
         )
+        # If test-caddy-custom is used, returncode should be 0.
         assert result.returncode == 0 or is_plugin_error, (
             f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
         )
