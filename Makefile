@@ -38,12 +38,12 @@ check-cluster:
 
 deploy: setup check-cluster
 	@echo "Deploying to cluster API: $(KUBE_API_URL)..."
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	@# Install Zalando operator if not present
 	@helm repo add postgres-operator-charts https://opensource.zalando.com/postgres-operator/charts/postgres-operator || true
 	@helm upgrade --install postgres-operator postgres-operator-charts/postgres-operator \
 		--namespace $(NAMESPACE) --create-namespace \
 		--set configKubernetes.spilo_fsgroup=103
-	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	@if [ -f .env ]; then set -a; . .env; set +a; fi; \
 	if [ -n "$$GH_PAT" ]; then \
 		kubectl create secret docker-registry ghcr-secret \

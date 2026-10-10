@@ -35,7 +35,7 @@ def get_expected_deployments() -> list[str]:
         "test-release",
         "charts/platform",
         "--set",
-        "tailscaleIngress.enabled=false",
+        "caddyTailscale.enabled=false",
     ]
     try:
         output = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout

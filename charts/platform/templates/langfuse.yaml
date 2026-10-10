@@ -19,6 +19,10 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-db 5432; do echo waiting for db; sleep 2; done;']
       containers:
         - name: langfuse
           image: "langfuse/langfuse:2"
@@ -73,7 +77,7 @@ spec:
                   name: {{ printf "%s.%s-db.credentials.postgresql.acid.zalan.do" "langfuse" .Release.Name | quote }}
                   key: password
             - name: DATABASE_URL
-              value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db:5432/langfuse"
+              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db.{{ .Release.Namespace }}.svc.cluster.local:5432/langfuse"
             - name: NEXTAUTH_URL
               value: "http://localhost:3000"
             - name: NEXTAUTH_SECRET

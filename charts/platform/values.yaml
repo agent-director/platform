@@ -123,7 +123,7 @@ frontend:
     port: 3000
 
 workers:
-  enabled: true
+  enabled: false
   replicaCount: 1
 litellm:
   enabled: true
