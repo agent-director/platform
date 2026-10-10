@@ -11,7 +11,8 @@ RUN git clone --depth 1 -b ${AGENT_SUBSTRATE_VERSION} https://github.com/agent-s
 
 # Build the binaries
 # Build the binaries with GOTOOLCHAIN=auto to natively fetch the required Go 1.24+ compiler
-RUN GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
+RUN go get golang.org/x/net@v0.60.0 && go mod tidy && go mod vendor && \
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -o /out/ateapi ./cmd/ateapi && \
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux go build -o /out/atecontroller ./cmd/atecontroller
 
 RUN echo "substrate:x:10001:10001::/home/substrate:/sbin/nologin" > /out/passwd && \
