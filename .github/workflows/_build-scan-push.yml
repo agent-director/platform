@@ -96,6 +96,8 @@ jobs:
           file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ inputs.image }}:${{ github.sha }}
+          sbom: true
+          provenance: mode=max
           # Keep caching enabled here so it picks up the previous run instantly
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}

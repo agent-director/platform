@@ -3,6 +3,8 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 
+pytestmark = pytest.mark.e2e
+
 from gateway.unified_api import app
 
 
@@ -80,12 +82,21 @@ def test_security_admin_endpoint_no_bypass(client):
     }
 
     # Standard user without allowlist
-    response = client.get("/api/config", headers=headers_user)
-    assert response.status_code in [
-        403,
-        500,
-    ]  # 500 if allowlist is missing, 403 if it exists but user not in it
+    import os
+    import tempfile
+    from unittest.mock import patch
 
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tf:
+        tf.write("admins:\n  - real_admin@example.com")
+        tf_name = tf.name
+
+    try:
+        with patch("gateway.unified_api.get_allowlist_path", return_value=tf_name):
+            response = client.get("/api/config", headers=headers_user)
+            assert response.status_code == 403
+            assert "Admin privileges required" in response.json()["detail"]
+    finally:
+        os.unlink(tf_name)
     # Missing Auth entirely
     response = client.get("/api/config")
     assert response.status_code == 401

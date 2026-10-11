@@ -82,7 +82,7 @@ for ctx in "${COMPONENTS[@]}"; do
     echo $? > ".local-scans/$img.status"
   ) &
   if [ "$CI" == "true" ]; then
-    wait
+    wait $!
   fi
 done
 

@@ -27,8 +27,8 @@ If release name contains chart name it will be used as a full name.
 Generate a stable, collision-free Tailscale hostname.
 */}}
 {{- define "platform.tailscaleHostname" -}}
-{{- if .Values.tailscaleIngress.hostname }}
-{{- .Values.tailscaleIngress.hostname }}
+{{- if .Values.caddyTailscale.hostname }}
+{{- .Values.caddyTailscale.hostname }}
 {{- else }}
 {{- printf "%s-platform-%s" .Release.Namespace (trunc 4 (sha256sum .Release.Name)) }}
 {{- end }}

@@ -49,20 +49,10 @@ spec:
             - name: litellm-config
               mountPath: /app/config
               readOnly: true
-            - name: litellm-middleware
-              mountPath: /app/gateway/shunt_middleware.py
-              subPath: shunt_middleware.py
-            - name: litellm-middleware
-              mountPath: /app/gateway/__init__.py
-              subPath: __init__.py
       volumes:
         - name: litellm-config
           configMap:
             name: {{ include "platform.fullname" . }}-litellm-config
-        - name: litellm-middleware
-          configMap:
-            name: {{ include "platform.fullname" . }}-litellm-middleware
-
 ---
 apiVersion: v1
 kind: Service
@@ -79,14 +69,4 @@ spec:
       name: http
   selector:
     app: litellm
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ include "platform.fullname" . }}-litellm-middleware
-data:
-  shunt_middleware.py: |
-{{ .Files.Get "files/shunt_middleware.py" | indent 4 }}
-  __init__.py: ""
 {{- end }}

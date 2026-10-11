@@ -1,14 +1,12 @@
 [project]
 name = "agent-director"
 version = "0.1.0"
-description = "Two-Plane multi-agent control plane"
+description = "Agent Control Plane"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "temporalio",
-    "langgraph",
     "litellm",
-    "langgraph-checkpoint-postgres",
     "mcp",
     "psycopg[binary]",
     "fastapi",
@@ -16,7 +14,13 @@ dependencies = [
     "watchdog",
     "httpx",
     "orjson",
+    "sniffio>=1.3.1",
+    "pyyaml>=6.0.3",
+    "pytest-timeout>=2.4.0",
 ]
+
+[project.scripts]
+director = "director.main:main"
 
 [dependency-groups]
 dev = [
@@ -31,10 +35,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["tests/e2e"]
-
-[project.scripts]
-director = "director.main:main"
+timeout = 30
+markers = [
+    "e2e: End-to-end tests requiring a Kubernetes cluster",
+]
 
 [build-system]
 requires = ["hatchling"]

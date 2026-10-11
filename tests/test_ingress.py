@@ -29,7 +29,7 @@ def render_chart(chart_dir, values=None):
 
 @pytest.fixture(scope="module")
 def manifests(chart_dir):
-    return render_chart(chart_dir)
+    return render_chart(chart_dir, {"caddyTailscale.tailnet": "ts.net"})
 
 
 def find_manifest(manifests, kind, name):
@@ -54,7 +54,7 @@ def get_egress_ports(np_manifest):
 
 def test_tailscale_deployment(manifests):
     deployment = find_manifest(
-        manifests, "Deployment", f"{RELEASE_NAME}-tailscale-ingress"
+        manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
     )
     assert deployment is not None, "Tailscale deployment should be rendered"
 
@@ -108,6 +108,7 @@ def test_caddy_config(manifests):
     assert "reverse_proxy frontend:3000" in caddyfile
 
 
+@pytest.mark.timeout(300)
 def test_caddyfile_structural_validation(manifests):
     cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
     assert cm is not None, "Caddy ConfigMap should be created"
@@ -116,14 +117,16 @@ def test_caddyfile_structural_validation(manifests):
     has_docker = False
     try:
         subprocess.run(["docker", "info"], check=True, capture_output=True)
+        # Build custom caddy image to properly validate plugins (Coraza, Tailscale, RateLimit)
         res = subprocess.run(
-            ["docker", "image", "inspect", "caddy:2.7.6"],
+            ["docker", "build", "-t", "test-caddy-custom", "images/caddy-tailscale"],
             capture_output=True,
             check=False,
         )
         if res.returncode == 0:
             has_docker = True
         else:
+            # Fallback to pulling standard caddy if build fails
             pull_res = subprocess.run(
                 ["docker", "pull", "caddy:2.7.6"], capture_output=True, check=False
             )
@@ -142,6 +145,9 @@ def test_caddyfile_structural_validation(manifests):
         f.write(caddyfile)
         tmp_path = f.name
 
+    # Ensure the file is readable by the unprivileged caddy user in the container
+    os.chmod(tmp_path, 0o644)
+
     try:
         if has_local_caddy:
             result = subprocess.run(
@@ -151,6 +157,17 @@ def test_caddyfile_structural_validation(manifests):
                 check=False,
             )
         else:
+            # Use test-caddy-custom if built, else fallback to standard caddy
+            image_to_use = (
+                "test-caddy-custom"
+                if subprocess.run(
+                    ["docker", "image", "inspect", "test-caddy-custom"],
+                    capture_output=True,
+                    check=False,
+                ).returncode
+                == 0
+                else "caddy:2.7.6"
+            )
             result = subprocess.run(
                 [
                     "docker",
@@ -159,7 +176,9 @@ def test_caddyfile_structural_validation(manifests):
                     "-i",
                     "-v",
                     f"{tmp_path}:/etc/caddy/Caddyfile",
-                    "caddy:2.7.6",
+                    "--tmpfs",
+                    "/tmp",
+                    image_to_use,
                     "caddy",
                     "validate",
                     "--config",
@@ -170,14 +189,8 @@ def test_caddyfile_structural_validation(manifests):
                 check=False,
             )
 
-        # If we are using the caddy-tailscale plugin, the standard Caddy binary will fail to validate
-        # these directives. We accept these specific errors as a "pass" for structural validation.
-        is_plugin_error = (
-            "unrecognized global option: tailscale" in result.stderr
-            or "unrecognized directive: tailscale_auth" in result.stderr
-            or "unrecognized directive: bind" in result.stderr
-        )
-        assert result.returncode == 0 or is_plugin_error, (
+        # If test-caddy-custom is used, returncode should be 0.
+        assert result.returncode == 0, (
             f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
         )
     finally:
@@ -193,7 +206,7 @@ def test_network_policies(manifests):
         frontend_ingress["spec"]["ingress"][0]["from"][0]["podSelector"]["matchLabels"][
             "app"
         ]
-        == "tailscale-ingress"
+        == "caddy-tailscale"
     )
 
     egress_np = find_manifest(
@@ -249,24 +262,24 @@ def test_tailscale_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": False,
+            "caddyTailscale.enabled": False,
             "frontend.enabled": True,
             "unifiedApi.enabled": True,
         },
     )
 
     deployment = find_manifest(
-        manifests, "Deployment", f"{RELEASE_NAME}-tailscale-ingress"
+        manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
     )
     assert deployment is None, "Tailscale deployment should not be rendered"
 
-    sa = find_manifest(manifests, "ServiceAccount", f"{RELEASE_NAME}-tailscale-ingress")
+    sa = find_manifest(manifests, "ServiceAccount", f"{RELEASE_NAME}-caddy-tailscale")
     assert sa is None, "Tailscale ServiceAccount should not be rendered"
 
-    role = find_manifest(manifests, "Role", f"{RELEASE_NAME}-tailscale-ingress")
+    role = find_manifest(manifests, "Role", f"{RELEASE_NAME}-caddy-tailscale")
     assert role is None, "Tailscale Role should not be rendered"
 
-    rb = find_manifest(manifests, "RoleBinding", f"{RELEASE_NAME}-tailscale-ingress")
+    rb = find_manifest(manifests, "RoleBinding", f"{RELEASE_NAME}-caddy-tailscale")
     assert rb is None, "Tailscale RoleBinding should not be rendered"
 
     cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
@@ -287,7 +300,7 @@ def test_tailscale_frontend_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": True,
+            "caddyTailscale.enabled": True,
             "frontend.enabled": False,
             "unifiedApi.enabled": True,
         },
@@ -312,7 +325,7 @@ def test_tailscale_unifiedapi_disabled(chart_dir):
     manifests = render_chart(
         chart_dir,
         {
-            "tailscaleIngress.enabled": True,
+            "caddyTailscale.enabled": True,
             "frontend.enabled": True,
             "unifiedApi.enabled": False,
         },

@@ -1,7 +1,7 @@
 # ADR 002: Token-Optimizing Shunt Middleware Implementation
 
 ## Status
-Proposed (Speculative Fork in Progress)
+Superseded by ADR 004
 
 ## Context
 The `gateway` component routes all LLM calls through LiteLLM. To reduce costs and improve throughput, we need a **Shunt Middleware** that intercepts these calls, performs token optimization, caches responses, and enforces policy.

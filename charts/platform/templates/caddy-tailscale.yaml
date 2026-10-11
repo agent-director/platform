@@ -1,39 +1,39 @@
-{{- if .Values.tailscaleIngress.enabled }}
+{{- if .Values.caddyTailscale.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "platform.fullname" . }}-caddy-config
 data:
   Caddyfile: |
-{{ tpl .Values.tailscaleIngress.caddyConfig . | indent 4 }}
+{{ tpl .Values.caddyTailscale.caddyConfig . | indent 4 }}
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-tailscale-ingress
+  name: {{ include "platform.fullname" . }}-caddy-tailscale
   labels:
-    app: tailscale-ingress
+    app: caddy-tailscale
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: tailscale-ingress
+      app: caddy-tailscale
   template:
     metadata:
       labels:
-        app: tailscale-ingress
+        app: caddy-tailscale
       annotations:
         kube-linter.io/ignore-checks: "env-var-secret"
-        checksum/config: {{ .Values.tailscaleIngress.caddyConfig | sha256sum | quote }}
+        checksum/config: {{ .Values.caddyTailscale.caddyConfig | sha256sum | quote }}
     spec:
       securityContext:
         fsGroup: 1000
       containers:
         - name: caddy
-          image: "{{ .Values.tailscaleIngress.image.repository }}:{{ .Values.tailscaleIngress.image.tag }}"
+          image: "{{ .Values.caddyTailscale.image.repository }}:{{ .Values.caddyTailscale.image.tag }}"
           imagePullPolicy: IfNotPresent
           env:
             - name: TS_USERSPACE
@@ -41,7 +41,7 @@ spec:
             - name: TS_AUTHKEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.tailscaleIngress.secretName }}
+                  name: {{ .Values.caddyTailscale.secretName }}
                   key: TS_AUTHKEY
             - name: TS_HOSTNAME
               value: {{ include "platform.tailscaleHostname" . | quote }}

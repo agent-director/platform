@@ -34,7 +34,7 @@ spec:
               value: "0.0.0.0"
             - name: NEXT_PUBLIC_API_URL
               # Construct the base URL from the tailscale hostname
-              value: "https://{{ .Values.tailscaleIngress.hostname }}.tailnet-xxxx.ts.net"
+              value: "https://{{ .Values.caddyTailscale.hostname }}.tailnet-xxxx.ts.net"
 
 ---
 apiVersion: v1
