@@ -29,7 +29,7 @@ def pytest_sessionstart(session):
     Guarantee that tests can never cause a runaway memory explosion.
     Sets a hard memory limit for the pytest process.
     """
-    if platform.system() != "Windows":
+    if platform.system() == "Linux":
         try:
             # Set soft limit to 2GB (2 * 1024 * 1024 * 1024 bytes)
             mem_limit_bytes = 2 * 1024 * 1024 * 1024
