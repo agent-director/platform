@@ -56,9 +56,6 @@ jobs:
           pip install uv
           make setup
 
-      - name: Run Pytest
-        run: make test
-
       - name: Install gh-actions-lock extension
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

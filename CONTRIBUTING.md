@@ -73,16 +73,7 @@ Always use `uv` for Python execution and dependency management:
 
 ### Running Tests
 
-We strictly separate our tests to ensure fast feedback and reliable infrastructure validation. See [`tests/README.md`](tests/README.md) for the full testing contract.
-
-- **Unit Tests**: `make pytest-unit`
-  - Runs fast, pure logic tests in `tests/unit/`.
-  - **No network access allowed.** Relies on FastAPI dependency overrides (`app.dependency_overrides`) for mocking infrastructure.
-- **Integration Tests**: `make pytest-integration`
-  - Runs tests against real backend services (Postgres, Temporal) in `tests/integration/`.
-  - Requires a local Kind cluster running the `agent-platform` Helm chart. Services are accessed via `kubectl port-forward` running natively.
-
-To orchestrate the full deployment and test run, use `make test-integration`.
+We strictly separate our tests to ensure fast feedback and reliable infrastructure validation. See [`tests/README.md`](tests/README.md) for the full testing contract and instructions on how to run them locally and in CI.
 ## Developer Guidelines
 
 ### Writing Temporal Activities (LLM Invocations)
