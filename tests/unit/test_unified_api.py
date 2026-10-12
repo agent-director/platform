@@ -1,24 +1,12 @@
 import os
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
-import gateway.unified_api
 from gateway.unified_api import app
 
 # Ensure ENV is not 'dev' so we can test headers
 os.environ.pop("ENV", None)
-
-
-@pytest.fixture(autouse=True)
-def clear_dependency_overrides():
-    yield
-    app.dependency_overrides.clear()
-    # also reset the cache inside the function if it exists
-    if hasattr(gateway.unified_api.get_config, "_cache"):
-        gateway.unified_api.get_config._cache = {}
-
 
 client = TestClient(app)
 

@@ -1,6 +1,25 @@
 import pytest
 
-from gateway.unified_api import app, get_admin_allowlist
+from gateway.unified_api import (
+    _allowlist_cache,
+    _config_cache,
+    app,
+    get_admin_allowlist,
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset_global_caches():
+    """Reset the global cache states before and after each unit test."""
+    _allowlist_cache["data"] = None
+    _allowlist_cache["time"] = 0.0
+    _config_cache["data"] = None
+    _config_cache["time"] = 0.0
+    yield
+    _allowlist_cache["data"] = None
+    _allowlist_cache["time"] = 0.0
+    _config_cache["data"] = None
+    _config_cache["time"] = 0.0
 
 
 @pytest.fixture

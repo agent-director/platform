@@ -60,43 +60,10 @@ def get_expected_deployments() -> list[str]:
 
 def test_api_health_via_port_forward():
     """Verify the Unified API responds to HTTP requests over port-forward."""
-    import socket
-    import subprocess
-    import time
-
     import httpx
 
-    cmd_port_forward = [
-        "kubectl",
-        "port-forward",
-        "-n",
-        NAMESPACE,
-        "svc/unified-api",
-        "8000:8000",
-    ]
-    pf_process = subprocess.Popen(
-        cmd_port_forward, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-
-    connected = False
-    try:
-        for _ in range(15):
-            time.sleep(1)
-            try:
-                with socket.create_connection(("127.0.0.1", 8000), timeout=1):
-                    connected = True
-                    break
-            except OSError:
-                continue
-
-        if not connected:
-            pytest.fail("unified-api svc is running but port-forward to 8000 failed.")
-
-        response = httpx.get("http://localhost:8000/health", timeout=5.0)
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-    finally:
-        pf_process.terminate()
-        pf_process.wait()
+    response = httpx.get("http://localhost:8000/health", timeout=5.0)
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
 
 
 @pytest.mark.parametrize("label_selector", get_expected_deployments())

@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import copy
 import logging
@@ -108,47 +107,33 @@ def get_current_user(
     return tailscale_user_login
 
 
-async def get_admin_allowlist() -> dict[str, Any]:
-    # Returning mapping proxy or deepcopy ensures callers cannot mutate the cache
-    if not hasattr(get_admin_allowlist, "_cache"):
-        get_admin_allowlist._cache = {}  # type: ignore
-        get_admin_allowlist._lock = asyncio.Lock()  # type: ignore
+_allowlist_cache: dict[str, Any] = {"data": None, "time": 0.0}
 
-    if (
-        "data" in get_admin_allowlist._cache  # type: ignore
-        and time.time() - get_admin_allowlist._cache.get("time", 0) < 300  # type: ignore
-    ):
-        return copy.deepcopy(get_admin_allowlist._cache["data"])  # type: ignore
 
-    async with get_admin_allowlist._lock:  # type: ignore
-        if (
-            "data" in get_admin_allowlist._cache  # type: ignore
-            and time.time() - get_admin_allowlist._cache.get("time", 0) < 300  # type: ignore
-        ):
-            return copy.deepcopy(get_admin_allowlist._cache["data"])  # type: ignore
-        try:
-            # Using async thread delegation for I/O only on cache miss
-            def _read_allowlist():
-                with open(get_allowlist_path(), "r") as f:
-                    return yaml.safe_load(f)
+def get_admin_allowlist() -> dict[str, Any]:
+    now = time.monotonic()
+    if _allowlist_cache["data"] and now - _allowlist_cache["time"] < 300:
+        return copy.deepcopy(_allowlist_cache["data"])
 
-            allowlist = await asyncio.to_thread(_read_allowlist)
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="Admin allowlist not found")
-        except yaml.YAMLError:
-            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
+    try:
+        with open(get_allowlist_path(), "r") as f:
+            allowlist = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Admin allowlist not found")
+    except yaml.YAMLError:
+        raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-        if not isinstance(allowlist, dict):
-            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
+    if not isinstance(allowlist, dict):
+        raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-        if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
-            sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
-            if isinstance(sub_allowlist, dict):
-                allowlist = sub_allowlist
+    if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
+        sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
+        if isinstance(sub_allowlist, dict):
+            allowlist = sub_allowlist
 
-        get_admin_allowlist._cache["data"] = allowlist  # type: ignore
-        get_admin_allowlist._cache["time"] = time.time()  # type: ignore
-        return copy.deepcopy(allowlist)
+    _allowlist_cache["data"] = allowlist
+    _allowlist_cache["time"] = now
+    return copy.deepcopy(allowlist)
 
 
 def verify_admin(
@@ -246,18 +231,24 @@ async def signal_workflow(
     return {"id": workflow_id, "signaled": True}
 
 
-@app.get("/api/config")
-async def get_config(user: str = Depends(verify_admin)):
-    def _read_config():
-        try:
-            with open(get_config_path(), "r") as f:
-                return yaml.safe_load(f) or {}
-        except FileNotFoundError:
-            return {"model_list": []}
-        except yaml.YAMLError:
-            return {"model_list": []}
+_config_cache: dict[str, Any] = {"data": None, "time": 0.0}
 
-    return await asyncio.to_thread(_read_config)
+
+@app.get("/api/config")
+def get_config(user: str = Depends(verify_admin)):
+    now = time.monotonic()
+    if _config_cache["data"] and now - _config_cache["time"] < 300:
+        return copy.deepcopy(_config_cache["data"])
+
+    try:
+        with open(get_config_path(), "r") as f:
+            data = yaml.safe_load(f) or {}
+    except (FileNotFoundError, yaml.YAMLError):
+        data = {"model_list": []}
+
+    _config_cache["data"] = data
+    _config_cache["time"] = now
+    return copy.deepcopy(data)
 
 
 class ConfigUpdateRequest(BaseModel):

@@ -30,7 +30,8 @@ dev = [
     "pre-commit",
     "locust",
     "kubernetes",
-    "types-PyYAML"
+    "types-PyYAML",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.pytest.ini_options]
@@ -38,6 +39,7 @@ pythonpath = ["."]
 testpaths = ["tests/unit"]
 norecursedirs = ["tests/integration"]
 timeout = 120
+addopts = ["-n", "auto", "--dist", "loadscope"]
 
 [build-system]
 requires = ["hatchling"]

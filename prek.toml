@@ -73,5 +73,5 @@ hooks = [
   { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
   { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
-  { id = "pytest", name = "Run Unit Tests", entry = "make test", language = "system", pass_filenames = false }
+  { id = "pytest", name = "Run Unit Tests", entry = "make pytest-unit", language = "system", pass_filenames = false }
 ]

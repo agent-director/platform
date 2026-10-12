@@ -142,7 +142,7 @@ scan-local:
 	else \
 		./scripts/run-all-local-scans.sh "all"; \
 	fi
-test:
+pytest-unit:
 	uv run pytest tests/unit/
 
 lint:
