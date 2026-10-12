@@ -122,13 +122,6 @@ def get_admin_allowlist() -> dict[str, Any]:
     if not isinstance(allowlist, dict):
         raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
-    if "data" in allowlist and "allowlist.yaml" in allowlist["data"]:
-        sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
-        if isinstance(sub_allowlist, dict):
-            allowlist = sub_allowlist
-        else:
-            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
-
     return allowlist
 
 
