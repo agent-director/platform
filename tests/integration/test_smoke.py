@@ -3,8 +3,6 @@ import subprocess
 
 import pytest
 
-pytestmark = pytest.mark.e2e
-
 NAMESPACE = os.environ.get("NAMESPACE", "platform")
 
 
@@ -54,7 +52,7 @@ def get_expected_deployments() -> list[str]:
                     labels.append(",".join(f"{k}={v}" for k, v in match_labels.items()))
         # Add postgres operator spilo explicitly as it's spawned dynamically
         labels.append("application=spilo")
-        return list(set(labels))
+        return sorted(set(labels))
     except subprocess.CalledProcessError:
         # Fallback if helm template fails in test discovery
         return ["app=unified-api"]

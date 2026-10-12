@@ -36,11 +36,8 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests/unit"]
-norecursedirs = ["tests/integration", "tests/e2e"]
+norecursedirs = ["tests/integration"]
 timeout = 120
-markers = [
-    "e2e: End-to-end tests requiring a Kubernetes cluster",
-]
 
 [build-system]
 requires = ["hatchling"]

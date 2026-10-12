@@ -78,9 +78,6 @@ sleep 3
 echo "=== Running Integration Tests ==="
 make pytest-integration
 
-echo "=== Running E2E & HTTP Smoke Tests ==="
-make pytest-e2e
-
 echo "=== Cleaning up Port-forwards ==="
 kill $DB_PF_PID $API_PF_PID || true
 

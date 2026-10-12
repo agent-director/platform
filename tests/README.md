@@ -1,6 +1,6 @@
 # Testing Contract
 
-This project defines three tiers of tests to guarantee code quality and stability.
+This project defines two tiers of tests to guarantee code quality and stability.
 
 ## Test Tiers
 
@@ -10,12 +10,9 @@ This project defines three tiers of tests to guarantee code quality and stabilit
    - **Integration:** Uses `app.dependency_overrides` for dependency injection.
 
 2. **Integration Tests (`tests/integration/`)**
-   - **Scope:** Verifies interaction with real components.
-   - **Environment:** Connects to real Postgres and Temporal running in the Kind cluster.
-   - **Network Routing:** Services are accessed via Kind NodePorts mapped to `127.0.0.1`.
-
-3. **End-to-End Tests (`tests/e2e/`)**
-   - **Scope:** Verifies the full system by executing tasks through a real workspace.
+   - **Scope:** Verifies interaction with real components and the live cluster state.
+   - **Environment:** Connects to real Postgres, Temporal, and the Unified API running in the Kind cluster.
+   - **Network Routing:** Services are accessed via `kubectl port-forward` running natively.
 
 ## Determinism & Quarantine
-Tests must be fully deterministic. Flaky tests that fail sporadically must be quarantined using `@pytest.mark.quarantine` until fixed. The CI workflow is configured to ignore the resulting exit code 5 (no tests collected) if a specific test run isolates all matching tests into quarantine.
+Tests must be fully deterministic. If a test is flaky, it must be fixed or deleted; we do not maintain a quarantine graveyard.
