@@ -158,4 +158,4 @@ format:
 .PHONY: test-integration
 test-integration:
 	@echo "Running full integration test suite..."
-	uv run pytest tests/integration/
+	uv run pytest tests/integration/ $(PYTEST_ARGS)
