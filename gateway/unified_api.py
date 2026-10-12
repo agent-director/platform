@@ -1,16 +1,13 @@
 import base64
-import copy
 import logging
 import os
 import re
-import time
 import uuid
-from collections.abc import Callable
-from functools import wraps
 from typing import Any
 
 import httpx
 import yaml  # type: ignore
+from cachetools.func import ttl_cache
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -34,31 +31,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Unified API BFF", lifespan=lifespan)
 
 http_client = httpx.AsyncClient(timeout=30.0)
-
-
-def ttl_cache(ttl_seconds: float = 300.0) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        cache: dict[str, Any] = {"data": None, "time": 0.0}
-
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            now = time.monotonic()
-            if cache["data"] is not None and now - cache["time"] < ttl_seconds:
-                return copy.deepcopy(cache["data"])
-
-            result = func(*args, **kwargs)
-            cache["data"] = result
-            cache["time"] = now
-            return copy.deepcopy(result)
-
-        def clear_cache() -> None:
-            cache["data"] = None
-            cache["time"] = 0.0
-
-        wrapper.clear_cache = clear_cache  # type: ignore
-        return wrapper
-
-    return decorator
 
 
 allowed_origins = os.environ.get(
@@ -133,11 +105,15 @@ def get_current_user(
     return tailscale_user_login
 
 
-@ttl_cache(ttl_seconds=300.0)
+@ttl_cache(maxsize=10, ttl=300.0)
+def get_cached_yaml(path: str) -> Any:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
 def get_admin_allowlist() -> dict[str, Any]:
     try:
-        with open(get_allowlist_path(), "r") as f:
-            allowlist = yaml.safe_load(f)
+        allowlist = get_cached_yaml(get_allowlist_path())
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="Admin allowlist not found")
     except yaml.YAMLError:
@@ -150,6 +126,8 @@ def get_admin_allowlist() -> dict[str, Any]:
         sub_allowlist = yaml.safe_load(allowlist["data"]["allowlist.yaml"])
         if isinstance(sub_allowlist, dict):
             allowlist = sub_allowlist
+        else:
+            raise HTTPException(status_code=500, detail="Malformed Admin allowlist")
 
     return allowlist
 
@@ -250,11 +228,9 @@ async def signal_workflow(
 
 
 @app.get("/api/config")
-@ttl_cache(ttl_seconds=300.0)
 def get_config(user: str = Depends(verify_admin)):
     try:
-        with open(get_config_path(), "r") as f:
-            data = yaml.safe_load(f) or {}
+        data = get_cached_yaml(get_config_path()) or {}
     except (FileNotFoundError, yaml.YAMLError):
         data = {"model_list": []}
 

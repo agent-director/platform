@@ -1,16 +1,14 @@
 import pytest
 
-from gateway.unified_api import app, get_admin_allowlist, get_config
+from gateway.unified_api import app, get_admin_allowlist, get_cached_yaml
 
 
 @pytest.fixture(autouse=True)
 def _reset_global_caches():
     """Reset the global cache states before and after each unit test."""
-    get_admin_allowlist.clear_cache()  # type: ignore
-    get_config.clear_cache()  # type: ignore
+    get_cached_yaml.cache_clear()
     yield
-    get_admin_allowlist.clear_cache()  # type: ignore
-    get_config.clear_cache()  # type: ignore
+    get_cached_yaml.cache_clear()
 
 
 @pytest.fixture
