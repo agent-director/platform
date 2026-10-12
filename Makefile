@@ -145,9 +145,9 @@ scan-local:
 test:
 	uv run pytest tests/unit/
 
-test-e2e: check-cluster
+pytest-e2e: check-cluster
 	@echo "Running E2E tests against API: $(KUBE_API_URL)..."
-	uv run pytest -m "e2e"
+	uv run pytest tests/e2e/ $(PYTEST_ARGS)
 
 lint:
 	uvx prek run --all-files
@@ -158,4 +158,9 @@ format:
 .PHONY: test-integration
 test-integration:
 	@echo "Running full integration test suite..."
+	./scripts/test-integration.sh platform-dev
+
+.PHONY: pytest-integration
+pytest-integration:
+	@echo "Running tests against backing services..."
 	uv run pytest tests/integration/ $(PYTEST_ARGS)

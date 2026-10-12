@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import gateway.unified_api
-from gateway.unified_api import app, get_admin_allowlist
+from gateway.unified_api import app
 
 # Ensure ENV is not 'dev' so we can test headers
 os.environ.pop("ENV", None)
@@ -67,10 +67,7 @@ def test_auth_with_dev_env():
         assert response.json()["state"] == "running"
 
 
-def test_verify_admin_success():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_verify_admin_success(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -79,10 +76,7 @@ def test_verify_admin_success():
     assert response.status_code == 200
 
 
-def test_verify_admin_forbidden():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_verify_admin_forbidden(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "user@example.com",
@@ -173,10 +167,7 @@ def test_chat_proxy_streaming_validator():
         assert response.json()["detail"] == "Malicious input detected."
 
 
-def test_update_config_valid_yaml():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_update_config_valid_yaml(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -220,10 +211,7 @@ def test_update_config_valid_yaml():
                 assert response.json()["status"] == "pr_created"
 
 
-def test_update_config_conflict():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_update_config_conflict(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -254,10 +242,7 @@ def test_update_config_conflict():
         assert "A configuration PR is already open" in response.json()["detail"]
 
 
-def test_update_config_github_upstream_failure():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_update_config_github_upstream_failure(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -289,10 +274,7 @@ def test_update_config_github_upstream_failure():
         assert "Failed to fetch repo info" in response.json()["detail"]
 
 
-def test_update_config_pr_creation_failure():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_update_config_pr_creation_failure(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",
@@ -331,10 +313,7 @@ def test_update_config_pr_creation_failure():
                 assert "Failed to create Pull Request" in response.json()["detail"]
 
 
-def test_update_config_invalid_yaml():
-    app.dependency_overrides[get_admin_allowlist] = lambda: {
-        "admins": ["admin@example.com"]
-    }
+def test_update_config_invalid_yaml(mock_admin_allowlist):
     headers = {
         "X-Requested-With": "XMLHttpRequest",
         "Tailscale-User-Login": "admin@example.com",

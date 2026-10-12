@@ -40,7 +40,6 @@ norecursedirs = ["tests/integration", "tests/e2e"]
 timeout = 120
 markers = [
     "e2e: End-to-end tests requiring a Kubernetes cluster",
-    "quarantine: Flaky tests temporarily quarantined from failing CI",
 ]
 
 [build-system]

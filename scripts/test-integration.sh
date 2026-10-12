@@ -68,8 +68,21 @@ echo "=== Waiting for all pods to be Ready ==="
 kubectl wait --for=condition=Ready pods --all -n $NAMESPACE --timeout=600s
 kubectl wait --for=condition=Ready pods --all -n agent-substrate --timeout=600s
 
+echo "=== Port-forwarding for Integration Tests ==="
+kubectl port-forward service/platform-db 5432:5432 -n $NAMESPACE &
+DB_PF_PID=$!
+kubectl port-forward service/unified-api 8000:8000 -n $NAMESPACE &
+API_PF_PID=$!
+sleep 3
+
+echo "=== Running Integration Tests ==="
+make pytest-integration
+
 echo "=== Running E2E & HTTP Smoke Tests ==="
-make test-e2e
+make pytest-e2e
+
+echo "=== Cleaning up Port-forwards ==="
+kill $DB_PF_PID $API_PF_PID || true
 
 echo "=== Cleaning up Temporal Dev Server ==="
 docker rm -f temporal-dev || true

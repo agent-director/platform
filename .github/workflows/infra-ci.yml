@@ -107,21 +107,8 @@ jobs:
         run: |
           echo "KUBE_API_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')" >> "$GITHUB_ENV"
 
-      - name: Map NodePorts via hosts
-        run: echo '127.0.0.1 agent-platform-postgresql agent-platform-temporal-frontend' | sudo tee -a /etc/hosts
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5.4.2
 
       - name: Run Integration Suite
-        run: |
-          # Verify tests exist and have no syntax errors before applying filters
-          make test-integration PYTEST_ARGS="--collect-only -q" > .pytest-collect.log || collect_code=$?
-          if [ "${collect_code:-0}" -ne 0 ]; then
-            cat .pytest-collect.log
-            echo "::error::Test collection failed (code $collect_code). Tests missing or syntax errors."
-            exit "$collect_code"
-          fi
-          # Run tests excluding quarantined ones
-          make test-integration PYTEST_ARGS="-m 'not quarantine'" || exit_code=$?
-          if [ "${exit_code:-0}" -ne 0 ] && [ "${exit_code:-0}" -ne 5 ]; then exit "$exit_code"; fi
+        run: make test-integration
