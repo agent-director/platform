@@ -1,22 +1,27 @@
 import shutil
-import subprocess
+from pathlib import Path
 
 import pytest
 
+from scripts.helm_dependencies import validate_materialized
+
+REPO_ROOT = Path(__file__).absolute().parents[1]
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if config.option.basetemp:
+        Path(config.option.basetemp).parent.mkdir(parents=True, exist_ok=True)
+
 
 @pytest.fixture(scope="session")
-def chart_dir(tmp_path_factory):
-    """
-    Creates a temporary copy of the chart and builds dependencies.
-    Prevents mutating the developer's working directory (Chart.lock, charts/).
-    """
-    tmp_dir = tmp_path_factory.mktemp("helm-charts")
-    charts_dir = tmp_dir / "charts"
-    shutil.copytree("charts", charts_dir)
+def chart_dir(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """Build locked dependencies in a copy, never mutate a tracked chart/lock."""
+    directory = tmp_path_factory.mktemp("helm-charts")
+    charts_dir = directory / "charts"
+    shutil.copytree(REPO_ROOT / "charts", charts_dir)
     chart_path = charts_dir / "platform"
-    subprocess.run(
-        ["helm", "dependency", "build", str(chart_path)],
-        check=True,
-        capture_output=True,
-    )
+    # Setup materializes dependencies once; unit tests validate copied artifacts
+    # offline rather than downloading repositories for every fixture session.
+    for metadata in sorted(charts_dir.glob("*/Chart.yaml")):
+        validate_materialized(metadata.parent)
     return str(chart_path)

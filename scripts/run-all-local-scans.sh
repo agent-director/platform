@@ -1,125 +1,86 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Support running a single image scan directly
-if [ -n "$1" ] && [ "$1" != "all" ]; then
-  IMAGE_PATH="images/$1"
-  if [ ! -d "$IMAGE_PATH" ] || [ ! -f "$IMAGE_PATH/Dockerfile" ]; then
-    echo "Error: Image $1 not found or missing Dockerfile at $IMAGE_PATH/Dockerfile"
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+# Activation is valid only for this checkout, not an inherited foreign worktree.
+if [ "${PLATFORM_MISE_ACTIVE:-0}" != "1" ] || [ "${PLATFORM_ROOT:-}" != "$ROOT" ]; then
+  exec "$ROOT/scripts/mise.sh" exec -- "$ROOT/scripts/run-all-local-scans.sh" "$@"
+fi
+cd "$ROOT"
+
+if [ "$#" -gt 1 ]; then
+  echo "Usage: $0 [all|component]" >&2
+  exit 2
+fi
+COMPONENTS=()
+SELECTION=${1:-all}
+if [[ ! "$SELECTION" =~ ^(images/)?[a-z0-9][a-z0-9._-]*$ ]]; then
+  echo "Error: Invalid image selection: $SELECTION" >&2
+  exit 2
+fi
+INVENTORY=$(uv run --no-project scripts/images.py --format tsv)
+while IFS=$'\t' read -r name dockerfile target extra; do
+  if [ -z "$name" ]; then continue; fi
+  if [[ ! "$name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || [[ ! "$dockerfile" =~ ^images/[a-z0-9][a-z0-9._-]*/Dockerfile$ ]] || [ -n "$extra" ]; then
+    echo "Error: Invalid image inventory row." >&2
     exit 1
   fi
-  ./scripts/local-container-scan.sh "$IMAGE_PATH"
-  exit $?
-fi
-
-echo "=========================================================="
-echo "      UPDATING TRIVY DATABASE CACHE (SEQUENTIAL)          "
-echo "=========================================================="
-# Prevent bbolt write locks by pulling the DB sequentially once
-docker run --rm -v trivy-cache:/root/.cache/trivy -v "$(pwd):/workspace" -w /workspace aquasec/trivy:0.75.0 image -c "" --download-db-only >/dev/null
-
-
-# Strict discovery: Delta execution via git diff if possible
-COMPONENTS=()
-
-if [ "$1" == "all" ]; then
-  # Force all explicitly
-  for df in images/*/Dockerfile; do
-    if [ -f "$df" ]; then COMPONENTS+=("$(dirname "$df")"); fi
-  done
-else
-  # Check git diff against origin/main
-  DIFF=$(git diff --name-only origin/main...HEAD 2>/dev/null || true)
-
-  if echo "$DIFF" | grep -qE "^(pyproject\.toml|uv\.lock|frontend/|\.python-version|\.tool-versions)"; then
-    # Core dependency files changed, build everything
-    for df in images/*/Dockerfile; do
-      if [ -f "$df" ]; then COMPONENTS+=("$(dirname "$df")"); fi
-    done
-  else
-    # Only build specific modified images
-    CHANGED_DIRS=$(echo "$DIFF" | grep '^images/' | cut -d'/' -f1,2 | sort -u || true)
-
-    if [ -z "$CHANGED_DIRS" ] && [ -d .git ]; then
-      echo "No image files or core dependencies modified in this branch compared to main. Skipping local scans."
-      exit 0
-    fi
-
-    for df in images/*/Dockerfile; do
-      if [ -f "$df" ]; then
-        dir_path=$(dirname "$df")
-        if [ -z "$CHANGED_DIRS" ] || echo "$CHANGED_DIRS" | grep -q "^$dir_path$"; then
-          COMPONENTS+=("$dir_path")
-        fi
-      fi
-    done
+  component=${dockerfile#images/}
+  component=${component%/Dockerfile}
+  if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "$name" ] || [ "$SELECTION" = "$component" ] || [ "$SELECTION" = "images/$component" ]; then
+    COMPONENTS+=("$name")
   fi
-fi
-
-if [ ${#COMPONENTS[@]} -eq 0 ]; then
-  echo "No images found to scan."
-  exit 0
-fi
-
-mkdir -p .local-scans
-rm -f .local-scans/*.log .local-scans/*.status
-
-if [ "$CI" == "true" ]; then
-  echo "=========================================================="
-  echo "      STARTING SEQUENTIAL SCANS FOR ${#COMPONENTS[@]} IMAGES (CI Mode)"
-  echo "=========================================================="
-else
-echo "=========================================================="
-echo "      STARTING PARALLEL SCANS FOR ${#COMPONENTS[@]} IMAGES"
-echo "=========================================================="
-fi
-
-for ctx in "${COMPONENTS[@]}"; do
-  img=$(basename "$ctx")
-  # Run in background now that DB updates are skipped (no bbolt lock!)
-  (
-    ./scripts/local-container-scan.sh "$ctx" > ".local-scans/$img.log" 2>&1
-    echo $? > ".local-scans/$img.status"
-  ) &
-  if [ "$CI" == "true" ]; then
-    wait $!
-  fi
-done
-
-wait
-echo ""
-echo "=========================================================="
-echo "                 SCAN RESULTS SUMMARY                     "
-echo "=========================================================="
-FAILURES=0
-
-for ctx in "${COMPONENTS[@]}"; do
-  img=$(basename "$ctx")
-  # Default to 1 (fail) if the status file somehow wasn't written
-  STATUS=$(cat ".local-scans/$img.status" 2>/dev/null || echo "1")
-
-  if [ "$STATUS" -eq 0 ]; then
-    printf "✅ %-30s PASSED\n" "$img"
-  else
-    if grep -q "Report Summary" ".local-scans/$img.log" 2>/dev/null; then
-      printf "❌ %-30s FAILED (Vulnerabilities Found)\n" "$img"
-      echo "   --- Vulnerability Summary for $img ---"
-      awk '/Report Summary/,0' ".local-scans/$img.log" | sed 's/^/   /'
-    else
-      printf "🚨 %-30s ERROR (Build or Execution Crash)\n" "$img"
-      echo "   --- Last 15 lines of Error Log for $img ---"
-      tail -n 15 ".local-scans/$img.log" | sed 's/^/   /'
-    fi
-    echo ""
-    FAILURES=$((FAILURES + 1))
-  fi
-done
-echo "=========================================================="
-
-if [ "$FAILURES" -gt 0 ]; then
-  echo "Pipeline failed: $FAILURES image(s) have vulnerabilities or secrets."
+done <<< "$INVENTORY"
+if [ "${#COMPONENTS[@]}" -eq 0 ]; then
+  echo "Error: No images found to scan" >&2
   exit 1
 fi
 
-echo "All images passed successfully."
-exit 0
+# Scan actual inputs, not only committed/staged diffs. Clean CI checkouts must
+# still scan images. Each invocation keeps its own logs/status files; never
+# remove another invocation's output. Serial scans avoid Trivy cache writers.
+mkdir -p "$ROOT/.cache/local-scans"
+RUN_DIR=$(mktemp -d "$ROOT/.cache/local-scans/run.XXXXXXXX")
+SCAN_PID=""
+ACTIVE_COMPONENT=""
+cleanup() {
+  local result=$?
+  trap - EXIT
+  if [ -n "$SCAN_PID" ]; then
+    kill -TERM "$SCAN_PID" 2>/dev/null || true
+    wait "$SCAN_PID" 2>/dev/null || true
+    if [ -n "$ACTIVE_COMPONENT" ]; then
+      printf '%s\n' "$result" > "$RUN_DIR/$ACTIVE_COMPONENT.status"
+    fi
+  fi
+  printf '%s\n' "$result" > "$RUN_DIR/run.status"
+  exit "$result"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+echo "Scanning ${#COMPONENTS[@]} image(s) sequentially; logs: $RUN_DIR"
+FAILURES=0
+for component in "${COMPONENTS[@]}"; do
+  ACTIVE_COMPONENT=$component
+  "$ROOT/scripts/local-container-scan.sh" "$component" > "$RUN_DIR/$component.log" 2>&1 &
+  SCAN_PID=$!
+  status=0
+  if wait "$SCAN_PID"; then :; else status=$?; fi
+  SCAN_PID=""
+  printf '%s\n' "$status" > "$RUN_DIR/$component.status"
+  ACTIVE_COMPONENT=""
+  if [ "$status" -eq 0 ]; then
+    echo "$component PASSED"
+  else
+    echo "$component FAILED (exit $status); see $RUN_DIR/$component.log" >&2
+    FAILURES=$((FAILURES + 1))
+  fi
+done
+
+if [ "$FAILURES" -gt 0 ]; then
+  echo "Pipeline failed: $FAILURES image(s) failed their enforcing scans." >&2
+  exit 1
+fi
+echo "All images passed their enforcing scans."

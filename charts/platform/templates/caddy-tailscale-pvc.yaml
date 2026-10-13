@@ -1,8 +1,8 @@
-{{- if .Values.caddyTailscale.enabled }}
+{{- if and .Values.caddyTailscale.enabled (not .Values.bootstrap.enabled) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "platform.fullname" . }}-tailscale-data
+  name: {{ include "platform.resourceName" (dict "root" . "component" "tailscale-data") }}
   labels:
     app: caddy-tailscale
 spec:

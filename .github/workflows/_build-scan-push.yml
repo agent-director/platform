@@ -11,6 +11,10 @@ on:
       image:
         required: true
         type: string
+      target:
+        required: false
+        type: string
+        default: ''
       push_image:
         required: false
         type: boolean
@@ -27,77 +31,79 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      - name: Install locked toolchain
+        run: ./scripts/mise.sh install --locked
+
+      - name: Resolve authoritative build inputs
+        id: build-inputs
+        run: |
+          {
+            echo 'args<<BUILD_INPUTS'
+            ./scripts/mise.sh exec -- uv run --no-project scripts/toolchain.py build-args
+            echo BUILD_INPUTS
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
 
       - name: Log in to GHCR
+        if: inputs.push_image
         uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 1: Build and load into local daemon (NOT pushed yet)
       - name: Build image for scanning
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          build-args: ${{ steps.build-inputs.outputs.args }}
           load: true
           push: false
           tags: ${{ inputs.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
 
-      # Step 2: Run Trivy against the local daemon image (Dual-Pass Strategy)
-      - name: 📦 Trivy App Dependencies (Enforcement)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ inputs.image }}:${{ github.sha }}
-          format: 'table'
-          vuln-type: 'library'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '1'
+      # Use the locked root CLI, not an action's independent Trivy version/defaults.
+      # The repository's IaC config must not disable image vulnerability scanning.
+      - name: Enforce application vulnerability policy
+        run: |
+          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
+            --format table --pkg-types library --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
         env:
-          TRIVY_SKIP_DB_UPDATE: "false"
-          TRIVY_JAVA_SKIP_UPDATE: "false"
+          IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
 
-      - name: ⚠️ Trivy OS Dependencies (Warning)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ inputs.image }}:${{ github.sha }}
-          format: 'table'
-          vuln-type: 'os'
-          severity: 'HIGH'
-          exit-code: '0'
+      - name: Report high-severity operating-system vulnerabilities
+        run: |
+          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
+            --format table --pkg-types os --severity HIGH --exit-code 0 \
+            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
         env:
-          TRIVY_SKIP_DB_UPDATE: "false"
-          TRIVY_JAVA_SKIP_UPDATE: "false"
+          IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
 
-      - name: 🛑 Trivy OS Dependencies (Enforcement)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ inputs.image }}:${{ github.sha }}
-          format: 'table'
-          vuln-type: 'os'
-          severity: 'CRITICAL'
-          exit-code: '1'
+      - name: Enforce critical operating-system vulnerability policy
+        run: |
+          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
+            --format table --pkg-types os --severity CRITICAL --exit-code 1 \
+            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
         env:
-          TRIVY_SKIP_DB_UPDATE: "false"
-          TRIVY_JAVA_SKIP_UPDATE: "false"
+          IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
 
-      # Step 3: Trivy passed. Now push the exact same image to GHCR.
-      # Buildx natively uses the cached layers from the step above.
-      - name: Push image to GHCR
+      - name: Push scanned image
         if: inputs.push_image
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
           file: ${{ inputs.dockerfile }}
+          target: ${{ inputs.target }}
+          build-args: ${{ steps.build-inputs.outputs.args }}
           push: true
           tags: ${{ inputs.image }}:${{ github.sha }}
           sbom: true
           provenance: mode=max
-          # Keep caching enabled here so it picks up the previous run instantly
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: admin-allowlist
+  name: {{ include "platform.resourceName" (dict "root" . "component" "admin-allowlist") }}
 data:
   allowlist.yaml: |
     admins:

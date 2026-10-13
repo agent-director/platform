@@ -1,20 +1,21 @@
-{{- if .Values.workers.enabled }}
+{{- if and .Values.workers.enabled (not .Values.bootstrap.enabled) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-workers
+  name: {{ include "platform.resourceName" (dict "root" . "component" "workers") }}
   labels:
-    app: workers
+    {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.workers.replicaCount }}
   selector:
     matchLabels:
-      app: workers
+      {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: workers
+        {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -24,82 +25,115 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: temporal-worker
-          image: "{{ .Values.global.image.repository | default "ghcr.io/agent-director" }}/platform-worker:{{ .Values.global.image.tag | default "latest" }}"
+          image: "{{ .Values.global.image.repository }}/platform-worker:{{ .Values.global.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "orchestrator.temporal_worker"]
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
+              drop: [ALL]
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: 500m
+              memory: 512Mi
+          ports:
+            - name: health
+              containerPort: {{ .Values.workers.health.port }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+          startupProbe:
+            httpGet:
+              path: /health
+              port: health
+            failureThreshold: 60
+            periodSeconds: 2
           volumeMounts:
-            - name: tmp-volume
+            - name: tmp
               mountPath: /tmp
           env:
+            - name: WORKER_HEALTH_PORT
+              value: {{ .Values.workers.health.port | quote }}
             - name: UNIFIED_API_URL
-              value: 'http://{{ include "platform.fullname" . }}-caddy:8080'
+              value: {{ include "platform.httpURL" (dict "root" . "component" "unifiedApi") | quote }}
             - name: TEMPORAL_URL
-              value: {{ .Values.workers.temporalUrl | default (printf "%s-temporal-frontend:7233" .Release.Name) | quote }}
+              value: {{ include "platform.temporalAddress" . | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.workers.temporalNamespace | quote }}
+            - name: TEMPORAL_TASK_QUEUE
+              value: {{ .Values.workers.taskQueue | quote }}
             - name: OPENAI_BASE_URL
-              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
+              value: "{{ include "platform.httpURL" (dict "root" . "component" "litellm") }}/v1"
             - name: LITELLM_URL
-              value: 'http://{{ include "platform.fullname" . }}-litellm:4000/v1'
-          command: ["python", "-m", "orchestrator.temporal_worker"]
+              value: {{ include "platform.httpURL" (dict "root" . "component" "litellm") | quote }}
       volumes:
-        - name: tmp-volume
+        - name: tmp
           emptyDir: {}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "platform.fullname" . }}-workers-netpol
+  name: {{ include "platform.resourceName" (dict "root" . "component" "workers-netpol") }}
 spec:
   podSelector:
     matchLabels:
-      app: workers
-  policyTypes:
-    - Egress
+      {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  # Kubelet probes are not subject to ingress NetworkPolicy.
+  ingress: []
   egress:
     - to:
-        - namespaceSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
       ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
     - to:
-{{- if .Values.workers.temporalUrl }}
-        - ipBlock:
-            cidr: "0.0.0.0/0"
-{{- else }}
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: temporal
-{{- end }}
+              {{- if .Values.temporalDev.enabled }}
+              {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 14 }}
+              {{- else }}
+              app.kubernetes.io/name: {{ include "platform.temporalName" . | quote }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: frontend
+              {{- end }}
       ports:
         - protocol: TCP
-          port: 7233
+          port: {{ include "platform.temporalPort" . }}
+    {{- range $component := list "unifiedApi" "litellm" }}
     - to:
         - podSelector:
             matchLabels:
-              app: caddy-tailscale
+              {{- include "platform.selectorLabels" (dict "root" $ "component" (ternary "unified-api" $component (eq $component "unifiedApi"))) | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 8080
+          port: {{ include "platform.port" (dict "root" $ "component" $component) }}
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: agent-substrate
+              kubernetes.io/metadata.name: {{ .Values.workers.substrateNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: ateapi
       ports:
         - protocol: TCP
-          port: 50051
-
+          port: {{ .Values.workers.substratePort }}
 {{- end }}

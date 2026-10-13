@@ -1,103 +1,102 @@
-{{- if and .Values.caddyTailscale.enabled .Values.frontend.enabled }}
+{{- if and .Values.caddyTailscale.enabled (not .Values.bootstrap.enabled) }}
+{{- if .Values.frontend.enabled }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "platform.fullname" . }}-frontend-ingress
-  labels:
-    app: frontend
+  name: {{ include "platform.resourceName" (dict "root" . "component" "frontend-ingress") }}
 spec:
   podSelector:
     matchLabels:
-      app: frontend
-  policyTypes:
-    - Ingress
+      {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+  policyTypes: [Ingress]
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              app: caddy-tailscale
+              {{- include "platform.selectorLabels" (dict "root" . "component" "caddy-tailscale") | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 3000
-{{- end }}
-
+          port: {{ include "platform.port" (dict "root" . "component" "frontend") }}
 ---
-{{- if .Values.caddyTailscale.enabled }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "platform.fullname" . }}-tailscale-egress
-  labels:
-    app: caddy-tailscale
+  name: {{ include "platform.resourceName" (dict "root" . "component" "tailscale-egress") }}
 spec:
   podSelector:
     matchLabels:
-      app: caddy-tailscale
-  policyTypes:
-    - Ingress
-    - Egress
+      {{- include "platform.selectorLabels" (dict "root" . "component" "caddy-tailscale") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
   ingress: []
   egress:
     - to:
-        - ipBlock:
-            cidr: "0.0.0.0/0"
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
       ports:
-        - protocol: TCP
-          port: 443
-        - protocol: UDP
-          port: 443
-        - protocol: TCP
-          port: 3478
-        - protocol: UDP
-          port: 3478
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
     - to:
         - ipBlock:
-            cidr: "0.0.0.0/0"
-            except:
-              - "10.0.0.0/8"
-              - "172.16.0.0/12"
-              - "192.168.0.0/16"
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: UDP
+          port: 443
+        - protocol: UDP
+          port: 3478
+    # Direct Tailscale peer traffic has variable UDP ports; private/IMDS excluded.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
       ports:
         - protocol: UDP
-{{- if .Values.frontend.enabled }}
+    {{- range $component := list "frontend" "unifiedApi" }}
+    {{- if (index $.Values $component).enabled }}
     - to:
         - podSelector:
             matchLabels:
-              app: frontend
+              {{- include "platform.selectorLabels" (dict "root" $ "component" (ternary "unified-api" $component (eq $component "unifiedApi"))) | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 3000
+          port: {{ include "platform.port" (dict "root" $ "component" $component) }}
+    {{- end }}
+    {{- end }}
 {{- end }}
-{{- end }}
-
+{{- if and .Values.unifiedApi.enabled (not .Values.bootstrap.enabled) }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "platform.fullname" . }}-unified-api-ingress
-  labels:
-    app: unified-api
+  name: {{ include "platform.resourceName" (dict "root" . "component" "unified-api-ingress") }}
 spec:
   podSelector:
     matchLabels:
-      app: unified-api
-  policyTypes:
-    - Ingress
+      {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 6 }}
+  policyTypes: [Ingress]
+  {{- if or .Values.caddyTailscale.enabled .Values.workers.enabled }}
   ingress:
     - from:
+        {{- if .Values.caddyTailscale.enabled }}
         - podSelector:
             matchLabels:
-              app: caddy-tailscale
+              {{- include "platform.selectorLabels" (dict "root" . "component" "caddy-tailscale") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.workers.enabled }}
         - podSelector:
             matchLabels:
-              app: frontend
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: temporal
+              {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 14 }}
+        {{- end }}
       ports:
         - protocol: TCP
-          port: 8000
+          port: {{ include "platform.port" (dict "root" . "component" "unifiedApi") }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+{{- end }}

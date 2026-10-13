@@ -1,0 +1,104 @@
+{{- if and .Values.temporalDev.enabled (not .Values.bootstrap.enabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "temporal-dev") }}
+  labels:
+    {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: temporal-dev
+          image: {{ .Values.temporalDev.image | quote }}
+          imagePullPolicy: IfNotPresent
+          command: ["temporal"]
+          args:
+            - server
+            - start-dev
+            - --ip
+            - "0.0.0.0"
+            - --port
+            - {{ include "platform.port" (dict "root" . "component" "temporalDev") | quote }}
+            {{- if ne .Values.workers.temporalNamespace "default" }}
+            - --namespace
+            - {{ .Values.workers.temporalNamespace | quote }}
+            {{- end }}
+            - --headless
+            - --db-filename
+            - /scratch/temporal.db
+          env:
+            - name: HOME
+              value: /scratch
+            - name: TMPDIR
+              value: /scratch
+          ports:
+            - name: grpc
+              containerPort: {{ include "platform.port" (dict "root" . "component" "temporalDev") }}
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml .Values.temporalDev.resources | nindent 12 }}
+          startupProbe:
+            exec:
+              command: ["temporal", "--address", "127.0.0.1:{{ include "platform.port" (dict "root" . "component" "temporalDev") }}", "operator", "cluster", "health"]
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["temporal", "--address", "127.0.0.1:{{ include "platform.port" (dict "root" . "component" "temporalDev") }}", "operator", "cluster", "health"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["temporal", "--address", "127.0.0.1:{{ include "platform.port" (dict "root" . "component" "temporalDev") }}", "operator", "cluster", "health"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: scratch
+              mountPath: /scratch
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: scratch
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "platform.serviceName" (dict "root" . "component" "temporal-dev") }}
+spec:
+  selector:
+    {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 4 }}
+  ports:
+    - name: grpc
+      port: {{ include "platform.port" (dict "root" . "component" "temporalDev") }}
+      targetPort: grpc
+{{- end }}

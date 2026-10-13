@@ -17,6 +17,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "tsBuildInfoFile": "../.cache/frontend-tsconfig.tsbuildinfo",
     "plugins": [
       {
         "name": "next"
@@ -25,6 +26,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "next": [
+        "./node_modules/next"
+      ],
+      "next/*": [
+        "./node_modules/next/*"
       ]
     }
   },
@@ -32,8 +39,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "../.cache/frontend-next/types/**/*.ts",
+    "../.cache/frontend-next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

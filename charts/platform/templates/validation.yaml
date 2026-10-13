@@ -1,0 +1,73 @@
+{{- if and .Values.temporal.enabled .Values.temporalDev.enabled -}}
+{{- fail "temporal.enabled and temporalDev.enabled are mutually exclusive" -}}
+{{- end -}}
+{{- if and .Values.bootstrap.enabled (or .Values.temporal.enabled .Values.temporalDev.enabled) -}}
+{{- fail "bootstrap.enabled requires temporal.enabled=false and temporalDev.enabled=false" -}}
+{{- end -}}
+{{- if and (not .Values.bootstrap.enabled) .Values.workers.enabled (not (or .Values.temporal.enabled .Values.temporalDev.enabled)) -}}
+{{- fail "workers.enabled requires one Temporal profile" -}}
+{{- end -}}
+{{- if .Values.temporal.enabled -}}
+{{- if not .Values.bootstrap.prerequisitesReady -}}
+{{- fail "Full Temporal requires bootstrap.prerequisitesReady=true after the SAME release database, credentials, CA and schema ServiceAccount are ready" -}}
+{{- end -}}
+{{- if .Release.IsInstall -}}
+{{- fail "Full Temporal cannot be the first install: bootstrap this release first, then upgrade with the lifecycle temporal-values.yaml projection" -}}
+{{- end -}}
+{{- if or (ne .Values.temporal.server.config.persistence.defaultStore "default") (ne .Values.temporal.server.config.persistence.visibilityStore "visibility") -}}
+{{- fail "Full Temporal requires defaultStore=default and visibilityStore=visibility from the lifecycle projection" -}}
+{{- end -}}
+{{- $namespaces := .Values.temporal.server.config.namespaces -}}
+{{- if or (not .Values.temporal.schema.useHelmHooks) (not $namespaces.create) (not $namespaces.useHelmHooks) (ne (len $namespaces.namespace) 1) -}}
+{{- fail "Full Temporal requires pre-upgrade schema hooks and post-upgrade registration of exactly the configured worker namespace" -}}
+{{- end -}}
+{{- if ne (index $namespaces.namespace 0).name .Values.workers.temporalNamespace -}}
+{{- fail "Full Temporal namespace registration must match workers.temporalNamespace" -}}
+{{- end -}}
+{{- $expectedAddress := printf "%s:%v" (include "platform.databaseDNS" .) .Values.database.port -}}
+{{- $expectedSecret := include "platform.databaseCredential" (dict "root" . "user" "temporal") -}}
+{{- range $store := list "default" "visibility" -}}
+{{- $sql := index $.Values.temporal.server.config.persistence.datastores $store "sql" -}}
+{{- $database := ternary "temporal" "temporal_visibility" (eq $store "default") -}}
+{{- if or (ne $sql.connectAddr $expectedAddress) (ne $sql.existingSecret $expectedSecret) (ne $sql.pluginName "postgres12") (ne $sql.databaseName $database) (ne $sql.user "temporal") (ne $sql.secretKey "password") $sql.createDatabase (not $sql.manageSchema) (not $sql.tls.enabled) (not $sql.tls.enableHostVerification) (ne $sql.tls.serverName (include "platform.databaseDNS" $)) (ne $sql.tls.caFile "/etc/db-trust/ca.crt") -}}
+{{- fail "Full Temporal requires the release-derived lifecycle temporal-values.yaml datastore projection" -}}
+{{- end -}}
+{{- end -}}
+{{- range $component := list "server" "admintools" -}}
+{{- $actual := index $.Values.temporal $component -}}
+{{- $volumes := include "platform.temporalVolumes" (dict "root" $ "component" $component) | fromYamlArray -}}
+{{- $mounts := include "platform.temporalVolumeMounts" (dict "root" $ "component" $component) | fromYamlArray -}}
+{{- if or (ne (len ($actual.additionalVolumes | default list)) (len $volumes)) (ne (len ($actual.additionalVolumeMounts | default list)) (len $mounts)) -}}
+{{- fail "Full Temporal requires the complete lifecycle volume/mount projection; CLI list overrides must not remove required CA, scratch or runtime configuration mounts" -}}
+{{- end -}}
+{{- end -}}
+{{- if ne .Values.temporal.fullnameOverride (include "platform.temporalFullname" .) -}}
+{{- fail "Full Temporal requires the lifecycle projection's length-safe fullnameOverride for namespace hooks" -}}
+{{- end -}}
+{{- if ne .Values.temporal.schema.serviceAccount.name (include "platform.temporalSchemaServiceAccount" .) -}}
+{{- fail "Full Temporal requires the pre-existing lifecycle schema ServiceAccount" -}}
+{{- end -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.workers.temporalNamespace)) (gt (len .Values.workers.temporalNamespace) 46) -}}
+{{- fail "workers.temporalNamespace must be a DNS label of at most 46 characters for the upstream namespace registration Job" -}}
+{{- end -}}
+{{- range $component := list "unifiedApi" "frontend" "litellm" "rustfs" "langfuse" "temporalDev" -}}
+{{- $port := int (include "platform.port" (dict "root" $ "component" $component)) -}}
+{{- if or (lt $port 1) (gt $port 65535) -}}
+{{- fail (printf "%s.service.port must be between 1 and 65535" $component) -}}
+{{- end -}}
+{{- end -}}
+{{- range $port := list .Values.workers.health.port .Values.workers.substratePort .Values.rustfs.consolePort .Values.temporal.server.frontend.service.port -}}
+{{- if or (lt (int $port) 1) (gt (int $port) 65535) -}}
+{{- fail "Worker health/substrate, RustFS console and Temporal frontend ports must be between 1 and 65535" -}}
+{{- end -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[a-z][a-z0-9_]*$" .Values.database.substrateUser)) (has .Values.database.substrateUser (list "postgres" "platform" "langfuse" "temporal" "admin")) (hasPrefix "pg_" .Values.database.substrateUser) -}}
+{{- fail "database.substrateUser must be a distinct non-system SQL role" -}}
+{{- end -}}
+{{- if or (not (regexMatch "^[a-z][a-z0-9_]*$" .Values.database.substrateDatabase)) (has .Values.database.substrateDatabase (list "postgres" "template0" "template1" "platform" "langfuse" "temporal" "temporal_visibility")) -}}
+{{- fail "database.substrateDatabase must be a distinct application database" -}}
+{{- end -}}
+{{- if ne (int .Values.database.port) 5432 -}}
+{{- fail "database.port must be 5432: the Zalando Spilo listener is not configurable through this PostgreSQL CR" -}}
+{{- end -}}

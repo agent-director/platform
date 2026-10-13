@@ -30,10 +30,14 @@ venv/
 rendered.yaml
 *.log
 
-# Node.js
-frontend/node_modules/
+# Installed Node dependencies remain separate from disposable artifact caches.
+node_modules/
 frontend/.next/
 frontend/next-env.d.ts
+
+# Legacy output guards during the .cache migration.
+.pyrefly_cache/
+.pnpm-store/
 
 # Local scans & execution
 .local-rootfs-*/

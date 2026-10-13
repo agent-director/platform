@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "v26.11.1"
+    "node": ">=26.11.1 <27"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "lucide-react": "1.52.0",

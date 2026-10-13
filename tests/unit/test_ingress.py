@@ -1,341 +1,233 @@
-import os
-import shutil
+"""Pure Helm ingress contracts; plugin/container validation belongs to integration."""
+
 import subprocess
-import tempfile
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
-import yaml  # type: ignore
+import yaml
 
+Manifest = dict[str, Any]
+EMPTY_ITEMS: tuple[object, ...] = ()
+EMPTY_MAP: Mapping[str, object] = {}
 RELEASE_NAME = "test-release-platform"
 
 
-def render_chart(chart_dir, values=None):
-    cmd = ["helm", "template", "test-release", chart_dir]
-    if values:
-        for k, v in values.items():
-            if isinstance(v, bool):
-                v = str(v).lower()
-            cmd.extend(["--set", f"{k}={v}"])
-
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    # Parse all YAML documents
-    return list(filter(None, yaml.safe_load_all(result.stdout)))
+def render_chart(
+    chart_dir: str, values: Mapping[str, str | int | bool] | None = None
+) -> list[Manifest]:
+    cmd = [
+        "helm",
+        "template",
+        "test-release",
+        chart_dir,
+        "--namespace",
+        "ingress-tests",
+    ]
+    for key, value in (values or {}).items():
+        rendered = str(value).lower() if isinstance(value, bool) else str(value)
+        cmd.extend(["--set", f"{key}={rendered}"])
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return [document for document in yaml.safe_load_all(result.stdout) if document]
 
 
 @pytest.fixture(scope="module")
-def manifests(chart_dir):
-    return render_chart(chart_dir, {"caddyTailscale.tailnet": "ts.net"})
+def manifests(chart_dir: str) -> list[Manifest]:
+    return render_chart(chart_dir, {"caddyTailscale.tailnet": "test.ts.net"})
 
 
-def find_manifest(manifests, kind, name):
+def find_manifest(manifests: list[Manifest], kind: str, name: str) -> Manifest | None:
     return next(
         (
-            d
-            for d in manifests
-            if d.get("kind") == kind and (d.get("metadata") or {}).get("name") == name
+            document
+            for document in manifests
+            if document.get("kind") == kind
+            and document.get("metadata", EMPTY_MAP).get("name") == name
         ),
         None,
     )
 
 
-def get_egress_ports(np_manifest):
-    ports = []
-    for rule in np_manifest["spec"].get("egress", []):
-        for port_info in rule.get("ports", []):
-            if "port" in port_info:
-                ports.append(port_info["port"])
-    return ports
+def get_egress_ports(manifest: Manifest) -> list[int]:
+    return [
+        port["port"]
+        for rule in manifest["spec"].get("egress", EMPTY_ITEMS)
+        for port in rule.get("ports", EMPTY_ITEMS)
+        if "port" in port
+    ]
 
 
-def test_tailscale_deployment(manifests):
+def test_tailscale_deployment(manifests: list[Manifest]) -> None:
     deployment = find_manifest(
         manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
     )
-    assert deployment is not None, "Tailscale deployment should be rendered"
-
+    assert deployment is not None
     spec = deployment["spec"]["template"]["spec"]
-
-    init_containers = spec.get("initContainers", [])
-    assert len(init_containers) == 0, "Should have no init containers"
-
-    containers = spec.get("containers", [])
-    caddy = next(c for c in containers if c["name"] == "caddy")
-
-    env_vars = {
-        e["name"]: e.get("value") or e.get("valueFrom") for e in caddy.get("env", [])
-    }
-    assert "TS_KUBE_SECRET" not in env_vars, "Must use PVC instead of TS_KUBE_SECRET"
-
-    caddy_sc = caddy.get("securityContext", {})
-    assert caddy_sc.get("runAsNonRoot") is True
-    assert caddy_sc.get("readOnlyRootFilesystem") is True
-    assert "ALL" in caddy_sc.get("capabilities", {}).get("drop", [])
-
-    assert deployment["spec"]["strategy"]["type"] == "Recreate", (
-        "Deployment strategy should be Recreate"
+    assert not spec.get("initContainers")
+    assert spec["automountServiceAccountToken"] is False
+    caddy = next(
+        container for container in spec["containers"] if container["name"] == "caddy"
     )
-    assert deployment["spec"].get("replicas") == 1, (
-        "Deployment replicas must be strictly 1"
+    assert "TS_KUBE_SECRET" not in {variable["name"] for variable in caddy["env"]}
+    assert spec["securityContext"]["runAsNonRoot"] is True
+    assert caddy["securityContext"]["readOnlyRootFilesystem"] is True
+    assert "ALL" in caddy["securityContext"]["capabilities"]["drop"]
+    assert deployment["spec"]["strategy"]["type"] == "Recreate"
+    assert deployment["spec"]["replicas"] == 1
+    assert caddy["readinessProbe"]["httpGet"] == {"path": "/health", "port": "health"}
+
+
+def test_caddyfile_structural_contract(manifests: list[Manifest]) -> None:
+    """Assert the rendered contract, not binary/plugin compatibility or authentication."""
+    config = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
+    assert config is not None
+    caddyfile = config["data"]["Caddyfile"]
+    assert caddyfile.lstrip().startswith("{")
+    for directive in (
+        "tailscale {",
+        "ephemeral false",
+        "read_body 120s",
+        "read_header 5s",
+        "trusted_proxies static 127.0.0.1/8 ::1/128",
+        "bind tailscale/",
+        "tailscale_auth",
+        "request_header Tailscale-User-Login {http.auth.user.tailscale_user}",
+        "request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}",
+        "max_size 10MB",
+        "@api path /api /api/* /v1 /v1/*",
+        "handle @api {",
+        "reverse_proxy test-release-platform-unified-api.ingress-tests.svc.cluster.local:8000",
+        "reverse_proxy test-release-platform-frontend.ingress-tests.svc.cluster.local:3000",
+        ":8080 {",
+        "respond /health 200",
+    ):
+        assert directive in caddyfile
+    assert "handle_path" not in caddyfile, "API paths must not be stripped"
+    assert "X-Webauth-User" not in caddyfile
+    assert "{http.request.header.Tailscale-User-Login}" not in caddyfile
+    assert caddyfile.index("handle @api") < caddyfile.index(
+        "reverse_proxy test-release-platform-frontend"
     )
 
 
-def test_caddy_config(manifests):
-    cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
-    assert cm is not None, "Caddy ConfigMap should be created"
-
-    caddyfile = cm["data"]["Caddyfile"]
-    assert "tailscale {" in caddyfile
-    assert "ephemeral false" in caddyfile
-    assert "servers {" in caddyfile
-    assert "read_body 120s" in caddyfile
-    assert "read_header 5s" in caddyfile
-    assert "trusted_proxies static 127.0.0.1/8 ::1/128" in caddyfile
-    assert "bind tailscale/" in caddyfile
-    assert "request_header X-Webauth-User {http.auth.user.tailscale_user}" in caddyfile
-    assert "request_header X-Webauth-Email {http.auth.user.tailscale_user}" in caddyfile
+def test_ingress_port_overrides(chart_dir: str) -> None:
+    rendered = render_chart(
+        chart_dir,
+        {"frontend.service.port": 3339, "unifiedApi.service.port": 8189},
+    )
+    config = find_manifest(rendered, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
+    assert config is not None
     assert (
-        "request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}"
-        in caddyfile
+        "test-release-platform-frontend.ingress-tests.svc.cluster.local:3339"
+        in config["data"]["Caddyfile"]
     )
-    assert "request_body {" in caddyfile
-    assert "max_size 10MB" in caddyfile
-    assert "handle /*" in caddyfile
-    assert "reverse_proxy frontend:3000" in caddyfile
-
-
-@pytest.mark.timeout(300)
-def test_caddyfile_structural_validation(manifests):
-    cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
-    assert cm is not None, "Caddy ConfigMap should be created"
-    caddyfile = cm["data"]["Caddyfile"]
-
-    has_docker = False
-    try:
-        subprocess.run(["docker", "info"], check=True, capture_output=True)
-        # Build custom caddy image to properly validate plugins (Coraza, Tailscale, RateLimit)
-        res = subprocess.run(
-            ["docker", "build", "-t", "test-caddy-custom", "images/caddy-tailscale"],
-            capture_output=True,
-            check=False,
-        )
-        if res.returncode == 0:
-            has_docker = True
-        else:
-            # Fallback to pulling standard caddy if build fails
-            pull_res = subprocess.run(
-                ["docker", "pull", "caddy:2.7.6"], capture_output=True, check=False
-            )
-            if pull_res.returncode == 0:
-                has_docker = True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-
-    has_local_caddy = shutil.which("caddy") is not None
-    if not has_docker and not has_local_caddy:
-        pytest.skip(
-            "Neither docker with caddy:2.7.6 image nor local caddy binary is available"
-        )
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".Caddyfile", delete=False) as f:
-        f.write(caddyfile)
-        tmp_path = f.name
-
-    # Ensure the file is readable by the unprivileged caddy user in the container
-    os.chmod(tmp_path, 0o644)
-
-    try:
-        if has_local_caddy:
-            result = subprocess.run(
-                ["caddy", "validate", "--config", tmp_path, "--adapter", "caddyfile"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        else:
-            # Use test-caddy-custom if built, else fallback to standard caddy
-            image_to_use = (
-                "test-caddy-custom"
-                if subprocess.run(
-                    ["docker", "image", "inspect", "test-caddy-custom"],
-                    capture_output=True,
-                    check=False,
-                ).returncode
-                == 0
-                else "caddy:2.7.6"
-            )
-            result = subprocess.run(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-i",
-                    "-v",
-                    f"{tmp_path}:/etc/caddy/Caddyfile",
-                    "--tmpfs",
-                    "/tmp",
-                    image_to_use,
-                    "caddy",
-                    "validate",
-                    "--config",
-                    "/etc/caddy/Caddyfile",
-                ],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
-        # If test-caddy-custom is used, returncode should be 0.
-        assert result.returncode == 0, (
-            f"Caddyfile validation failed:\n{result.stderr}\n{caddyfile}"
-        )
-    finally:
-        os.unlink(tmp_path)
-
-
-def test_network_policies(manifests):
-    frontend_ingress = find_manifest(
-        manifests, "NetworkPolicy", f"{RELEASE_NAME}-frontend-ingress"
-    )
-    assert frontend_ingress is not None, "Frontend Ingress NP should be created"
     assert (
-        frontend_ingress["spec"]["ingress"][0]["from"][0]["podSelector"]["matchLabels"][
-            "app"
+        "test-release-platform-unified-api.ingress-tests.svc.cluster.local:8189"
+        in config["data"]["Caddyfile"]
+    )
+    for component, port in (("frontend", 3339), ("unified-api", 8189)):
+        deployment = find_manifest(
+            rendered, "Deployment", f"{RELEASE_NAME}-{component}"
+        )
+        service = find_manifest(rendered, "Service", f"{RELEASE_NAME}-{component}")
+        assert deployment is not None and service is not None
+        container = deployment["spec"]["template"]["spec"]["containers"][0]
+        assert container["ports"][0]["containerPort"] == port
+        assert service["spec"]["ports"][0]["port"] == port
+        assert service["spec"]["ports"][0]["targetPort"] == "http"
+        policy = find_manifest(
+            rendered, "NetworkPolicy", f"{RELEASE_NAME}-{component}-ingress"
+        )
+        assert policy is not None
+        assert policy["spec"]["ingress"][0]["ports"] == [
+            {"protocol": "TCP", "port": port}
         ]
-        == "caddy-tailscale"
+        assert policy["spec"]["ingress"][0]["from"][0]["podSelector"][
+            "matchLabels"
+        ] == {"app": "caddy-tailscale", "app.kubernetes.io/instance": "test-release"}
+    egress = find_manifest(
+        rendered, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
     )
-
-    egress_np = find_manifest(
-        manifests, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
-    )
-    assert egress_np is not None, "Tailscale Egress NP should be created"
-    assert "Ingress" in egress_np["spec"].get("policyTypes", []), (
-        "Must have Ingress policy type"
-    )
-    assert "Egress" in egress_np["spec"].get("policyTypes", []), (
-        "Must have Egress policy type"
-    )
-    assert "ingress" in egress_np["spec"] and egress_np["spec"]["ingress"] == [], (
-        "Must have empty ingress rules (default deny)"
-    )
-
-    egress_ports = get_egress_ports(egress_np)
-    for rule in egress_np["spec"].get("egress", []):
-        if "to" in rule:
-            for to_rule in rule["to"]:
-                labels = to_rule.get("podSelector", {}).get("matchLabels", {})
-                # Check port scoping for specific apps
-                if labels.get("app") == "frontend":
-                    assert any(p["port"] == 3000 for p in rule.get("ports", []))
-
-    assert 3478 in egress_ports
-    assert 53 in egress_ports, "Must allow DNS egress"
-    assert 3000 in egress_ports, "Must allow egress to UI frontend"
-
-    # Find the generic UDP rule that now includes an ipBlock
-    udp_rule = next(
-        rule
-        for rule in egress_np["spec"].get("egress", [])
-        if "to" in rule
-        and any(
-            "ipBlock" in to_item and "except" in to_item["ipBlock"]
-            for to_item in rule["to"]
+    assert egress is not None
+    for component, port in (("frontend", 3339), ("unified-api", 8189)):
+        rule = next(
+            rule
+            for rule in egress["spec"]["egress"]
+            if any(
+                peer.get("podSelector", EMPTY_MAP)
+                .get("matchLabels", EMPTY_MAP)
+                .get("app")
+                == component
+                for peer in rule.get("to", EMPTY_ITEMS)
+            )
         )
-    )
-
-    ip_block = udp_rule["to"][0]["ipBlock"]
-    assert ip_block["cidr"] == "0.0.0.0/0"
-    assert "10.0.0.0/8" in ip_block["except"]
-    assert "172.16.0.0/12" in ip_block["except"]
-    assert "192.168.0.0/16" in ip_block["except"]
-
-    # Verify it applies to UDP
-    assert len(udp_rule["ports"]) == 1
-    assert udp_rule["ports"][0]["protocol"] == "UDP"
+        assert rule["ports"] == [{"protocol": "TCP", "port": port}]
+        assert (
+            rule["to"][0]["podSelector"]["matchLabels"]["app.kubernetes.io/instance"]
+            == "test-release"
+        )
 
 
-def test_tailscale_disabled(chart_dir):
-    manifests = render_chart(
-        chart_dir,
-        {
-            "caddyTailscale.enabled": False,
-            "frontend.enabled": True,
-            "unifiedApi.enabled": True,
-        },
-    )
-
-    deployment = find_manifest(
-        manifests, "Deployment", f"{RELEASE_NAME}-caddy-tailscale"
-    )
-    assert deployment is None, "Tailscale deployment should not be rendered"
-
-    sa = find_manifest(manifests, "ServiceAccount", f"{RELEASE_NAME}-caddy-tailscale")
-    assert sa is None, "Tailscale ServiceAccount should not be rendered"
-
-    role = find_manifest(manifests, "Role", f"{RELEASE_NAME}-caddy-tailscale")
-    assert role is None, "Tailscale Role should not be rendered"
-
-    rb = find_manifest(manifests, "RoleBinding", f"{RELEASE_NAME}-caddy-tailscale")
-    assert rb is None, "Tailscale RoleBinding should not be rendered"
-
-    cm = find_manifest(manifests, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
-    assert cm is None, "Caddy ConfigMap should not be rendered"
-
-    frontend_ingress = find_manifest(
+def test_network_policies(manifests: list[Manifest]) -> None:
+    ingress = find_manifest(
         manifests, "NetworkPolicy", f"{RELEASE_NAME}-frontend-ingress"
     )
-    assert frontend_ingress is None, "Frontend Ingress NP should not be rendered"
-
-    egress_np = find_manifest(
+    assert ingress is not None
+    labels = ingress["spec"]["ingress"][0]["from"][0]["podSelector"]["matchLabels"]
+    assert labels == {
+        "app": "caddy-tailscale",
+        "app.kubernetes.io/instance": "test-release",
+    }
+    egress = find_manifest(
         manifests, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
     )
-    assert egress_np is None, "Tailscale Egress NP should not be rendered"
-
-
-def test_tailscale_frontend_disabled(chart_dir):
-    manifests = render_chart(
-        chart_dir,
-        {
-            "caddyTailscale.enabled": True,
-            "frontend.enabled": False,
-            "unifiedApi.enabled": True,
-        },
+    assert egress is not None
+    assert egress["spec"]["ingress"] == []
+    assert set(egress["spec"]["policyTypes"]) == {"Ingress", "Egress"}
+    assert {53, 443, 3478, 3000, 8000} <= set(get_egress_ports(egress))
+    for rule in egress["spec"]["egress"]:
+        for destination in rule.get("to", EMPTY_ITEMS):
+            if "ipBlock" in destination:
+                assert destination["ipBlock"]["cidr"] == "0.0.0.0/0"
+                assert {
+                    "10.0.0.0/8",
+                    "172.16.0.0/12",
+                    "192.168.0.0/16",
+                    "169.254.0.0/16",
+                } <= set(destination["ipBlock"]["except"])
+    api = find_manifest(
+        manifests, "NetworkPolicy", f"{RELEASE_NAME}-unified-api-ingress"
+    )
+    assert api is not None
+    callers = api["spec"]["ingress"][0]["from"]
+    assert all(
+        caller["podSelector"]["matchLabels"]
+        == {"app": "caddy-tailscale", "app.kubernetes.io/instance": "test-release"}
+        for caller in callers
     )
 
-    frontend_ingress = find_manifest(
-        manifests, "NetworkPolicy", f"{RELEASE_NAME}-frontend-ingress"
+
+def test_tailscale_disabled(chart_dir: str) -> None:
+    rendered = render_chart(chart_dir, {"caddyTailscale.enabled": False})
+    for kind, suffix in (
+        ("Deployment", "caddy-tailscale"),
+        ("ConfigMap", "caddy-config"),
+        ("NetworkPolicy", "frontend-ingress"),
+        ("NetworkPolicy", "tailscale-egress"),
+    ):
+        assert find_manifest(rendered, kind, f"{RELEASE_NAME}-{suffix}") is None
+
+
+@pytest.mark.parametrize("component,port", [("frontend", 3000), ("unifiedApi", 8000)])
+def test_disabled_backend_has_no_caddy_egress(
+    chart_dir: str, component: str, port: int
+) -> None:
+    rendered = render_chart(chart_dir, {f"{component}.enabled": False})
+    egress = find_manifest(
+        rendered, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
     )
-    assert frontend_ingress is None, "Frontend Ingress NP should not be rendered"
-
-    egress_np = find_manifest(
-        manifests, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
-    )
-    assert egress_np is not None, "Tailscale Egress NP should be created"
-
-    egress_ports = get_egress_ports(egress_np)
-
-    assert 3000 not in egress_ports, "Must not allow egress to UI frontend if disabled"
-
-
-def test_tailscale_unifiedapi_disabled(chart_dir):
-    manifests = render_chart(
-        chart_dir,
-        {
-            "caddyTailscale.enabled": True,
-            "frontend.enabled": True,
-            "unifiedApi.enabled": False,
-        },
-    )
-
-    egress_np = find_manifest(
-        manifests, "NetworkPolicy", f"{RELEASE_NAME}-tailscale-egress"
-    )
-    assert egress_np is not None, "Tailscale Egress NP should be created"
-
-    egress_ports = get_egress_ports(egress_np)
-
-    assert 3000 in egress_ports, "Must allow egress to UI frontend"
+    assert egress is not None
+    assert port not in get_egress_ports(egress)
+    config = find_manifest(rendered, "ConfigMap", f"{RELEASE_NAME}-caddy-config")
+    assert config is not None
+    assert f":{port}" not in config["data"]["Caddyfile"]

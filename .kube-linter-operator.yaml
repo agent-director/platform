@@ -1,0 +1,15 @@
+# Apply ONLY to the separately rendered charts/postgres-operator wrapper.
+# The caller must guard the locked postgres-operator dependency at 2.0.3;
+# an operator upgrade requires review of these two upstream limitations.
+# All other default checks and readiness-probe presence remain enforced.
+checks:
+  addAllBuiltIn: false
+  doNotAutoAddDefaults: false
+  include:
+    - no-readiness-probe
+    - no-liveness-probe
+  exclude:
+    # 2.0.3 exposes readinessProbe but no livenessProbe values/template field.
+    - no-liveness-probe
+    # 2.0.3 probes real HTTP :8080/readyz but declares no containerPorts.
+    - readiness-port

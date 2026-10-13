@@ -1,28 +1,28 @@
+{{- if and .Values.langfuse.enabled (not .Values.bootstrap.enabled) }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-langfuse
+  name: {{ include "platform.resourceName" (dict "root" . "component" "langfuse") }}
   labels:
-    app: langfuse
+    {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: langfuse
+      {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: langfuse
+        {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
-      initContainers:
-        - name: wait-for-db
-          image: busybox:1.36
-          command: ['sh', '-c', 'until nc -z {{ .Release.Name }}-db 5432; do echo waiting for db; sleep 2; done;']
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: langfuse
           image: "langfuse/langfuse:2"
@@ -42,67 +42,79 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+            - name: db-trust
+              mountPath: /etc/db-trust
+              readOnly: true
           ports:
-            - containerPort: 3000
+            - containerPort: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
           readinessProbe:
             httpGet:
               path: /api/public/ready
-              port: 3000
+              port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 10
           livenessProbe:
             httpGet:
               path: /api/public/health
-              port: 3000
+              port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
           startupProbe:
             httpGet:
               path: /api/public/health
-              port: 3000
+              port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
             initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 30
           env:
+            - name: PORT
+              value: {{ include "platform.port" (dict "root" . "component" "langfuse") | quote }}
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "%s.%s-db.credentials.postgresql.acid.zalan.do" "langfuse" .Release.Name | quote }}
+                  name: {{ include "platform.databaseCredential" (dict "root" . "user" "langfuse") | quote }}
                   key: username
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "%s.%s-db.credentials.postgresql.acid.zalan.do" "langfuse" .Release.Name | quote }}
+                  name: {{ include "platform.databaseCredential" (dict "root" . "user" "langfuse") | quote }}
                   key: password
             - name: DATABASE_URL
-              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db.{{ .Release.Namespace }}.svc.cluster.local:5432/langfuse"
+              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ include "platform.databaseDNS" . }}:{{ .Values.database.port }}/langfuse?sslmode=verify-full&sslrootcert=/etc/db-trust/ca.crt"
             - name: NEXTAUTH_URL
-              value: "http://localhost:3000"
+              value: {{ include "platform.httpURL" (dict "root" . "component" "langfuse") | quote }}
             - name: NEXTAUTH_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-langfuse-secret
+                  name: {{ include "platform.resourceName" (dict "root" . "component" "langfuse-secret") }}
                   key: nextauth-secret
             - name: SALT
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-langfuse-secret
+                  name: {{ include "platform.resourceName" (dict "root" . "component" "langfuse-secret") }}
                   key: salt
       volumes:
         - name: tmp-volume
           emptyDir: {}
+        - name: db-trust
+          configMap:
+            name: {{ include "platform.databaseTrust" . }}
+            items:
+              - key: {{ include "platform.databaseCAKey" . }}
+                path: ca.crt
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "platform.fullname" . }}-langfuse
+  name: {{ include "platform.resourceName" (dict "root" . "component" "langfuse") }}
 spec:
   ports:
-    - port: 3000
-      targetPort: 3000
+    - port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
+      targetPort: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
       protocol: TCP
   selector:
-    app: langfuse
+    {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 4 }}
+{{- end }}

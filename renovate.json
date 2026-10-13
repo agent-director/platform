@@ -34,10 +34,11 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "uv run --with pyyaml python scripts/update-crds.py"
+          "./scripts/mise.sh exec -- uv run --locked scripts/update-crds.py substrate"
         ],
         "fileFilters": [
-          "charts/agent-substrate/crds/*.yaml"
+          "charts/agent-substrate/crds/*.yaml",
+          ".schemas/ate.dev/*.json"
         ],
         "executionMode": "branch"
       }

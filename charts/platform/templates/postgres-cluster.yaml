@@ -1,34 +1,35 @@
-apiVersion: "acid.zalan.do/v1"
+apiVersion: acid.zalan.do/v1
 kind: postgresql
 metadata:
-  name: {{ .Release.Name }}-db
+  name: {{ include "platform.databaseName" . }}
   labels:
     app: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   teamId: {{ .Values.database.teamId | quote }}
   {{- if .Values.global.tls.useOcpServingCert }}
   serviceAnnotations:
-    service.beta.openshift.io/serving-cert-secret-name: "platform-db-tls"
+    service.beta.openshift.io/serving-cert-secret-name: {{ include "platform.databaseTLSSecret" . | quote }}
   {{- end }}
   volume:
     size: 10Gi
   numberOfInstances: 1
+  # Separate database owners; no application receives superuser/createdb.
   users:
-    {{ .Values.database.superuser }}:
-      - superuser
-      - createdb
     platform: []
     langfuse: []
     temporal: []
+    {{ .Values.database.substrateUser }}: []
   databases:
     platform: platform
     langfuse: langfuse
     temporal: temporal
     temporal_visibility: temporal
+    {{ .Values.database.substrateDatabase }}: {{ .Values.database.substrateUser }}
   postgresql:
     version: {{ .Values.database.version | quote }}
   tls:
-    secretName: "platform-db-tls" # pragma: allowlist secret
+    secretName: {{ include "platform.databaseTLSSecret" . | quote }}
   resources:
     requests:
       cpu: 500m

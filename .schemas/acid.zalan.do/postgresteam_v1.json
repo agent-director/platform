@@ -1,0 +1,66 @@
+{
+  "description": "PostgresTeam defines Custom Resource Definition Object for team management.",
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "enum": [
+        "acid.zalan.do/v1"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "PostgresTeam"
+      ]
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "PostgresTeamSpec defines the specification for the PostgresTeam TPR.",
+      "properties": {
+        "additionalMembers": {
+          "additionalProperties": {
+            "description": "List of users who will also be added to the Postgres cluster.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Map for teamId and associated additional users",
+          "type": "object"
+        },
+        "additionalSuperuserTeams": {
+          "additionalProperties": {
+            "description": "List of teams to become Postgres superusers",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Map for teamId and associated additional superuser teams",
+          "type": "object"
+        },
+        "additionalTeams": {
+          "additionalProperties": {
+            "description": "List of teams whose members will also be added to the Postgres cluster.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Map for teamId and associated additional teams",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "kind",
+    "apiVersion"
+  ],
+  "type": "object"
+}

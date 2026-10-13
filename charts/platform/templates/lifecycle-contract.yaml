@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "lifecycle") }}
+  labels:
+    app.kubernetes.io/component: lifecycle-contract
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+data:
+  temporalProfile: {{ if .Values.bootstrap.enabled }}"bootstrap"{{ else if .Values.temporal.enabled }}"full"{{ else if .Values.temporalDev.enabled }}"kind"{{ else }}"off"{{ end }}
+  workersEnabled: {{ and .Values.workers.enabled (not .Values.bootstrap.enabled) | quote }}
+  databaseResource: {{ include "platform.databaseName" . | quote }}
+  databaseService: {{ include "platform.databaseName" . | quote }}
+  databasePort: {{ .Values.database.port | quote }}
+  databaseUser: "platform"
+  databaseName: "platform"
+  databaseCredentialSecret: {{ include "platform.databaseCredential" (dict "root" . "user" "platform") | quote }}
+  databaseTLSSecret: {{ include "platform.databaseTLSSecret" . | quote }}
+  databaseTrustConfigMap: {{ include "platform.databaseTrust" . | quote }}
+  databaseTrustKey: {{ include "platform.databaseCAKey" . | quote }}
+  temporalCredentialSecret: {{ include "platform.databaseCredential" (dict "root" . "user" "temporal") | quote }}
+  temporalDatabase: "temporal"
+  temporalVisibilityDatabase: "temporal_visibility"
+  substrateDatabaseUser: {{ .Values.database.substrateUser | quote }}
+  substrateDatabaseName: {{ .Values.database.substrateDatabase | quote }}
+  substrateDatabaseCredentialSecret: {{ include "platform.databaseCredential" (dict "root" . "user" .Values.database.substrateUser) | quote }}
+  schemaServiceAccount: {{ include "platform.temporalSchemaServiceAccount" . | quote }}
+  apiService: {{ include "platform.serviceName" (dict "root" . "component" "unifiedApi") | quote }}
+  apiPort: {{ include "platform.port" (dict "root" . "component" "unifiedApi") | quote }}
+  temporalService: {{ include "platform.temporalService" . | quote }}
+  temporalPort: {{ include "platform.temporalPort" . | quote }}
+  temporalNamespace: {{ .Values.workers.temporalNamespace | quote }}
+  temporalTaskQueue: {{ .Values.workers.taskQueue | quote }}
+  rustfsService: {{ include "platform.serviceName" (dict "root" . "component" "rustfs") | quote }}
+  rustfsPort: {{ include "platform.port" (dict "root" . "component" "rustfs") | quote }}
+  rustfsSecret: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-auth") | quote }}
+  # Child chart 1.7.0 does not tpl these fields. Resolve through the public values
+  # interface, never by editing/overriding dependency templates or private helpers.
+  temporal-values.yaml: |
+    temporal:
+      fullnameOverride: {{ include "platform.temporalFullname" . | quote }}
+      serviceAccount:
+        create: false
+        name: {{ include "platform.temporalSchemaServiceAccount" . }}
+      schema:
+        useHelmHooks: true
+        serviceAccount:
+          create: false
+          name: {{ include "platform.temporalSchemaServiceAccount" . }}
+      server:
+        additionalVolumes:
+          {{- include "platform.temporalVolumes" (dict "root" . "component" "server") | nindent 10 }}
+        additionalVolumeMounts:
+          {{- include "platform.temporalVolumeMounts" (dict "root" . "component" "server") | nindent 10 }}
+        config:
+          namespaces:
+            create: true
+            useHelmHooks: true
+            namespace:
+              - name: {{ .Values.workers.temporalNamespace | quote }}
+                retention: 3d
+          persistence:
+            defaultStore: default
+            visibilityStore: visibility
+            datastores:
+              {{- range $store := list "default" "visibility" }}
+              {{ $store }}:
+                sql:
+                  pluginName: postgres12
+                  databaseName: {{ ternary "temporal" "temporal_visibility" (eq $store "default") }}
+                  createDatabase: false
+                  manageSchema: true
+                  connectAddr: {{ printf "%s:%v" (include "platform.databaseDNS" $) $.Values.database.port | quote }}
+                  user: temporal
+                  existingSecret: {{ include "platform.databaseCredential" (dict "root" $ "user" "temporal") | quote }}
+                  secretKey: password
+                  tls:
+                    enabled: true
+                    caFile: /etc/db-trust/ca.crt
+                    enableHostVerification: true
+                    serverName: {{ include "platform.databaseDNS" $ | quote }}
+              {{- end }}
+      admintools:
+        additionalVolumes:
+          {{- include "platform.temporalVolumes" (dict "root" . "component" "admintools") | nindent 10 }}
+        additionalVolumeMounts:
+          {{- include "platform.temporalVolumeMounts" (dict "root" . "component" "admintools") | nindent 10 }}
+---
+# Created by the first bootstrap install, BEFORE the upstream pre-upgrade hook.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "platform.temporalSchemaServiceAccount" . }}
+automountServiceAccountToken: false

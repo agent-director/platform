@@ -1,35 +1,61 @@
+from datetime import timedelta
+from uuid import uuid4
+
 import pytest
+from temporalio.api.workflowservice.v1 import DescribeNamespaceRequest
 from temporalio.client import Client
 
-
-@pytest.mark.asyncio
-async def test_temporal_connection():
-    """
-    Verify connectivity against the running Temporal instance in the kind cluster without mocks.
-    The CI workflow maps the Temporal NodePort to 127.0.0.1:7233.
-    """
-    try:
-        client = await Client.connect("127.0.0.1:7233")
-        assert client is not None
-    except Exception as e:  # noqa: BLE001
-        pytest.fail(f"Could not connect to Temporal at 127.0.0.1:7233: {e}")
+from orchestrator.temporal_worker import AgentWorkflow, JobInput
+from tests.integration.conftest import DatabaseEndpoint, IntegrationEnvironment
 
 
 @pytest.mark.asyncio
-async def test_postgres_connection():
-    """
-    Verify connectivity against the running Postgres instance via NodePort mapped to localhost.
-    Note: With the Zalando operator, credentials are dynamically generated. For this baseline
-    test running outside the cluster, we will verify the port is open and accepting TCP
-    connections rather than authenticating, since extracting the dynamic credentials
-    is handled within the CI workflow or requires cluster access.
-    """
-    import asyncio
+async def test_temporal_namespace_available(
+    temporal_client: Client, integration_env: IntegrationEnvironment
+) -> None:
+    """Make an actual SDK RPC against the selected in-cluster Temporal profile."""
+    result = await temporal_client.workflow_service.describe_namespace(
+        DescribeNamespaceRequest(namespace=integration_env.temporal_namespace),
+        timeout=timedelta(seconds=10),
+    )
+    assert result.namespace_info.name == integration_env.temporal_namespace
 
-    try:
-        _reader, writer = await asyncio.open_connection("127.0.0.1", 5432)
-        assert writer is not None
-        writer.close()
-        await writer.wait_closed()
-    except Exception as e:  # noqa: BLE001
-        pytest.fail(f"Could not connect to Postgres at 127.0.0.1:5432: {e}")
+
+@pytest.mark.parametrize("iteration", range(2))
+def test_postgres_authenticated_round_trip(
+    database_endpoint: DatabaseEndpoint, iteration: int
+) -> None:
+    """Authenticate as the chart's scoped platform role and perform transactional SQL."""
+    with database_endpoint.connect() as connection:
+        identity = connection.execute(
+            "SELECT current_database(), current_user, rolsuper "
+            "FROM pg_roles WHERE rolname = current_user"
+        ).fetchone()
+        assert identity == (database_endpoint.database, database_endpoint.user, False)
+        assert connection.execute(
+            "SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()"
+        ).fetchone() == (True,)
+        connection.execute("CREATE TEMP TABLE integration_probe (value TEXT NOT NULL)")
+        value = f"{iteration}-{uuid4()}"
+        connection.execute(
+            "INSERT INTO integration_probe (value) VALUES (%s)", (value,)
+        )
+        assert connection.execute("SELECT value FROM integration_probe").fetchone() == (
+            value,
+        )
+
+
+@pytest.mark.asyncio
+async def test_deployed_worker_executes_temporal_workflow(
+    temporal_client: Client, integration_env: IntegrationEnvironment
+) -> None:
+    """Execute the existing workflow/activity on deployed workers, not the API stub."""
+    workflow_id = f"integration-worker-{uuid4()}"
+    result = await temporal_client.execute_workflow(
+        AgentWorkflow.run,
+        JobInput(job_id=workflow_id, workflow_type="ci_pipeline"),
+        id=workflow_id,
+        task_queue=integration_env.temporal_task_queue,
+        execution_timeout=timedelta(seconds=60),
+    )
+    assert result == "quality_analyzed"
