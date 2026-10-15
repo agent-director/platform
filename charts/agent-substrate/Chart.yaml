@@ -1,6 +1,6 @@
 apiVersion: v2
 name: agent-substrate
-description: Existing Agent Substrate control plane (agent-substrate/substrate)
+description: Helm chart for Agent Substrate (agent-substrate/substrate)
 type: application
 version: 0.1.0
-appVersion: "0.3.0"
+appVersion: "0.4.0"

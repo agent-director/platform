@@ -30,15 +30,16 @@
     },
     {
       "matchPackageNames": [
-        "agent-substrate/substrate"
+        "agent-substrate/substrate",
+        "zalando/postgres-operator"
       ],
       "postUpgradeTasks": {
         "commands": [
-          "./scripts/mise.sh exec -- uv run --locked scripts/update-crds.py substrate"
+          "mise exec -- uv run --locked scripts/update-crds.py all"
         ],
         "fileFilters": [
           "charts/agent-substrate/crds/*.yaml",
-          ".schemas/ate.dev/*.json"
+          ".schemas/**/*.json"
         ],
         "executionMode": "branch"
       }
@@ -56,10 +57,11 @@
       "customType": "regex",
       "managerFilePatterns": [
         "/^\\.github/workflows/.*\\.ya?ml$/",
-        "/^images/.*/Dockerfile$/"
+        "/^images/.*/Dockerfile$/",
+        "/^scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]

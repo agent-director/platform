@@ -1,15 +1,19 @@
 #!/bin/bash
-# Shared local lifecycle contract. No command uses the caller's current context.
+# Shared local lifecycle contract. No command uses the caller's ambient context.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-MISE="$ROOT/scripts/mise.sh"
-run() { "$MISE" exec -- "$@"; }
+run() { mise exec -- "$@"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
-CLUSTER_NAME=${CLUSTER_NAME:-}
-KUBE_CONTEXT=${KUBE_CONTEXT:-${CLUSTER_NAME:+kind-$CLUSTER_NAME}}
+# renovate: datasource=github-tags depName=zalando/postgres-operator extractVersion=^v?(?<version>.*)$
+POSTGRES_OPERATOR_VERSION=2.0.3
+# renovate: datasource=docker depName=kindest/node
+KIND_NODE_IMAGE="kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
+
+CLUSTER_NAME=${CLUSTER_NAME:-platform-dev}
+KUBE_CONTEXT=${KUBE_CONTEXT:-kind-$CLUSTER_NAME}
 if [[ -n "$CLUSTER_NAME" ]]; then
     # Never let kind update the user's global kubeconfig/current context.
     export KUBECONFIG="$ROOT/.cache/clusters/$CLUSTER_NAME/kubeconfig"
@@ -29,11 +33,15 @@ KUBE_REQUEST_TIMEOUT=${KUBE_REQUEST_TIMEOUT:-15s}
 SQL_PROBE_TIMEOUT=${SQL_PROBE_TIMEOUT:-15}
 
 PRIVATE_VALUES_FILE=
+TEMPORAL_VALUES_FILE=
+SUBSTRATE_VALUES_FILE=
 KIND_VERIFY_CONFIG=
 cleanup_private_values() {
     local status=$?
     trap - EXIT INT TERM
     if [[ -n "$PRIVATE_VALUES_FILE" ]]; then rm -f "$PRIVATE_VALUES_FILE"; fi
+    if [[ -n "$TEMPORAL_VALUES_FILE" ]]; then rm -f "$TEMPORAL_VALUES_FILE"; fi
+    if [[ -n "$SUBSTRATE_VALUES_FILE" ]]; then rm -f "$SUBSTRATE_VALUES_FILE"; fi
     if [[ -n "$KIND_VERIFY_CONFIG" ]]; then rm -f "$KIND_VERIFY_CONFIG"; fi
     exit "$status"
 }
@@ -72,12 +80,10 @@ json.dump({key: os.environ.get(key, values.get(key, "")) for key in allowed}, sy
 
 validate_value_option() {
     local expression="$1"
-    local reserved='(^|,)[[:space:]]*(bootstrap|temporal|temporalDev|workers)([.](enabled|prerequisitesReady))?[[:space:]]*='
-    [[ ! "$expression" =~ $reserved ]] || fail 'PROFILE owns bootstrap/Temporal/worker switches; conflicting Helm value override rejected.'
+    local reserved='(^|,)[[:space:]]*(temporal|temporalDev|workers)([.]enabled)?[[:space:]]*='
+    [[ ! "$expression" =~ $reserved ]] || fail 'PROFILE owns Temporal/worker switches; conflicting Helm value override rejected.'
     local substrate_port='(^|,)[[:space:]]*workers[.]substratePort[[:space:]]*='
-    # Helm processes flag families separately; --set-string/--set-file can beat
-    # a later --set. Reject this script-owned input rather than mask a mismatch.
-    [[ ! "$expression" =~ $substrate_port ]] || fail 'The substrate chart API port owns workers.substratePort; configure ateapi.service.port through SUBSTRATE_VALUES instead.'
+    [[ ! "$expression" =~ $substrate_port ]] || fail 'SUBSTRATE_VALUES owns the substrate API port; conflicting workers.substratePort override rejected.'
 }
 
 validate_helm_options() {
@@ -100,12 +106,10 @@ validate_helm_options() {
 
 usage() {
     printf '%s\n' \
-        'Usage: scripts/deploy.sh cluster-up|check-cluster|deploy|contract [Helm options after --]' \
-        'Set CLUSTER_NAME (kind) or explicit KUBE_CONTEXT, NAMESPACE, RELEASE_NAME and PROFILE=kind|full.' \
-        'cluster-up requires CLUSTER_NAME; existing clusters require REUSE_CLUSTER=true and are not newly owned.' \
-        'DEPLOY_VALUES and SUBSTRATE_VALUES optionally name Helm values files.' \
-        'The substrate chart API port owns workers.substratePort, including SUBSTRATE_VALUES overrides.' \
-        'PROFILE exclusively owns Temporal/worker/bootstrap switches; Helm CLI overrides are rejected.'
+        'Usage: scripts/deploy.sh cluster-up|check-cluster|deploy [Helm options after --]' \
+        'Set CLUSTER_NAME (defaults to platform-dev), NAMESPACE, RELEASE_NAME and PROFILE=kind|full.' \
+        'Existing clusters require REUSE_CLUSTER=true and are not newly owned.' \
+        'DEPLOY_VALUES and SUBSTRATE_VALUES optionally name Helm values files.'
 }
 
 validate_name() {
@@ -129,16 +133,15 @@ validate_contract() {
 kube() { run kubectl --context "$KUBE_CONTEXT" --request-timeout="$KUBE_REQUEST_TIMEOUT" "$@"; }
 
 bounded_sql_exec() {
-    # A deadline covers the whole local exec/stream, not merely TCP setup or a
-    # server-side query timer. The password enters only stdin, never argv.
     run uv run --no-project python -c '
 import subprocess, sys
 try:
     subprocess.run(sys.argv[2:], input=sys.stdin.buffer.read(), timeout=float(sys.argv[1]), check=True)
 except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
     raise SystemExit(1)
-' "$SQL_PROBE_TIMEOUT" "$MISE" exec -- kubectl --context "$KUBE_CONTEXT" --request-timeout="$KUBE_REQUEST_TIMEOUT" "$@"
+' "$SQL_PROBE_TIMEOUT" mise exec -- kubectl --context "$KUBE_CONTEXT" --request-timeout="$KUBE_REQUEST_TIMEOUT" "$@"
 }
+
 helm_context() {
     if [[ -n "${KUBECONFIG:-}" ]]; then
         run helm "$@" --kube-context "$KUBE_CONTEXT" --kubeconfig "$KUBECONFIG"
@@ -152,14 +155,13 @@ check_cluster() {
     local server uid fresh_server fresh_uid
     server=$(kube config view --minify -o 'jsonpath={.clusters[0].cluster.server}')
     [[ -n "$server" ]] || fail "No API server found for context $KUBE_CONTEXT."
+    [[ "$server" =~ ^https://127\.0\.0\.1:[0-9]+$ ]] || fail "Cluster API server must bind strictly to 127.0.0.1 (got $server)."
     if [[ -n "${KUBE_API_URL:-}" && "$KUBE_API_URL" != "$server" ]]; then
         fail 'KUBE_API_URL does not match the explicitly selected context.'
     fi
     uid=$(kube get namespace kube-system -o 'jsonpath={.metadata.uid}')
     [[ -n "$uid" ]] || fail 'Selected cluster identity is unavailable.'
     if [[ -n "$CLUSTER_NAME" ]]; then
-        # Sideloading uses the current kind backend. Reject a stale cached context
-        # pointing at a same-name cluster on another Docker/provider backend.
         mkdir -p "$ROOT/.cache/clusters/$CLUSTER_NAME"
         KIND_VERIFY_CONFIG=$(umask 077; mktemp "$ROOT/.cache/clusters/$CLUSTER_NAME/verify.XXXXXXXX")
         run kind get kubeconfig --name "$CLUSTER_NAME" > "$KIND_VERIFY_CONFIG"
@@ -174,7 +176,7 @@ check_cluster() {
 cluster_up() {
     [[ -n "$CLUSTER_NAME" ]] || fail 'cluster-up requires an explicitly named CLUSTER_NAME.'
     validate_contract
-    local existing name marker uid server image
+    local existing name marker uid server
     existing=$(run kind get clusters)
     while IFS= read -r name; do
         if [[ "$name" == "$CLUSTER_NAME" ]]; then
@@ -189,13 +191,15 @@ cluster_up() {
     mkdir -p "$ROOT/.cache/kind" "$ROOT/.cache/clusters/$CLUSTER_NAME"
     marker="$ROOT/.cache/kind/$CLUSTER_NAME.json"
     [[ ! -e "$marker" ]] || fail "A stale ownership marker exists at $marker; inspect it before creating a replacement cluster."
-    image=$(run uv run --no-project scripts/toolchain.py image kind)
-    [[ -n "$image" ]] || fail 'Root toolchain did not select a kind node image.'
     local config="$ROOT/.cache/kind/$CLUSTER_NAME-config.yaml"
-    printf '%s\n' 'kind: Cluster' 'apiVersion: kind.x-k8s.io/v1alpha4' \
-        'featureGates:' '  ClusterTrustBundle: true' > "$config"
-    # Creation failure does not imply ownership of a pre-existing or partial cluster.
-    run kind create cluster --name "$CLUSTER_NAME" --image "$image" --config "$config" --kubeconfig "$KUBECONFIG" --wait "$WAIT_TIMEOUT"
+    printf '%s\n' \
+        'kind: Cluster' \
+        'apiVersion: kind.x-k8s.io/v1alpha4' \
+        'networking:' \
+        '  apiServerAddress: "127.0.0.1"' \
+        'featureGates:' \
+        '  ClusterTrustBundle: true' > "$config"
+    run kind create cluster --name "$CLUSTER_NAME" --image "$KIND_NODE_IMAGE" --config "$config" --kubeconfig "$KUBECONFIG" --wait "$WAIT_TIMEOUT"
     check_cluster
     uid=$(kube get namespace kube-system -o 'jsonpath={.metadata.uid}')
     server=$(kube config view --minify -o 'jsonpath={.clusters[0].cluster.server}')
@@ -204,16 +208,6 @@ cluster_up() {
         --arg server "$server" --arg root "$ROOT" --arg kubeconfig "$KUBECONFIG" \
         '{name:$name,context:$context,uid:$uid,server:$server,root:$root,kubeconfig:$kubeconfig,created:true}' > "$marker"
     printf 'Created owned kind cluster %s.\n' "$CLUSTER_NAME"
-}
-
-lifecycle_contract() {
-    kube get configmap --namespace "$NAMESPACE" \
-        --selector "app.kubernetes.io/component=lifecycle-contract,app.kubernetes.io/instance=$RELEASE_NAME" \
-        -o json | run jq -e 'if (.items | length) == 1 then .items[0].data else error("Expected exactly one lifecycle contract ConfigMap") end'
-}
-
-contract_value() {
-    run jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' <<< "$CONTRACT"
 }
 
 wait_credentials() {
@@ -229,17 +223,14 @@ wait_credentials() {
 }
 
 wait_sql() {
-    local secret="$1" database="$2" db_service db_port resource attempt credentials username password pod output
-    db_service=$(contract_value databaseService)
-    db_port=$(contract_value databasePort)
-    resource=$(contract_value databaseResource)
+    local secret="$1" database="$2" db_service="$3" db_port="$4" attempt credentials username password pod output
     wait_credentials "$secret"
     credentials=$(kube get secret "$secret" --namespace "$NAMESPACE" -o json)
     username=$(run jq -er '.data.username | @base64d' <<< "$credentials")
     password=$(run jq -er '.data.password | @base64d' <<< "$credentials")
     for ((attempt=1; attempt<=READINESS_ATTEMPTS; attempt++)); do
         pod=$(kube get pods --namespace "$NAMESPACE" \
-            --selector "cluster-name=$resource,spilo-role=master" -o json | \
+            --selector "cluster-name=$db_service,spilo-role=master" -o json | \
             run jq -r '[.items[] | select(.status.phase == "Running") | .metadata.name][0] // empty')
         if [[ -n "$pod" ]] && output=$(printf '%s\n' "$password" | \
             bounded_sql_exec exec --namespace "$NAMESPACE" -i "$pod" -- bash -c \
@@ -286,12 +277,9 @@ wait_deployments() {
 build_substrate_options() {
     substrate_args=(--namespace "$SUBSTRATE_NAMESPACE")
     if [[ -n "$CLUSTER_NAME" ]]; then
-        # Local artifact consumption is independent of the selected Temporal profile.
         substrate_args+=(--set ateapi.image.pullPolicy=IfNotPresent --set atecontroller.image.pullPolicy=IfNotPresent)
     fi
     if [[ -n "${SUBSTRATE_VALUES:-}" ]]; then substrate_args+=(-f "$SUBSTRATE_VALUES"); fi
-    # Resolve Helm's actual chart-default/override contract locally, before any
-    # mutation. The API Service owns both its listener and workers' egress port.
     SUBSTRATE_API_PORT=$(run helm template "$SUBSTRATE_RELEASE_NAME" charts/agent-substrate "${substrate_args[@]}" \
         --show-only templates/deployment-ateapi.yaml | run uv run --locked python -c '
 import sys, yaml
@@ -312,7 +300,6 @@ build_platform_options() {
         --set "caddyTailscale.image.tag=$IMAGE_TAG" \
         --set "workers.substrateNamespace=$SUBSTRATE_NAMESPACE" --set "rustfs.substrateNamespace=$SUBSTRATE_NAMESPACE")
     if [[ -n "$CLUSTER_NAME" || "$PROFILE" == kind ]]; then
-        # Kind environment defaults apply to both dev and full Temporal servers.
         platform_args+=(-f charts/platform/values-kind.yaml)
     fi
     if [[ -n "${DEPLOY_VALUES:-}" ]]; then platform_args+=(-f "$DEPLOY_VALUES"); fi
@@ -325,10 +312,7 @@ build_platform_options() {
     tailnet=$(run jq -r '.TAILSCALE_DOMAIN' <<< "$APPLICATION_SETTINGS")
     if [[ -n "$tailnet" ]]; then platform_args+=(--set-string "caddyTailscale.tailnet=$tailnet"); fi
     platform_args+=(${HELM_OPTIONS[@]+"${HELM_OPTIONS[@]}"})
-    # Substrate chart values, not an independent platform override, own this port.
     platform_args+=(--set "workers.substratePort=$SUBSTRATE_API_PORT")
-    # Lifecycle intent is immutable even if a values file contains other profile
-    # defaults. Protected CLI overrides were rejected before any tool invocation.
     if [[ "$PROFILE" == kind ]]; then
         platform_args+=(--set temporal.enabled=false --set temporalDev.enabled=true --set workers.enabled=true)
     else
@@ -336,73 +320,139 @@ build_platform_options() {
     fi
 }
 
-render_desired_contract() {
-    run helm template "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-        --set bootstrap.enabled=true --set temporal.enabled=false --set temporalDev.enabled=false \
-        --show-only templates/lifecycle-contract.yaml | \
-        run uv run --locked python -c 'import json,sys,yaml; docs=[doc for doc in yaml.safe_load_all(sys.stdin) if doc and doc.get("kind")=="ConfigMap" and doc.get("metadata",{}).get("labels",{}).get("app.kubernetes.io/component")=="lifecycle-contract"]; assert len(docs)==1, "Expected one lifecycle contract"; json.dump(docs[0]["data"],sys.stdout)'
+resolve_platform_contract() {
+    # Render locally to resolve chart-derived resource names/ports without a cluster ConfigMap.
+    CONTRACT=$(run helm template "$RELEASE_NAME" charts/platform "${platform_args[@]}" | run uv run --locked python -c '
+import json, sys, yaml
+docs = [doc for doc in yaml.safe_load_all(sys.stdin) if isinstance(doc, dict)]
+def by_kind(kind):
+    return [d for d in docs if d.get("kind") == kind]
+pg = by_kind("postgresql")[0]
+db_name = pg["metadata"]["name"]
+db_ns = sys.argv[1]
+db_dns = f"{db_name}.{db_ns}.svc.cluster.local"
+db_users = list(pg["spec"]["users"].keys())
+substrate_user = [u for u in db_users if u not in {"platform", "langfuse", "temporal"}][0]
+substrate_db = [k for k, v in pg["spec"]["databases"].items() if v == substrate_user][0]
+rustfs_svc = [s for s in by_kind("Service") if s.get("spec", {}).get("selector", {}).get("app") == "rustfs"][0]
+rustfs_secret = [s for s in by_kind("Secret") if s["metadata"]["name"].endswith("-rustfs-auth")][0]["metadata"]["name"]
+api_svc = [s for s in by_kind("Service") if s.get("spec", {}).get("selector", {}).get("app") == "unified-api"][0]
+workers_dep = [d for d in by_kind("Deployment") if d.get("spec", {}).get("selector", {}).get("matchLabels", {}).get("app") == "workers"][0]
+worker_env = {e["name"]: e.get("value", "") for e in workers_dep["spec"]["template"]["spec"]["containers"][0]["env"]}
+temporal_url = worker_env["TEMPORAL_URL"]
+temporal_svc = temporal_url.split(".")[0]
+temporal_port = temporal_url.rsplit(":", 1)[1]
+trust_cm = [c for c in by_kind("ConfigMap") if c["metadata"]["name"] == f"{db_name}-trust"][0]
+trust_key = list(trust_cm.get("data", {}).keys())[0] if trust_cm.get("data") else "ca.crt"
+schema_prefix = temporal_svc.removesuffix("-frontend").removesuffix("-temporal-dev")
+schema_sa = f"{schema_prefix}-temporal-schema"
+substrate_secret_user = substrate_user.replace("_", "-")
+json.dump({
+    "databaseResource": db_name,
+    "databaseService": db_name,
+    "databaseDNS": db_dns,
+    "databasePort": "5432",
+    "databaseUser": "platform",
+    "databaseName": "platform",
+    "databaseCredentialSecret": f"platform.{db_name}.credentials.postgresql.acid.zalan.do",
+    "temporalCredentialSecret": f"temporal.{db_name}.credentials.postgresql.acid.zalan.do",
+    "temporalDatabase": "temporal",
+    "temporalVisibilityDatabase": "temporal_visibility",
+    "substrateDatabaseUser": substrate_user,
+    "substrateDatabaseName": substrate_db,
+    "substrateDatabaseCredentialSecret": f"{substrate_secret_user}.{db_name}.credentials.postgresql.acid.zalan.do",
+    "databaseTrustConfigMap": trust_cm["metadata"]["name"],
+    "databaseTrustKey": trust_key,
+    "rustfsService": rustfs_svc["metadata"]["name"],
+    "rustfsPort": str(rustfs_svc["spec"]["ports"][0]["port"]),
+    "rustfsSecret": rustfs_secret,
+    "apiService": api_svc["metadata"]["name"],
+    "apiPort": str(api_svc["spec"]["ports"][0]["port"]),
+    "temporalService": temporal_svc,
+    "temporalPort": temporal_port,
+    "temporalNamespace": worker_env["TEMPORAL_NAMESPACE"],
+    "temporalTaskQueue": worker_env["TEMPORAL_TASK_QUEUE"],
+}, sys.stdout)
+' "$NAMESPACE")
+    if [[ "$PROFILE" == full ]]; then
+        TEMPORAL_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/temporal-values.XXXXXXXX")
+        local fullname_prefix="$RELEASE_NAME-temporal"
+        if [[ "$RELEASE_NAME" == *temporal* ]]; then fullname_prefix="$RELEASE_NAME"; fi
+        fullname_prefix=${fullname_prefix:0:53}
+        fullname_prefix=${fullname_prefix%-}
+        local sa_prefix="$RELEASE_NAME-platform"
+        if [[ "$RELEASE_NAME" == *platform* ]]; then sa_prefix="$RELEASE_NAME"; fi
+        local schema_sa="${sa_prefix:0:47}"
+        schema_sa="${schema_sa%-}-temporal-schema"
+        run jq -n --argjson c "$CONTRACT" --arg fullname "$fullname_prefix" --arg sa "$schema_sa" '{
+            temporal: {
+                fullnameOverride: $fullname,
+                serviceAccount: {create: false, name: $sa},
+                schema: {useHelmHooks: false, serviceAccount: {create: false, name: $sa}},
+                server: {
+                    additionalVolumes: [
+                        {name: "db-trust", configMap: {name: $c.databaseTrustConfigMap, items: [{key: $c.databaseTrustKey, path: "ca.crt"}]}},
+                        {name: "scratch", emptyDir: {sizeLimit: "1Gi"}},
+                        {name: "server-runtime-config", emptyDir: {sizeLimit: "128Mi"}}
+                    ],
+                    additionalVolumeMounts: [
+                        {name: "db-trust", mountPath: "/etc/db-trust", readOnly: true},
+                        {name: "scratch", mountPath: "/tmp"},
+                        {name: "server-runtime-config", mountPath: "/etc/temporal/config"}
+                    ],
+                    config: {
+                        namespaces: {create: true, useHelmHooks: false, namespace: [{name: $c.temporalNamespace, retention: "3d"}]},
+                        persistence: {
+                            defaultStore: "default",
+                            visibilityStore: "visibility",
+                            datastores: {
+                                default: {sql: {pluginName: "postgres12", databaseName: "temporal", createDatabase: false, manageSchema: true, connectAddr: ($c.databaseDNS + ":5432"), user: "temporal", existingSecret: $c.temporalCredentialSecret, secretKey: "password", tls: {enabled: true, caFile: "/etc/db-trust/ca.crt", enableHostVerification: true, serverName: $c.databaseDNS}}},
+                                visibility: {sql: {pluginName: "postgres12", databaseName: "temporal_visibility", createDatabase: false, manageSchema: true, connectAddr: ($c.databaseDNS + ":5432"), user: "temporal", existingSecret: $c.temporalCredentialSecret, secretKey: "password", tls: {enabled: true, caFile: "/etc/db-trust/ca.crt", enableHostVerification: true, serverName: $c.databaseDNS}}}
+                            }
+                        }
+                    }
+                },
+                admintools: {
+                    additionalVolumes: [
+                        {name: "db-trust", configMap: {name: $c.databaseTrustConfigMap, items: [{key: $c.databaseTrustKey, path: "ca.crt"}]}},
+                        {name: "scratch", emptyDir: {sizeLimit: "1Gi"}}
+                    ],
+                    additionalVolumeMounts: [
+                        {name: "db-trust", mountPath: "/etc/db-trust", readOnly: true},
+                        {name: "scratch", mountPath: "/tmp"}
+                    ]
+                }
+            }
+        }' > "$TEMPORAL_VALUES_FILE"
+        platform_args+=(-f "$TEMPORAL_VALUES_FILE")
+    fi
 }
 
-validate_existing_release() {
-    local current current_profile current_workers current_namespace desired_namespace status
-    needs_server_stage=false
-    if [[ "$existing_release" == 0 ]]; then
-        if [[ "$PROFILE" == full ]]; then needs_server_stage=true; fi
-        return
-    fi
-    [[ "$existing_release" == 1 ]] || fail 'Helm release discovery was ambiguous.'
-    current=$(lifecycle_contract)
-    current_profile=$(run jq -er '.temporalProfile' <<< "$current")
-    current_workers=$(run jq -er '.workersEnabled' <<< "$current")
-    status=$(run jq -er --arg release "$RELEASE_NAME" '.[] | select(.name == $release) | .status' <<< "$releases")
-    if [[ "$current_profile" == kind || "$current_profile" == full ]]; then
-        current_namespace=$(run jq -er '.temporalNamespace' <<< "$current")
-        desired_namespace=$(run jq -er '.temporalNamespace' <<< "$DESIRED_CONTRACT")
-        [[ "$current_namespace" == "$desired_namespace" ]] || fail 'Changing an existing Temporal namespace requires an explicit migration; no cluster resources were mutated.'
-    fi
-    case "$current_profile" in
-        bootstrap|off)
-            if [[ "$PROFILE" == full ]]; then needs_server_stage=true; fi
-            ;;
-        kind)
-            [[ "$PROFILE" == kind ]] || fail 'Switching an existing kind Temporal release to full is not an implicit migration; select a fresh release/cluster.'
-            ;;
-        full)
-            [[ "$PROFILE" == full ]] || fail 'Refusing to replace a running full Temporal release with the kind profile.'
-            if [[ "$current_workers" == false ]]; then
-                # Retry an interrupted bootstrap/server-only stage without removing
-                # any live workers. The same post-upgrade namespace hook is rerun.
-                needs_server_stage=true
-            elif [[ "$current_workers" == true && "$status" == deployed ]]; then
-                needs_server_stage=false
-            else
-                fail 'An incomplete full release reports enabled workers; refusing to suppress potentially live workloads.'
-            fi
-            ;;
-        *) fail 'Installed release has an unknown Temporal profile; refusing mutation.' ;;
-    esac
+contract_value() {
+    run jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' <<< "$CONTRACT"
 }
 
 deploy() {
     validate_helm_options
     check_cluster
     load_application_settings
-    local platform_args=() substrate_args=() releases existing_release needs_server_stage
+    local platform_args=() substrate_args=()
     build_substrate_options
     build_platform_options
-    # Materialization is local; profile/namespace guards still run before ANY
-    # Kubernetes or Helm mutation, including provider CRD/controller changes.
-    run uv run --locked scripts/helm_dependencies.py build
-    DESIRED_CONTRACT=$(render_desired_contract)
-    releases=$(helm_context list --namespace "$NAMESPACE" --filter "^$RELEASE_NAME$" --output json)
-    existing_release=$(run jq -r --arg release "$RELEASE_NAME" '[.[] | select(.name == $release)] | length' <<< "$releases")
-    validate_existing_release
-    [[ -d charts/postgres-operator/crds ]] || fail 'Locked provider CRDs are missing.'
-    kube apply -f charts/postgres-operator/crds
-    kube wait --for=condition=Established crd/postgresqls.acid.zalan.do --timeout "$WAIT_TIMEOUT"
-    helm_context upgrade --install "$PROVIDER_RELEASE_NAME" charts/postgres-operator \
-        --namespace "$PROVIDER_NAMESPACE" --create-namespace --wait --timeout "$WAIT_TIMEOUT"
+    if [[ ! -f charts/platform/charts/temporal-1.7.0.tgz ]]; then
+        run helm repo add temporal https://go.temporal.io/helm-charts --force-update
+        run helm dependency build charts/platform --skip-refresh
+    fi
+    resolve_platform_contract
+
+    helm_context upgrade --install "$PROVIDER_RELEASE_NAME" postgres-operator \
+        --repo https://opensource.zalando.com/postgres-operator/charts/postgres-operator \
+        --version "$POSTGRES_OPERATOR_VERSION" \
+        --namespace "$PROVIDER_NAMESPACE" --create-namespace \
+        -f charts/platform/postgres-operator-values.yaml \
+        --wait --timeout "$WAIT_TIMEOUT"
     wait_deployments "$PROVIDER_NAMESPACE" "$PROVIDER_RELEASE_NAME"
+    kube wait --for=condition=Established crd/postgresqls.acid.zalan.do --timeout "$WAIT_TIMEOUT"
 
     kube create namespace "$NAMESPACE" --dry-run=client -o json | kube apply -f -
     if run jq -e '.GH_PAT | length > 0' > /dev/null <<< "$APPLICATION_SETTINGS"; then
@@ -416,60 +466,33 @@ deploy() {
             <<< "$APPLICATION_SETTINGS" | kube apply -f -
     fi
 
-    if [[ "$existing_release" == 0 ]]; then
-        # Both stages deliberately use the SAME release; backing resources never move owners.
-        helm_context upgrade --install "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-            --set bootstrap.enabled=true --set temporal.enabled=false --set temporalDev.enabled=false \
-            --wait --timeout "$WAIT_TIMEOUT"
-        CONTRACT=$(lifecycle_contract)
-    else
-        # Desired names were rendered before any mutation; no bootstrap suppression
-        # is applied to an existing healthy release.
-        CONTRACT=$DESIRED_CONTRACT
+    helm_context upgrade --install "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
+        --wait --timeout "$WAIT_TIMEOUT"
+
+    local db_service db_port trust
+    db_service=$(contract_value databaseService)
+    db_port=$(contract_value databasePort)
+    kube wait --for=create "postgresql/$db_service" --namespace "$NAMESPACE" --timeout "$WAIT_TIMEOUT"
+    wait_sql "$(contract_value databaseCredentialSecret)" "$(contract_value databaseName)" "$db_service" "$db_port"
+    wait_sql "$(contract_value substrateDatabaseCredentialSecret)" "$(contract_value substrateDatabaseName)" "$db_service" "$db_port"
+    if [[ "$PROFILE" == full ]]; then
+        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalDatabase)" "$db_service" "$db_port"
+        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalVisibilityDatabase)" "$db_service" "$db_port"
     fi
-    local database_resource schema_sa trust
-    database_resource=$(contract_value databaseResource)
-    kube wait --for=create "postgresql/$database_resource" --namespace "$NAMESPACE" --timeout "$WAIT_TIMEOUT"
-    wait_sql "$(contract_value databaseCredentialSecret)" "$(contract_value databaseName)"
-    wait_sql "$(contract_value substrateDatabaseCredentialSecret)" "$(contract_value substrateDatabaseName)"
     trust=$(contract_value databaseTrustConfigMap)
     wait_configmap_key "$trust" "$(contract_value databaseTrustKey)"
     wait_configmap_key kube-root-ca.crt ca.crt
-    if [[ "$PROFILE" == full ]]; then
-        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalDatabase)"
-        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalVisibilityDatabase)"
-        schema_sa=$(contract_value schemaServiceAccount)
-        kube wait --for=create "serviceaccount/$schema_sa" --namespace "$NAMESPACE" --timeout "$WAIT_TIMEOUT"
-        mkdir -p "$ROOT/.cache/deploy"
-        local temporal_values="$ROOT/.cache/deploy/$NAMESPACE-$RELEASE_NAME-temporal.yaml"
-        contract_value temporal-values.yaml > "$temporal_values"
-        # This chart-generated fragment resolves non-templated child-chart inputs.
-        # It contains endpoint/Secret references, never decoded credentials.
-        platform_args+=(-f "$temporal_values" --set bootstrap.prerequisitesReady=true)
-    fi
-    if [[ "$PROFILE" == full && "$needs_server_stage" == true ]]; then
-        # The upstream namespace-creation hook is post-upgrade. Fresh full-server
-        # startup must finish it before namespace-dependent workers can be ready.
-        helm_context upgrade "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-            --set bootstrap.enabled=false --set workers.enabled=false --wait --timeout "$WAIT_TIMEOUT"
-    fi
-    helm_context upgrade "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-        --set bootstrap.enabled=false --wait --timeout "$WAIT_TIMEOUT"
-    CONTRACT=$(lifecycle_contract)
     wait_deployments "$NAMESPACE" "$RELEASE_NAME"
 
     kube create namespace "$SUBSTRATE_NAMESPACE" --dry-run=client -o json | kube apply -f -
     copy_resource secret "$(contract_value rustfsSecret)"
     copy_resource secret "$(contract_value substrateDatabaseCredentialSecret)"
     copy_resource configmap "$(contract_value databaseTrustConfigMap)"
-    mkdir -p "$ROOT/.cache/deploy"
-    local substrate_values="$ROOT/.cache/deploy/$NAMESPACE-$RELEASE_NAME-substrate.json"
+    SUBSTRATE_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/substrate-values.XXXXXXXX")
     run jq -n --argjson c "$CONTRACT" --arg ns "$NAMESPACE" --arg tag "$IMAGE_TAG" \
-        '{platformNamespace:$ns,global:{image:{tag:$tag}},database:{host:$c.databaseService,port:($c.databasePort|tonumber),user:$c.substrateDatabaseUser,name:$c.substrateDatabaseName,credentialSecret:$c.substrateDatabaseCredentialSecret,trustConfigMap:$c.databaseTrustConfigMap,trustKey:$c.databaseTrustKey},rustfs:{host:$c.rustfsService,port:($c.rustfsPort|tonumber),secretName:$c.rustfsSecret}}' > "$substrate_values"
-    # Backing-service projection precedes the same caller overrides preflighted
-    # above; the resolved API port remains fixed for both releases.
-    substrate_args=(-f "$substrate_values" "${substrate_args[@]}")
-    helm_context upgrade --install "$SUBSTRATE_RELEASE_NAME" charts/agent-substrate "${substrate_args[@]}" \
+        '{platformNamespace:$ns,global:{image:{tag:$tag}},database:{host:$c.databaseService,port:($c.databasePort|tonumber),user:$c.substrateDatabaseUser,name:$c.substrateDatabaseName,credentialSecret:$c.substrateDatabaseCredentialSecret,trustConfigMap:$c.databaseTrustConfigMap,trustKey:$c.databaseTrustKey},rustfs:{host:$c.rustfsService,port:($c.rustfsPort|tonumber),secretName:$c.rustfsSecret}}' > "$SUBSTRATE_VALUES_FILE"
+    helm_context upgrade --install "$SUBSTRATE_RELEASE_NAME" charts/agent-substrate \
+        -f "$SUBSTRATE_VALUES_FILE" "${substrate_args[@]}" \
         --wait --timeout "$WAIT_TIMEOUT"
     wait_deployments "$SUBSTRATE_NAMESPACE" "$SUBSTRATE_RELEASE_NAME"
     printf 'Deployed %s profile to context %s; namespace=%s release=%s.\n' "$PROFILE" "$KUBE_CONTEXT" "$NAMESPACE" "$RELEASE_NAME"
@@ -484,7 +507,6 @@ HELM_OPTIONS=("$@")
 case "$COMMAND" in
     cluster-up) cluster_up ;;
     check-cluster) check_cluster ;;
-    contract) check_cluster; lifecycle_contract ;;
     deploy) deploy ;;
     *) usage; fail "Unknown lifecycle command: $COMMAND" ;;
 esac

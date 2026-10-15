@@ -57,12 +57,20 @@ spec:
           {{- toYaml .Values.ateapi.resources | nindent 10 }}
         args:
         - "--grpc-listen-addr=0.0.0.0:{{ include "agent-substrate.apiPort" . }}"
-        - "--postgres-connection-string=$(POSTGRES_URL)"
+        - "--postgres-read-write-connection-string=$(POSTGRES_URL)"
+        - "--postgres-owner-connection-string=$(POSTGRES_URL)"
+        - "--postgres-read-write-role={{ .Values.database.user }}"
+        - "--postgres-owner-role={{ .Values.database.user }}"
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
         - "--pod-identity-ca-certs=/etc/tls/ca.crt"
         - "--authentication-config=/etc/tls/auth.yaml"
         - "--actor-id-ca-pool=/etc/tls/empty.json"
         - "--actor-id-jwt-pool=/etc/tls/empty.json"
+        startupProbe:
+          tcpSocket:
+            port: {{ include "agent-substrate.apiPort" . }}
+          periodSeconds: 5
+          failureThreshold: 24
         readinessProbe:
           tcpSocket:
             port: {{ include "agent-substrate.apiPort" . }}

@@ -57,7 +57,8 @@ def test_substrate_startup_failures_never_include_password_in_pytest_diagnostics
                                 "containers": [
                                     {
                                         "args": [
-                                            "--postgres-connection-string=$(POSTGRES_URL)"
+                                            "--postgres-read-write-connection-string=$(POSTGRES_URL)",
+                                            "--postgres-owner-connection-string=$(POSTGRES_URL)",
                                         ],
                                         "env": [
                                             {

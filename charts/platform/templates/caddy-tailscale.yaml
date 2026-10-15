@@ -1,4 +1,4 @@
-{{- if and .Values.caddyTailscale.enabled (not .Values.bootstrap.enabled) }}
+{{- if .Values.caddyTailscale.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

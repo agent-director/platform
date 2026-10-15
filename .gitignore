@@ -6,9 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.pytest_cache/
-.coverage
-.coverage.*
 .env
 
 # Helm dependencies
@@ -17,10 +14,6 @@ charts/*/charts/*.tgz
 # Virtual environments
 venv/
 .venv/
-
-# Tooling caches
-.mypy_cache/
-.ruff_cache/
 
 # IDEs
 .vscode/
@@ -34,11 +27,3 @@ rendered.yaml
 node_modules/
 frontend/.next/
 frontend/next-env.d.ts
-
-# Legacy output guards during the .cache migration.
-.pyrefly_cache/
-.pnpm-store/
-
-# Local scans & execution
-.local-rootfs-*/
-.local-scans/

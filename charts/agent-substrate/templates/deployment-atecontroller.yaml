@@ -3,11 +3,6 @@ kind: Deployment
 metadata:
   namespace: {{ .Release.Namespace }}
   name: {{ include "agent-substrate.resourceName" (dict "root" . "component" "atecontroller") }}
-  annotations:
-    checkov.io/skip1: "CKV_K8S_8=Pinned substrate v0.3.0 exposes no health listener or bind flag; do not invent a liveness endpoint."
-    checkov.io/skip2: "CKV_K8S_9=Pinned substrate v0.3.0 has no supported readiness listener; Kubernetes still supervises process exit."
-    ignore-check.kube-linter.io/no-readiness-probe: "Pinned substrate v0.3.0 disables the controller-runtime health listener and exposes no health bind flag; TCP 8080 would never become ready."
-    ignore-check.kube-linter.io/no-liveness-probe: "Pinned substrate v0.3.0 has no reachable health listener; process exit is supervised by Kubernetes, not a fictitious TCP probe."
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
     app.kubernetes.io/component: atecontroller
@@ -67,6 +62,21 @@ spec:
         - "--ateapi-client-cert=/etc/tls/bundle.pem"
         - "--ateapi-ca-file=/etc/tls/ca.crt"
         - "--ateapi-server-name={{ include "agent-substrate.apiDNS" . }}"
+        ports:
+        - containerPort: 8080
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10
         env:
         - name: POD_NAMESPACE
           valueFrom:

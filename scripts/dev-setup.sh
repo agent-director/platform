@@ -15,28 +15,22 @@ for argument in "$@"; do
 done
 
 builtin printf 'Installing the locked root toolchain and project dependencies.\n'
-"$ROOT/scripts/mise.sh" install --locked
-# uv owns the editable root project and .venv; mise only selects its interpreter.
-# Every operation re-enters the current checkout's launcher. An inherited active
-# marker from a different worktree cannot select that worktree's .venv or caches.
-"$ROOT/scripts/mise.sh" exec -- uv sync --locked
-"$ROOT/scripts/mise.sh" exec -- uv run --locked scripts/toolchain.py check
-"$ROOT/scripts/mise.sh" exec -- pnpm install --frozen-lockfile
-# The helper reads repository declarations and preserves committed Chart.lock files.
-"$ROOT/scripts/mise.sh" exec -- uv run --locked scripts/helm_dependencies.py build
+mise install --locked
+mise exec -- uv sync --locked
+mise exec -- pnpm install --frozen-lockfile
+mise exec -- helm repo add temporal https://go.temporal.io/helm-charts --force-update
+mise exec -- helm dependency build charts/platform --skip-refresh
 
 if [[ "$INSTALL_HOOKS" == true ]]; then
-    # Stock Prek install honors default_install_hook_types and existing legacy
-    # hooks. The helper only prefixes recognized shims with root mise/cache env.
-    "$ROOT/scripts/mise.sh" exec -- uv run --locked scripts/toolchain.py install-hooks
+    mise exec -- prek install
 fi
 
 if [[ ! -f .env ]]; then
     builtin printf 'Optional deployment credentials: copy .env.example to .env and edit it privately.\n'
 fi
-builtin printf '%s\n' 'Setup complete. Create an explicitly owned local kind environment with:' \
-    '  make cluster-up CLUSTER_NAME=<unique-name>' \
-    'Then build, deploy, and test against that existing cluster with:' \
-    '  make test-integration CLUSTER_NAME=<same-name>' \
+builtin printf '%s\n' 'Setup complete. Create an owned local kind environment with:' \
+    '  make cluster-up' \
+    'Then build, deploy, and test against that cluster with:' \
+    '  make test-integration' \
     'Remove only that owned local cluster with:' \
-    '  make teardown CLUSTER_NAME=<same-name>'
+    '  make teardown'

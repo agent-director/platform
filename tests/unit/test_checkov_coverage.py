@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,7 @@ import pytest
 import yaml
 
 from scripts.checkov_profiles import (
-    OPERATOR_EXCEPTIONS,
+    CHECKOV_VERSION,
     selected_profiles,
     verify_report,
 )
@@ -18,16 +19,12 @@ ROOT = Path(__file__).absolute().parents[2]
 def test_checkov_preserves_declared_platform_deferral() -> None:
     config = yaml.safe_load((ROOT / ".checkov.yaml").read_text())
     assert config["skip-path"] == ["charts/platform"]
-    assert selected_profiles(config) == ["substrate", "operator"]
+    assert selected_profiles(config) == ["substrate"]
     assert selected_profiles({}) == [
         "default",
         "kind",
-        "bootstrap",
-        "full",
         "substrate",
-        "operator",
     ]
-    assert set(OPERATOR_EXCEPTIONS) == {"CKV_K8S_8", "CKV_K8S_29", "CKV_K8S_38"}
 
 
 @pytest.mark.parametrize(
@@ -58,14 +55,11 @@ def test_checkov_native_liveness_positive_control(tmp_path: Path) -> None:
         "spec": {"containers": [container]},
     }
     command = [
-        str(ROOT / "scripts/mise.sh"),
+        "mise",
         "exec",
         "--",
-        "prek",
-        "exec",
-        "checkov",
-        "--",
-        "checkov",
+        "uvx",
+        f"checkov@{CHECKOV_VERSION}",
         "--framework",
         "kubernetes",
         "--config-file",
@@ -78,16 +72,33 @@ def test_checkov_native_liveness_positive_control(tmp_path: Path) -> None:
         "json",
         "--quiet",
     ]
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k.lower() not in {"http_proxy", "https_proxy", "all_proxy"} or v
+    }
     path.write_text(yaml.safe_dump(document))
     result = subprocess.run(
-        command, cwd=ROOT, capture_output=True, text=True, timeout=60, check=False
+        command,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert verify_report(json.loads(result.stdout))["resource_count"] == 1
     container.pop("livenessProbe")
     path.write_text(yaml.safe_dump(document))
     result = subprocess.run(
-        command, cwd=ROOT, capture_output=True, text=True, timeout=60, check=False
+        command,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
     assert result.returncode == 1, result.stdout + result.stderr
     report = json.loads(result.stdout)

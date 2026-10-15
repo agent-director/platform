@@ -1,4 +1,4 @@
-{{- if and .Values.langfuse.enabled (not .Values.bootstrap.enabled) }}
+{{- if .Values.langfuse.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: langfuse
-          image: "langfuse/langfuse:2"
+          image: {{ .Values.langfuse.image | quote }}
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
@@ -81,8 +81,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "platform.databaseCredential" (dict "root" . "user" "langfuse") | quote }}
                   key: password
+            - name: PGSSLROOTCERT
+              value: /etc/db-trust/ca.crt
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/db-trust/ca.crt
             - name: DATABASE_URL
-              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ include "platform.databaseDNS" . }}:{{ .Values.database.port }}/langfuse?sslmode=verify-full&sslrootcert=/etc/db-trust/ca.crt"
+              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ include "platform.databaseDNS" . }}:{{ .Values.database.port }}/langfuse?sslmode=require&sslcert=/etc/db-trust/ca.crt&sslrootcert=/etc/db-trust/ca.crt"
             - name: NEXTAUTH_URL
               value: {{ include "platform.httpURL" (dict "root" . "component" "langfuse") | quote }}
             - name: NEXTAUTH_SECRET

@@ -7,7 +7,5 @@ workers:
   enabled: true
 caddyTailscale:
   enabled: false
-langfuse:
-  enabled: false
 sandboxedContainers:
   enabled: false

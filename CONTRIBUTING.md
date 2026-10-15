@@ -60,16 +60,16 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 
 The current checkout contains `unified_api/`, `orchestrator/`, `director/`, `frontend/`, `charts/`, `images/` and repository maintenance `scripts/`. It uses one Python project and a minimal pnpm workspace; it is not yet an Nx/apps/libs/tools workspace. Keep deployable runtimes distinct from maintenance tooling, and do not introduce the planned directory/repository migration as an incidental cleanup.
 
-Root `mise.toml` and `mise.lock` select the toolchain. Subpackages inherit those selections; unapproved child selectors and conflicting native metadata fail the consistency gate. Python `requires-python` and Node `engines` describe compatibility, not another development-version authority.
+Root `mise.toml` and `mise.lock` select the toolchain.
 ## Tooling & Execution
 
-Use the root mise launcher so direct commands have the same selected tools, interpreter and cache environment as Make and CI. uv remains the Python package/environment manager:
-- Run scripts: `./scripts/mise.sh exec -- uv run script.py`
-- Add dependencies: `./scripts/mise.sh exec -- uv add <package>`
-- Validate: `make check-toolchain`, `make typecheck`, `make lint`
+Use `mise exec --` (or `make` targets) so commands have the same selected tools, interpreter and `.cache` environment as CI. `uv` remains the Python package/environment manager:
+- Run scripts: `mise exec -- uv run script.py`
+- Add dependencies: `mise exec -- uv add <package>`
+- Validate: `make typecheck`, `make lint`, `make scan-iac`, `make scan-secrets`
 - Format only: `make format` (pinned Prek formatting hook)
 
-Use pnpm and its frozen workspace lock for frontend dependencies. Normal setup builds Helm dependencies from committed locks; intentionally changing selected dependencies is a separate maintenance operation. Do not maintain independent child tool pins or install another package-manager/runtime version to bypass a failed consistency gate.
+Use `pnpm` and its frozen workspace lock for frontend dependencies. Normal setup builds Helm dependencies from committed locks.
 
 ### Running Tests
 
@@ -83,11 +83,10 @@ Due to the inherent non-determinism of LLMs, all LLM invocations **must** be iso
 - Pass necessary state via LangGraph checkpoint serialization.
 
 ### Local Bring-Up & Helm Deployment
-Local integration uses an explicitly selected kind cluster, the locked PostgreSQL operator wrapper, the existing platform chart and the substrate chart. See the chart and testing READMEs for prerequisite staging and profiles.
-- `make cluster-up CLUSTER_NAME=<unique>` creates a worktree-owned cluster with isolated kubeconfig.
-- `make test-integration CLUSTER_NAME=<same>` uses it; the Temporal CLI runs inside kind.
-- `make teardown CLUSTER_NAME=<same>` destroys only verified local creation ownership, never production operators/releases/namespaces.
-- Full Temporal/database migration and infrastructure-release extraction have distinct lifecycle requirements; local teardown is not a production uninstall.
+Local integration uses a kind cluster bound to `127.0.0.1`, the upstream PostgreSQL operator release, the platform chart and the substrate chart. See the chart and testing READMEs for profiles.
+- `make cluster-up` creates a worktree-owned cluster (default `CLUSTER_NAME=platform-dev`) with isolated kubeconfig.
+- `make test-integration` builds images, deploys, and runs the integration suite against that cluster.
+- `make teardown` destroys only a cluster with verified local creation ownership.
 
 ### Agent Substrate Sandbox Capabilities
 Temporal workers are control-plane workloads, not the sandbox itself. Agent Substrate manages sandbox execution. When implementing sandbox-bound work:

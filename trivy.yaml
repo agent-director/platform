@@ -1,18 +1,24 @@
-# Repository/IaC policy. Image scans deliberately use --config "" and their
-# separate library HIGH/CRITICAL, OS HIGH-warning/CRITICAL-enforcement policy.
+# Unified repository and container security policy.
+# Callers override --scanners (e.g. misconfig,secret for IaC vs vuln,secret for images).
 exit-code: 1
 severity:
   - HIGH
   - CRITICAL
 cache-dir: .cache/trivy
-# Explicit opt-in to path/check-scoped upstream exceptions; no global IDs disabled.
 ignorefile: .trivyignore.yaml
+vulnerability:
+  ignore-unfixed: true
+pkg-types:
+  - os
+  - library
 scan:
   scanners:
+    - vuln
     - misconfig
     - secret
   skip-dirs:
     - .cache
+    - .mise
     - .venv
     - node_modules
     - frontend/node_modules
@@ -21,5 +27,3 @@ scan:
     - .git
   skip-files:
     - .secrets.baseline
-    # The lifecycle contract projects Secret names, not Secret values
-    - charts/platform/templates/lifecycle-contract.yaml

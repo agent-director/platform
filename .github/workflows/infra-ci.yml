@@ -17,32 +17,29 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install locked toolchain
-        run: ./scripts/mise.sh install --locked
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
+        with:
+          install: false
 
       - name: Set up project dependencies
-        run: make setup CI=true
+        run: make setup
 
       - name: Install gh-actions-lock extension
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh extension install github/gh-actions-lock --pin v0.1.6
 
-      - name: Check toolchain consistency
-        run: make check-toolchain
-
       - name: Run commit gates
         env:
           GH_TOKEN: ${{ github.token }}
         run: make lint
 
-      - name: Check frontend types and build
-        run: |
-          ./scripts/mise.sh exec -- pnpm --filter platform-ui typecheck
-          ./scripts/mise.sh exec -- pnpm --filter platform-ui build
+      - name: Build frontend
+        run: make build-frontend
 
       - name: Run infrastructure security gate
-        run: ./scripts/mise.sh exec -- prek run trivy-fs --all-files --hook-stage pre-push --verbose
+        run: make scan-iac
 
   kind-integration:
     runs-on: ubuntu-latest
@@ -55,18 +52,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install locked toolchain
-        run: ./scripts/mise.sh install --locked
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
+        with:
+          install: false
 
       - name: Set up project dependencies
-        run: make setup CI=true
+        run: make setup
 
       - name: Create owned kind cluster
         run: make cluster-up
 
       - name: Run kind integration
         run: make test-integration
-
-      - name: Remove owned kind cluster
-        if: always()
-        run: make cluster-down

@@ -1,5 +1,11 @@
 .git
+.github
+.mise
+.schemas
+charts
 hack
+tests
+*.md
 .cache
 **/.cache
 .venv
@@ -12,10 +18,3 @@ node_modules
 .env
 .env.*
 !.env.example
-.local-scans
-.local-rootfs-*
-.pytest_cache
-.mypy_cache
-.ruff_cache
-.coverage
-.coverage.*

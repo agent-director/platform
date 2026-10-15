@@ -1,12 +1,6 @@
 # syntax=docker/dockerfile:1
-# Exact image/tool versions are supplied by scripts/toolchain.py from root mise.
-ARG NODE_IMAGE
-ARG PNPM_IMAGE
-ARG NODE_RUNTIME_IMAGE
-FROM ${PNPM_IMAGE} AS pnpm
-FROM ${NODE_IMAGE} AS builder
-ARG NODE_VERSION
-ARG PNPM_VERSION
+FROM ghcr.io/pnpm/pnpm:12.11.2@sha256:fd95b696aff515e5c58f59248435c29d783fce85cfc9a28c9db3b994bffa44dd AS pnpm
+FROM node:26.11.1-trixie-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS builder
 WORKDIR /app
 ENV PLATFORM_CACHE_DIR=/app/.cache
 ENV pnpm_config_state_dir="${PLATFORM_CACHE_DIR}/pnpm/state"
@@ -15,9 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # The official pnpm image supplies the native binary, not a Node.js runtime.
 COPY --from=pnpm /opt/pnpm /opt/pnpm
 ENV PATH="/opt/pnpm:${PATH}"
-RUN mkdir -p "${XDG_RUNTIME_DIR}" && chmod 700 "${XDG_RUNTIME_DIR}" \
-    && test "$(node --version)" = "v${NODE_VERSION}" \
-    && test "$(pnpm --version)" = "${PNPM_VERSION}"
+RUN mkdir -p "${XDG_RUNTIME_DIR}" && chmod 700 "${XDG_RUNTIME_DIR}"
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY frontend/package.json ./frontend/package.json
 RUN pnpm install --frozen-lockfile
@@ -27,7 +19,7 @@ COPY frontend/src ./frontend/src
 COPY frontend/public ./frontend/public
 RUN pnpm --filter platform-ui build
 
-FROM ${NODE_RUNTIME_IMAGE} AS runtime
+FROM gcr.io/distroless/nodejs26-debian13:nonroot@sha256:a3bb283a564754266646d6029c5b6aa4f760b9415dae1398db8d7f8142ee1375 AS runtime
 # Distroless currently ships an older Node patch; use the exact selected binary
 # without adding a shell or package manager to the hardened runtime.
 COPY --from=builder /usr/local/bin/node /nodejs/bin/node

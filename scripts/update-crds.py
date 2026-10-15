@@ -1,34 +1,23 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["PyYAML==6.0.3"]
-# ///
-"""Update only the selected provider's version-matched CRDs and validation schemas."""
+#!/usr/bin/env -S uv run
+"""Update version-matched CRDs and kubeconform validation schemas."""
 
 import argparse
 import copy
-import gzip
-import io
 import json
 import re
-import tarfile
 import urllib.request
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 import yaml
 
-try:
-    from scripts.helm_dependencies import validate_lock
-except ModuleNotFoundError:
-    from helm_dependencies import validate_lock
-
 ROOT = Path(__file__).absolute().parent.parent
-MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
-MAX_ARCHIVE_MEMBERS = 2048
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 SUBSTRATE_VERSION = re.compile(
     r"^ARG AGENT_SUBSTRATE_VERSION=(v?\d+\.\d+\.\d+(?:-[\w.-]+)?)$", re.MULTILINE
+)
+POSTGRES_OPERATOR_VERSION = re.compile(
+    r"^POSTGRES_OPERATOR_VERSION=(v?\d+\.\d+\.\d+(?:-[\w.-]+)?)$", re.MULTILINE
 )
 SUBSTRATE_CRD_NAME = re.compile(r"ate\.dev_[a-z0-9_.-]+\.yaml\Z")
 
@@ -44,60 +33,8 @@ def read_url(url: str) -> bytes:
     return payload
 
 
-def read_chart_archive(path: Path, name: str, version: str) -> dict[str, bytes]:
-    """Read, never extract, a chart archive; reject links/traversal and oversized data."""
-    files: dict[str, bytes] = {}
-    # Bound the whole expanded stream, including directory/PAX headers, before
-    # tarfile can parse metadata or retain members. Never decompress unboundedly.
-    with gzip.open(path, "rb") as compressed:
-        payload = compressed.read(MAX_ARTIFACT_BYTES + 1)
-    if len(payload) > MAX_ARTIFACT_BYTES:
-        raise ValueError("Chart archive exceeds expanded-stream size limit")
-    total_size = 0
-    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:") as archive:
-        for count, member in enumerate(archive, start=1):
-            if count > MAX_ARCHIVE_MEMBERS:
-                raise ValueError("Chart archive exceeds member-count limit")
-            member_path = PurePosixPath(member.name)
-            if (
-                member_path.is_absolute()
-                or ".." in member_path.parts
-                or "\\" in member.name
-            ):
-                raise ValueError(f"Unsafe chart archive path: {member.name}")
-            if not member_path.parts or member_path.parts[0] != name:
-                raise ValueError(f"Unexpected chart archive root: {member.name}")
-            if member.isdir():
-                continue
-            if not member.isfile():
-                raise ValueError(
-                    f"Links and special files are forbidden in chart archives: {member.name}"
-                )
-            total_size += member.size
-            if total_size > MAX_ARTIFACT_BYTES:
-                raise ValueError("Chart archive exceeds size limit")
-            key = str(member_path)
-            if key in files:
-                raise ValueError(f"Duplicate chart archive member: {key}")
-            stream = archive.extractfile(member)
-            if stream is None:
-                raise ValueError(f"Unreadable chart archive member: {key}")
-            with stream:
-                files[key] = stream.read()
-    metadata = yaml.safe_load(files.get(f"{name}/Chart.yaml", b""))
-    if (
-        not isinstance(metadata, dict)
-        or metadata.get("name") != name
-        or str(metadata.get("version")) != version
-    ):
-        raise ValueError(
-            f"Chart archive metadata does not match locked {name} {version}"
-        )
-    return files
-
-
 def to_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    """Translate schema nodes, not enum/default data or property-name mappings."""
+    """Translate OpenAPI v3 nullable nodes to JSON Schema Draft 4 anyOf."""
     converted = copy.deepcopy(schema)
     converted.pop("nullable", None)
     for keyword in ("properties", "patternProperties", "definitions", "$defs"):
@@ -132,7 +69,7 @@ def to_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
 def crd_outputs(
     content: bytes,
     group: str,
-    crd_directory: Path,
+    crd_directory: Path | None,
     schema_directory: Path,
     filename: str,
 ) -> dict[Path, str]:
@@ -184,49 +121,29 @@ def crd_outputs(
             outputs[path] = json.dumps(to_json_schema(schema), indent=2) + "\n"
     if not outputs:
         raise ValueError(f"No served CRD schemas in {filename}")
-    outputs[crd_directory / filename] = content.decode("utf-8").rstrip() + "\n"
+    if crd_directory is not None:
+        outputs[crd_directory / filename] = content.decode("utf-8").rstrip() + "\n"
     return outputs
 
 
 def postgres_outputs(root: Path) -> dict[Path, str]:
-    chart = root / "charts/postgres-operator"
-    dependencies = validate_lock(chart)
-    operator = [
-        dependency
-        for dependency in dependencies
-        if dependency["name"] == "postgres-operator"
-    ]
-    if len(operator) != 1:
-        raise ValueError(
-            "The postgres wrapper must lock exactly one postgres-operator dependency"
-        )
-    version = str(operator[0]["version"])
-    artifact = chart / "charts" / f"postgres-operator-{version}.tgz"
-    if not artifact.is_file():
-        raise ValueError(
-            f"Missing locked operator artifact {artifact}; run helm_dependencies.py build first"
-        )
-    files = read_chart_archive(artifact, "postgres-operator", version)
-    outputs: dict[Path, str] = {}
-    for name, content in sorted(files.items()):
-        member = PurePosixPath(name)
-        if member.parent != PurePosixPath(
-            "postgres-operator/crds"
-        ) or member.suffix not in {".yaml", ".yml"}:
-            continue
-        generated = crd_outputs(
-            content,
-            "acid.zalan.do",
-            chart / "crds",
-            root / ".schemas/acid.zalan.do",
-            member.name,
-        )
-        if outputs.keys() & generated.keys():
-            raise ValueError(f"Duplicate PostgreSQL CRD output in {name}")
-        outputs.update(generated)
-    if not outputs:
-        raise ValueError(f"No PostgreSQL CRDs found in locked chart {artifact}")
-    return outputs
+    deploy_script = root / "scripts/deploy.sh"
+    match = POSTGRES_OPERATOR_VERSION.search(deploy_script.read_text())
+    if match is None:
+        raise ValueError(f"Missing exact POSTGRES_OPERATOR_VERSION in {deploy_script}")
+    version = match.group(1)
+    tag = version if version.startswith("v") else f"v{version}"
+    url = (
+        f"https://raw.githubusercontent.com/zalando/postgres-operator/{tag}/"
+        "charts/postgres-operator/crds/postgresqls.yaml"
+    )
+    return crd_outputs(
+        read_url(url),
+        "acid.zalan.do",
+        None,
+        root / ".schemas/acid.zalan.do",
+        "postgresqls.yaml",
+    )
 
 
 def substrate_outputs(root: Path) -> dict[Path, str]:
@@ -294,7 +211,7 @@ def olm_outputs(root: Path) -> dict[Path, str]:
         generated = crd_outputs(
             read_url(url),
             "operators.coreos.com",
-            root / ".cache/olm-schema-inputs",
+            None,
             directory,
             filename,
         )
@@ -308,7 +225,6 @@ def olm_outputs(root: Path) -> dict[Path, str]:
 
 
 def update(root: Path, operation: str) -> list[Path]:
-    # Fully validate/download the selected inputs before writing any tracked output.
     outputs: dict[Path, str] = {}
     if operation in {"postgres", "all"}:
         outputs.update(postgres_outputs(root))
@@ -317,32 +233,21 @@ def update(root: Path, operation: str) -> list[Path]:
     if operation in {"olm", "all"}:
         outputs.update(olm_outputs(root))
     previous: set[Path] = set()
-    providers = []
     if operation in {"postgres", "all"}:
-        providers.append(("postgres-operator", "acid.zalan.do"))
+        previous.update((root / ".schemas/acid.zalan.do").glob("*.json"))
     if operation in {"substrate", "all"}:
-        providers.append(("agent-substrate", "ate.dev"))
-    for chart_name, group in providers:
-        crd_directory = root / "charts" / chart_name / "crds"
+        crd_directory = root / "charts/agent-substrate/crds"
         for path in sorted(crd_directory.glob("*")):
-            if not path.is_file() or path.suffix not in {".yaml", ".yml"}:
-                continue
-            documents = list(yaml.safe_load_all(path.read_text()))
-            if documents and all(
-                isinstance(document, dict)
-                and document.get("kind") == "CustomResourceDefinition"
-                and document.get("spec", {}).get("group") == group
-                for document in documents
-            ):
+            if path.is_file() and path.suffix in {".yaml", ".yml"}:
                 previous.add(path)
-        # Each group-specific schema directory is owned by this generator.
-        previous.update((root / ".schemas" / group).glob("*.json"))
+        previous.update((root / ".schemas/ate.dev").glob("*.json"))
+    if operation in {"olm", "all"}:
+        previous.update((root / ".schemas/operators.coreos.com").glob("*.json"))
     for path, content in sorted(outputs.items()):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
     for obsolete in sorted(previous - outputs.keys()):
         obsolete.unlink()
-    # Include deleted paths in the caller's owned output set as well.
     return sorted(outputs.keys() | previous)
 
 
@@ -366,7 +271,6 @@ def main() -> int:
         ValueError,
         KeyError,
         TypeError,
-        tarfile.TarError,
         yaml.YAMLError,
     ) as error:
         parser.exit(1, f"CRD update: {error}\n")

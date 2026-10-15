@@ -16,8 +16,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7.0.1
 
-      - name: Install locked toolchain
-        run: ./scripts/mise.sh install --locked
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
+        with:
+          install: false
+
+      - name: Set up project dependencies
+        run: make setup
 
       - name: Update version-matched schemas and CRDs
         run: make update-schemas
@@ -30,7 +35,7 @@ jobs:
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
-          git add .schemas/ charts/postgres-operator/crds/ charts/agent-substrate/crds/
+          git add .schemas/ charts/agent-substrate/crds/
           if git diff --cached --quiet; then
             echo 'Pinned provider artifacts are unchanged.'
             exit 0

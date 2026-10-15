@@ -29,7 +29,7 @@ Resource = dict[str, Any]
 
 def run_tool(*arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(REPO_ROOT / "scripts" / "mise.sh"), "exec", "--", *arguments],
+        ["mise", "exec", "--", *arguments],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
@@ -136,14 +136,65 @@ def lifecycle_values(resources: Sequence[Resource], release: str) -> dict[str, s
         .get("app.kubernetes.io/instance")
         == release
     ]
-    if len(contracts) != 1:
-        raise ValueError("Expected exactly one chart-owned lifecycle contract")
-    data = contracts[0].get("data")
-    if not isinstance(data, dict) or not all(
-        isinstance(key, str) and isinstance(value, str) for key, value in data.items()
-    ):
-        raise ValueError("Lifecycle contract must contain string data")
-    return cast(dict[str, str], data)
+    if len(contracts) == 1:
+        data = contracts[0].get("data")
+        if not isinstance(data, dict) or not all(
+            isinstance(key, str) and isinstance(value, str)
+            for key, value in data.items()
+        ):
+            raise ValueError("Lifecycle contract must contain string data")
+        return cast(dict[str, str], data)
+    pgs = [r for r in resources if r["kind"] == "postgresql"]
+    apis = [
+        r
+        for r in resources
+        if r["kind"] == "Service"
+        and r.get("spec", {}).get("selector", {}).get("app") == "unified-api"
+    ]
+    workers = [
+        r
+        for r in resources
+        if r["kind"] == "Deployment"
+        and r.get("spec", {}).get("selector", {}).get("matchLabels", {}).get("app")
+        == "workers"
+    ]
+    if len(pgs) != 1 or len(apis) != 1 or len(workers) != 1:
+        raise ValueError(
+            "Expected postgresql, unified-api Service, and workers Deployment in manifest"
+        )
+    db_name = str(pgs[0]["metadata"]["name"])
+    api_svc = str(apis[0]["metadata"]["name"])
+    api_port = str(apis[0]["spec"]["ports"][0]["port"])
+    worker_env = {
+        item["name"]: str(item.get("value", ""))
+        for item in workers[0]["spec"]["template"]["spec"]["containers"][0].get(
+            "env", []
+        )
+    }
+    temporal_url = worker_env.get("TEMPORAL_URL", "")
+    temporal_svc = temporal_url.split(".")[0]
+    temporal_port = temporal_url.rsplit(":", 1)[-1]
+    is_dev = any(
+        r["kind"] == "Deployment"
+        and r.get("spec", {}).get("selector", {}).get("matchLabels", {}).get("app")
+        == "temporal-dev"
+        for r in resources
+    )
+    return {
+        "temporalProfile": "kind" if is_dev else "full",
+        "workersEnabled": "true",
+        "databaseResource": db_name,
+        "databaseService": db_name,
+        "databasePort": "5432",
+        "databaseName": "platform",
+        "databaseCredentialSecret": f"platform.{db_name}.credentials.postgresql.acid.zalan.do",
+        "apiService": api_svc,
+        "apiPort": api_port,
+        "temporalService": temporal_svc,
+        "temporalPort": temporal_port,
+        "temporalNamespace": worker_env.get("TEMPORAL_NAMESPACE", "default"),
+        "temporalTaskQueue": worker_env.get("TEMPORAL_TASK_QUEUE", "agent-task-queue"),
+    }
 
 
 def required_value(values: Mapping[str, str], key: str) -> str:
@@ -242,7 +293,7 @@ class ForwardManager:
         try:
             process = subprocess.Popen(
                 [
-                    str(REPO_ROOT / "scripts" / "mise.sh"),
+                    "mise",
                     "exec",
                     "--",
                     "kubectl",

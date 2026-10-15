@@ -47,7 +47,7 @@
           "type": "object"
         },
         "pauseImage": {
-          "description": "PauseImage is the container image used as the root sandbox container.\nIt holds the sandbox's namespaces and runs no workload code, so it is an\nimplementation detail of the sandbox rather than something actor authors\nchoose. It is captured in the snapshot manifest alongside the sandbox\nbinaries, so a restore always re-creates the sandbox from the same image\nthe snapshot was taken with.\n\nTypically, set it to [1] for on-gcp, and [2] for off-gcp\n\n  - [1] gcr.io/gke-release/pause@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da\n  - [2] registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4",
+          "description": "PauseImage is the container image used as the root sandbox container.\nIt holds the sandbox's namespaces and runs no workload code, so it is an\nimplementation detail of the sandbox rather than something actor authors\nchoose. Required for gvisor; not allowed for microvm, which runs no pause\ncontainer. It is captured in the snapshot manifest alongside the sandbox\nbinaries, so a restore always re-creates the sandbox from the same image\nthe snapshot was taken with.\n\nTypically, set it to [1] for on-gcp, and [2] for off-gcp\n\n  - [1] gcr.io/gke-release/pause@sha256:bcbd57ba5653580ec647b16d8163cdd1112df3609129b01f912a8032e48265da\n  - [2] registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4",
           "type": "string",
           "x-kubernetes-validations": [
             {
@@ -67,10 +67,15 @@
         }
       },
       "required": [
-        "pauseImage",
         "sandboxClass"
       ],
-      "type": "object"
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "pauseImage is required for gvisor and not allowed for other sandbox classes",
+          "rule": "self.sandboxClass == 'gvisor' ? has(self.pauseImage) : !has(self.pauseImage)"
+        }
+      ]
     }
   },
   "required": [

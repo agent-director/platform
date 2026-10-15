@@ -92,7 +92,7 @@ def test_caddyfile_structural_contract(manifests: list[Manifest]) -> None:
         "bind tailscale/",
         "tailscale_auth",
         "request_header Tailscale-User-Login {http.auth.user.tailscale_user}",
-        "request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}",
+        "request_header Tailscale-Tailnet {http.auth.user.tailscale_tailnet}",
         "max_size 10MB",
         "@api path /api /api/* /v1 /v1/*",
         "handle @api {",
@@ -200,11 +200,10 @@ def test_network_policies(manifests: list[Manifest]) -> None:
     )
     assert api is not None
     callers = api["spec"]["ingress"][0]["from"]
-    assert all(
-        caller["podSelector"]["matchLabels"]
-        == {"app": "caddy-tailscale", "app.kubernetes.io/instance": "test-release"}
-        for caller in callers
-    )
+    assert [caller["podSelector"]["matchLabels"] for caller in callers] == [
+        {"app": "caddy-tailscale", "app.kubernetes.io/instance": "test-release"},
+        {"app": "workers", "app.kubernetes.io/instance": "test-release"},
+    ]
 
 
 def test_tailscale_disabled(chart_dir: str) -> None:

@@ -22,13 +22,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install locked toolchain
-        run: ./scripts/mise.sh install --locked
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
 
       - name: Discover exported runtime images
         id: set-matrix
         run: |
-          MATRIX=$(./scripts/mise.sh exec -- uv run --no-project scripts/images.py --format matrix)
+          MATRIX=$(make -s image-matrix)
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
   build-and-push:

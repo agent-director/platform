@@ -1,4 +1,4 @@
-{{- if and .Values.workers.enabled (not .Values.bootstrap.enabled) }}
+{{- if .Values.workers.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

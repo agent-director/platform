@@ -81,10 +81,7 @@ The Secret and both rollout checksums must consume the same issued credentials.
 {{- $caCert := "" }}
 {{- $tlsCert := "" }}
 {{- $tlsKey := "" }}
-{{- /* v0.3.0 credbundle.Parse accepts only PKCS#8 PRIVATE KEY blocks. Rotate
-     legacy chart-owned PKCS#1/SEC1 credentials instead of retaining broken TLS. */}}
 {{- if and $secret (hasPrefix (printf "-----BEGIN %s-----" "PRIVATE KEY") (index $secret.data "tls.key" | default "" | b64dec | trim)) }}
-{{- /* Validate retained PKCS#8 DER rather than trusting the PEM label alone. */}}
 {{- $retained := buildCustomCert (index $secret.data "tls.crt") (index $secret.data "tls.key") }}
 {{- $caCert = index $secret.data "ca.crt" | b64dec }}
 {{- $tlsCert = $retained.Cert }}
@@ -92,7 +89,6 @@ The Secret and both rollout checksums must consume the same issued credentials.
 {{- else }}
 {{- $ca := genCA "agent-substrate-ca" 365 }}
 {{- $service := include "agent-substrate.apiService" . }}
-{{- /* Sprig emits RSA/EC keys in legacy formats; Ed25519 is emitted as PKCS#8. */}}
 {{- $cert := genSignedCertWithKey $service nil (list $service (printf "%s.%s.svc" $service .Release.Namespace) (include "agent-substrate.apiDNS" .)) 365 $ca (genPrivateKey "ed25519") }}
 {{- $caCert = $ca.Cert }}
 {{- $tlsCert = $cert.Cert }}

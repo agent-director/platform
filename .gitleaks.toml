@@ -2,12 +2,5 @@
 useDefault = true
 
 [[allowlists]]
-description = "Legacy detect-secrets hashes, only the root baseline file"
+description = "Root detect-secrets baseline file"
 paths = ['''^(?:\./)?\.secrets\.baseline$''']
-
-[[allowlists]]
-description = "Disposable generated/dependency state, not first-party source"
-paths = [
-    '''^(?:\./)?(?:\.cache|\.venv|node_modules)(?:/|$)''',
-    '''^(?:\./)?frontend/(?:node_modules|\.cache|\.next)(?:/|$)''',
-]

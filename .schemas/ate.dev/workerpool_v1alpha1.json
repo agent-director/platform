@@ -329,6 +329,11 @@
               },
               "type": "object"
             },
+            "serviceAccountName": {
+              "description": "ServiceAccountName for the worker pods. The ServiceAccount must exist\nin the WorkerPool's namespace. When omitted, the pods use the\nnamespace's default ServiceAccount.",
+              "minLength": 1,
+              "type": "string"
+            },
             "tolerations": {
               "description": "Tolerations for the worker pods.",
               "items": {

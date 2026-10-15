@@ -1,38 +1,10 @@
-# Root `make scan-iac` on Trivy 0.75.0 reports these exact dependency paths.
-# Reviewed only for the locked Zalando postgres-operator 2.0.3 dependency.
-# tests/unit/test_security_gates.py guards versions and proves native scan coverage.
-# Do not skip the dependency directory: Helm needs it to render the controller.
+# Scoped exception for the upstream Temporal 1.7.0 subchart ConfigMap template,
+# which renders `password: "{{ .Env.TEMPORAL_STORE_PASSWORD }}"` for dockerize
+# runtime env substitution rather than storing a literal secret in the ConfigMap.
 misconfigurations:
-  - id: KSV-0056
+  - id: KSV-0109
     paths:
-      - charts/postgres-operator/charts/postgres-operator/templates/clusterrole-postgres-pod.yaml
+      - charts/platform/charts/temporal/templates/server-configmap.yaml
     statement: >-
-      Upstream Patroni requires Service creation for its headless database service.
-      The ClusterRole is bound to database pods through namespace-scoped RoleBindings.
-  - id: KSV-0041
-    paths:
-      - charts/postgres-operator/charts/postgres-operator/templates/clusterrole.yaml
-    statement: >-
-      The upstream controller creates and rotates database-user credential Secrets
-      while reconciling PostgreSQL resources. Its supplied ClusterRole is required
-      for the existing operator bootstrap; this is not a first-party RBAC exemption.
-  - id: KSV-0053
-    paths:
-      - charts/postgres-operator/charts/postgres-operator/templates/clusterrole.yaml
-    statement: >-
-      The upstream controller uses pods/exec to resize Spilo filesystems after
-      volume expansion. This permission is supplied by the locked operator chart.
-  - id: KSV-0056
-    paths:
-      - charts/postgres-operator/charts/postgres-operator/templates/clusterrole.yaml
-    statement: >-
-      The upstream controller creates and reconciles Services routing traffic to
-      managed PostgreSQL instances. Removing this role rule breaks database service discovery.
-  - id: KSV-0118
-    paths:
-      - charts/postgres-operator/charts/postgres-operator/templates/deployment.yaml
-    statement: >-
-      Upstream 2.0.3 exposes container securityContext but no pod securityContext
-      value or template hook. The only controller container is explicitly non-root,
-      read-only, non-escalating, RuntimeDefault-seccomp confined and drops ALL
-      capabilities. Other security checks on this Deployment remain enforcing.
+      Upstream Temporal server-configmap.yaml contains a dockerize environment
+      variable placeholder ({{ .Env.TEMPORAL_STORE_PASSWORD }}), not a secret value.

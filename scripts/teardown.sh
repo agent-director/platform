@@ -3,16 +3,16 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-run() { "$ROOT/scripts/mise.sh" exec -- "$@"; }
+run() { mise exec -- "$@"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    printf '%s\n' 'Usage: scripts/teardown.sh <explicit-owned-kind-cluster-name>' \
+    printf '%s\n' 'Usage: scripts/teardown.sh [explicit-owned-kind-cluster-name]' \
         'Only clusters successfully created by this worktree lifecycle may be destroyed.'
     exit 0
 fi
-[[ $# == 1 && -n "$1" ]] || fail 'Provide exactly one explicit owned kind cluster name.'
-CLUSTER_NAME=$1
+CLUSTER_NAME=${1:-${CLUSTER_NAME:-platform-dev}}
+[[ -n "$CLUSTER_NAME" ]] || fail 'Provide an explicit owned kind cluster name.'
 [[ "$CLUSTER_NAME" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ && ${#CLUSTER_NAME} -le 63 ]] || fail 'Invalid cluster name.'
 KUBE_CONTEXT=${KUBE_CONTEXT:-kind-$CLUSTER_NAME}
 export KUBECONFIG="$ROOT/.cache/clusters/$CLUSTER_NAME/kubeconfig"
@@ -29,8 +29,6 @@ while IFS= read -r name; do
     if [[ "$name" == "$CLUSTER_NAME" ]]; then EXISTS=true; fi
 done <<< "$CLUSTERS"
 [[ "$EXISTS" == true ]] || fail 'The selected kind backend has no matching cluster; retaining ownership evidence rather than assuming another backend cluster is gone.'
-# Verify the cluster selected by kind NOW, not a cached endpoint from another
-# Docker/provider context with an identically named cluster.
 mkdir -p "$ROOT/.cache/clusters/$CLUSTER_NAME"
 VERIFY_CONFIG=$(umask 077; mktemp "$ROOT/.cache/clusters/$CLUSTER_NAME/verify.XXXXXXXX")
 trap 'rm -f "$VERIFY_CONFIG"' EXIT

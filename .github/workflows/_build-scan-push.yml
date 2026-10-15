@@ -18,7 +18,7 @@ on:
       push_image:
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -31,17 +31,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      - name: Install locked toolchain
-        run: ./scripts/mise.sh install --locked
-
-      - name: Resolve authoritative build inputs
-        id: build-inputs
-        run: |
-          {
-            echo 'args<<BUILD_INPUTS'
-            ./scripts/mise.sh exec -- uv run --no-project scripts/toolchain.py build-args
-            echo BUILD_INPUTS
-          } >> "$GITHUB_OUTPUT"
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
@@ -60,38 +51,16 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile }}
           target: ${{ inputs.target }}
-          build-args: ${{ steps.build-inputs.outputs.args }}
           load: true
           push: false
           tags: ${{ inputs.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ inputs.image }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image }}
 
-      # Use the locked root CLI, not an action's independent Trivy version/defaults.
-      # The repository's IaC config must not disable image vulnerability scanning.
-      - name: Enforce application vulnerability policy
-        run: |
-          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
-            --format table --pkg-types library --severity HIGH,CRITICAL --exit-code 1 \
-            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
+      - name: Scan built image
         env:
           IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
-
-      - name: Report high-severity operating-system vulnerabilities
-        run: |
-          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
-            --format table --pkg-types os --severity HIGH --exit-code 0 \
-            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
-        env:
-          IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
-
-      - name: Enforce critical operating-system vulnerability policy
-        run: |
-          ./scripts/mise.sh exec -- trivy image --config '' --scanners vuln,secret \
-            --format table --pkg-types os --severity CRITICAL --exit-code 1 \
-            --skip-db-update=false --skip-java-db-update=false "$IMAGE_REF"
-        env:
-          IMAGE_REF: ${{ inputs.image }}:${{ github.sha }}
+        run: make scan-image
 
       - name: Push scanned image
         if: inputs.push_image
@@ -100,7 +69,6 @@ jobs:
           context: .
           file: ${{ inputs.dockerfile }}
           target: ${{ inputs.target }}
-          build-args: ${{ steps.build-inputs.outputs.args }}
           push: true
           tags: ${{ inputs.image }}:${{ github.sha }}
           sbom: true

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # Activation is valid only for this checkout, not an inherited foreign worktree.
 if [ "${PLATFORM_MISE_ACTIVE:-0}" != "1" ] || [ "${PLATFORM_ROOT:-}" != "$ROOT" ]; then
-  exec "$ROOT/scripts/mise.sh" exec -- "$ROOT/scripts/run-all-local-scans.sh" "$@"
+  exec mise exec -- "$ROOT/scripts/run-all-local-scans.sh" "$@"
 fi
 cd "$ROOT"
 

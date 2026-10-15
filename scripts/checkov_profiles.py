@@ -1,7 +1,8 @@
 #!/usr/bin/env -S uv run
-"""Scan raw non-deferred chart profiles and reject empty Checkov coverage."""
+"""Scan rendered non-deferred chart profiles and reject empty Checkov coverage."""
 
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -10,19 +11,14 @@ from typing import Any
 
 import yaml
 
-from scripts.helm_dependencies import require_versions
 from scripts.render_profiles import render_profiles
 
 ROOT = Path(__file__).absolute().parent.parent
+# renovate: datasource=pypi depName=checkov
+CHECKOV_VERSION = "3.3.26"
 CHART_PROFILES = {
-    "charts/platform": ("default", "kind", "bootstrap", "full"),
+    "charts/platform": ("default", "kind"),
     "charts/agent-substrate": ("substrate",),
-    "charts/postgres-operator": ("operator",),
-}
-OPERATOR_EXCEPTIONS = {
-    "CKV_K8S_8": "Upstream 2.0.3 has no configurable operator liveness probe.",
-    "CKV_K8S_29": "Upstream provides container, not pod, securityContext; the container is hardened.",
-    "CKV_K8S_38": "This Kubernetes controller needs its bound ServiceAccount token.",
 }
 
 
@@ -69,7 +65,8 @@ def main() -> int:
     failed = False
     for profile in profiles:
         command = [
-            "checkov",
+            "uvx",
+            f"checkov@{CHECKOV_VERSION}",
             "--framework",
             "kubernetes",
             "--config-file",
@@ -80,15 +77,13 @@ def main() -> int:
             "json",
             "--quiet",
         ]
-        if profile == "operator":
-            require_versions(
-                [ROOT / "charts/postgres-operator"], ["postgres-operator=2.0.3"]
-            )
-            skips = [*config.get("skip-check", []), *OPERATOR_EXCEPTIONS]
-            command.extend(["--skip-check", ",".join(skips)])
-            print(f"operator 2.0.3 scoped exceptions: {OPERATOR_EXCEPTIONS}")
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k.lower() not in {"http_proxy", "https_proxy", "all_proxy"} or v
+        }
         result = subprocess.run(
-            command, cwd=ROOT, capture_output=True, text=True, check=False
+            command, cwd=ROOT, env=env, capture_output=True, text=True, check=False
         )
         if result.returncode not in {0, 1}:
             raise RuntimeError(result.stderr or result.stdout)

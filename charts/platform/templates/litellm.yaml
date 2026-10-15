@@ -1,4 +1,4 @@
-{{- if and (or .Values.litellm.enabled .Values.unifiedApi.enabled) (not .Values.bootstrap.enabled) }}
+{{- if or .Values.litellm.enabled .Values.unifiedApi.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +7,7 @@ data:
   litellm_config.yaml: |
 {{ .Files.Get "files/litellm_config.yaml" | indent 4 }}
 {{- end }}
-{{- if and .Values.litellm.enabled (not .Values.bootstrap.enabled) }}
+{{- if .Values.litellm.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment

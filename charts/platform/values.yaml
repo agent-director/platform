@@ -7,12 +7,6 @@ global:
 fullnameOverride: ""
 nameOverride: ""
 
-# Bootstrap retains database resources/trust/schema ServiceAccount and RustFS, but
-# suppresses dependency-blocked applications. Upgrade the SAME release afterwards.
-bootstrap:
-  enabled: false
-  prerequisitesReady: false
-
 adminAllowlist:
   - "admin@example.com"
 imagePullSecrets: []
@@ -90,7 +84,7 @@ caddyTailscale:
         tailscale_auth
         # Overwrite untrusted client identity; this is the header the API expects.
         request_header Tailscale-User-Login {http.auth.user.tailscale_user}
-        request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
+        request_header Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
         request_body {
             max_size 10MB
         }
@@ -132,7 +126,7 @@ frontend:
   service:
     port: 3000
 workers:
-  enabled: false
+  enabled: true
   replicaCount: 1
   temporalNamespace: default
   taskQueue: agent-task-queue
@@ -147,6 +141,7 @@ litellm:
     port: 4000
 langfuse:
   enabled: true
+  image: "langfuse/langfuse:2@sha256:85c278dcab96c15db94191a5c1664f85aba2d7fb6771a00e99681c902c4b7015"
   service:
     port: 3000
 
@@ -164,13 +159,13 @@ temporalDev:
       cpu: 1000m
       memory: 1Gi
 
-# Temporal chart 1.7.0 uses raw v1 datastore keys, not old subchart toggles.
-# Release-derived SQL/TLS/SA values are projected by the lifecycle ConfigMap and
-# supplied as an additional values file by the staged deployment entrypoint.
+# Temporal chart 1.7.0 uses v1 datastore keys and non-hook Jobs for single-pass convergence.
 temporal:
-  enabled: false
+  enabled: true
+  fullnameOverride: "platform-temporal"
   serviceAccount:
     create: false
+    name: platform-temporal-schema
   server:
     replicaCount: 1
     resources:
@@ -187,6 +182,27 @@ temporal:
       fsGroup: 1000
       seccompProfile:
         type: RuntimeDefault
+    additionalVolumes:
+      - name: db-trust
+        configMap:
+          name: platform-db-trust
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - name: scratch
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: server-runtime-config
+        emptyDir:
+          sizeLimit: 128Mi
+    additionalVolumeMounts:
+      - name: db-trust
+        mountPath: /etc/db-trust
+        readOnly: true
+      - name: scratch
+        mountPath: /tmp
+      - name: server-runtime-config
+        mountPath: /etc/temporal/config
     frontend:
       service:
         port: 7233
@@ -210,6 +226,12 @@ temporal:
         tcpSocket:
           port: membership
     config:
+      namespaces:
+        create: true
+        useHelmHooks: false
+        namespace:
+          - name: "default"
+            retention: 3d
       persistence:
         defaultStore: default
         visibilityStore: visibility
@@ -219,10 +241,10 @@ temporal:
             sql:
               pluginName: postgres12
               databaseName: temporal
-              connectAddr: "bootstrap-required.invalid:5432"
+              connectAddr: "platform-db.platform.svc.cluster.local:5432"
               connectProtocol: tcp
               user: temporal
-              existingSecret: "bootstrap-required"
+              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
               secretKey: password
               createDatabase: false
               manageSchema: true
@@ -230,14 +252,15 @@ temporal:
                 enabled: true
                 caFile: /etc/db-trust/ca.crt
                 enableHostVerification: true
+                serverName: "platform-db.platform.svc.cluster.local"
           visibility:
             sql:
               pluginName: postgres12
               databaseName: temporal_visibility
-              connectAddr: "bootstrap-required.invalid:5432"
+              connectAddr: "platform-db.platform.svc.cluster.local:5432"
               connectProtocol: tcp
               user: temporal
-              existingSecret: "bootstrap-required"
+              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
               secretKey: password
               createDatabase: false
               manageSchema: true
@@ -245,21 +268,39 @@ temporal:
                 enabled: true
                 caFile: /etc/db-trust/ca.crt
                 enableHostVerification: true
+                serverName: "platform-db.platform.svc.cluster.local"
   admintools:
     enabled: false
     image:
       repository: temporalio/admin-tools
       tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
+    additionalVolumes:
+      - name: db-trust
+        configMap:
+          name: platform-db-trust
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - name: scratch
+        emptyDir:
+          sizeLimit: 1Gi
+    additionalVolumeMounts:
+      - name: db-trust
+        mountPath: /etc/db-trust
+        readOnly: true
+      - name: scratch
+        mountPath: /tmp
   web:
     enabled: false
   schema:
+    useHelmHooks: false
     serviceAccount:
       create: false
-      name: ""
+      name: platform-temporal-schema
     jobAnnotations:
       ignore-check.kube-linter.io/no-readiness-probe: "Schema/namespace setup are finite lifecycle Jobs; successful exit, not serving readiness, gates rollout."
       ignore-check.kube-linter.io/no-liveness-probe: "Schema/namespace setup use bounded retries and the Helm timeout; container liveness probes are not meaningful for their completion markers."
-    backoffLimit: 3
+    backoffLimit: 100
     activeDeadlineSeconds: 600
     resources:
       requests:
