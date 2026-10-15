@@ -25,11 +25,11 @@ hooks = [
 [[repos]]
 repo = "local"
 hooks = [
-  { id = "ruff", name = "ruff", entry = "ruff check --fix", language = "system", types = ["python"], priority = 1 },
-  { id = "ruff-format", name = "ruff format", entry = "ruff format", language = "system", types = ["python"], priority = 1 },
-  { id = "gitleaks", name = "Detect hardcoded secrets", entry = "gitleaks git --pre-commit --staged --redact --config .gitleaks.toml", language = "system", pass_filenames = false, always_run = true, priority = 2 },
-  { id = "actionlint", name = "Lint GitHub Actions workflow files", entry = "actionlint", language = "system", files = "^\\.github/workflows/.*\\.ya?ml$", priority = 2 },
-  { id = "hadolint", name = "Lint Dockerfiles", entry = "hadolint", language = "system", files = "Dockerfile", priority = 2 },
+  { id = "ruff", name = "ruff", entry = "mise exec -- ruff check --fix", language = "system", types = ["python"], priority = 1 },
+  { id = "ruff-format", name = "ruff format", entry = "mise exec -- ruff format", language = "system", types = ["python"], priority = 1 },
+  { id = "gitleaks", name = "Detect hardcoded secrets", entry = "mise exec -- gitleaks git --pre-commit --staged --redact --config .gitleaks.toml", language = "system", pass_filenames = false, always_run = true, priority = 2 },
+  { id = "actionlint", name = "Lint GitHub Actions workflow files", entry = "mise exec -- actionlint", language = "system", files = "^\\.github/workflows/.*\\.ya?ml$", priority = 2 },
+  { id = "hadolint", name = "Lint Dockerfiles", entry = "mise exec -- hadolint", language = "system", files = "Dockerfile", priority = 2 },
   { id = "checkov", name = "Checkov", entry = "make lint-checkov", language = "system", files = "^(charts/|\\.checkov\\.yaml$)", pass_filenames = false, priority = 2 },
   { id = "kube-linter", name = "KubeLinter", entry = "make lint-kubernetes", language = "system", files = "^(charts/|\\.kube-linter\\.yaml$)", pass_filenames = false, priority = 2 },
   { id = "typecheck", name = "Whole-project Pyrefly", entry = "make typecheck", language = "system", types = ["python"], pass_filenames = false, always_run = true, priority = 2 },

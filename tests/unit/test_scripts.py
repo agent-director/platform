@@ -40,8 +40,20 @@ case "$command" in
         fi
         printf '%s\n' "${FAKE_CLUSTERS:-}"
         ;;
-      'create cluster') [[ "${FAIL_STAGE:-}" != creation ]] || exit 42 ;;
-      'export kubeconfig'|'load docker-image') ;;
+      'create cluster')
+        [[ "${FAIL_STAGE:-}" != creation ]] || exit 42
+        if [[ -n "${KUBECONFIG:-}" ]]; then
+          mkdir -p "$(dirname "$KUBECONFIG")"
+          printf '%s\n' 'apiVersion: v1' > "$KUBECONFIG"
+        fi
+        ;;
+      'export kubeconfig')
+        if [[ -n "${KUBECONFIG:-}" ]]; then
+          mkdir -p "$(dirname "$KUBECONFIG")"
+          printf '%s\n' 'apiVersion: v1' > "$KUBECONFIG"
+        fi
+        ;;
+      'load docker-image') ;;
       'get kubeconfig') printf '%s' 'apiVersion: v1' ;;
       'delete cluster') [[ "${FAIL_STAGE:-}" != deletion ]] || exit 51 ;;
       *) exit 91 ;;
@@ -276,6 +288,9 @@ class ScriptHarness:
         manifest_path = directory / "FAKE_PLATFORM_MANIFEST.yaml"
         manifest_path.write_text(yaml.safe_dump_all(manifest_docs), encoding="utf-8")
         self.env["FAKE_PLATFORM_MANIFEST"] = str(manifest_path)
+        kubeconfig = self.root / ".cache" / "clusters" / "owned-unit" / "kubeconfig"
+        kubeconfig.parent.mkdir(parents=True, exist_ok=True)
+        kubeconfig.write_text("owned-local-config", encoding="utf-8")
 
     @property
     def marker(self) -> Path:
@@ -377,6 +392,15 @@ def test_check_cluster_rejects_non_loopback_api_server(harness: ScriptHarness) -
     result = harness.run("deploy.sh", "check-cluster")
     assert result.returncode != 0
     assert "127.0.0.1" in result.stderr
+
+
+def test_check_cluster_fails_clearly_when_kubeconfig_missing(
+    harness: ScriptHarness,
+) -> None:
+    (harness.root / ".cache/clusters/owned-unit/kubeconfig").unlink()
+    result = harness.run("deploy.sh", "check-cluster")
+    assert result.returncode != 0
+    assert "make cluster-up" in result.stderr
 
 
 @pytest.mark.parametrize("change", ["identity", "root", "kubeconfig"])

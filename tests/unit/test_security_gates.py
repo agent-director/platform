@@ -393,11 +393,15 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     assert hooks["end-of-file-fixer"]["priority"] == 0
     assert hooks["ruff"]["priority"] == 1
     assert hooks["ruff-format"]["priority"] == 1
+    assert hooks["ruff"]["entry"] == "mise exec -- ruff check --fix"
+    assert hooks["ruff-format"]["entry"] == "mise exec -- ruff format"
+    assert hooks["actionlint"]["entry"] == "mise exec -- actionlint"
+    assert hooks["hadolint"]["entry"] == "mise exec -- hadolint"
     assert hooks["typecheck"]["entry"] == "make typecheck"
     assert hooks["typecheck"]["priority"] == 2
     assert (
         hooks["gitleaks"]["entry"]
-        == "gitleaks git --pre-commit --staged --redact --config .gitleaks.toml"
+        == "mise exec -- gitleaks git --pre-commit --staged --redact --config .gitleaks.toml"
     )
     for name in [
         "gitleaks",

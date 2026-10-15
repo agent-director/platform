@@ -152,6 +152,9 @@ helm_context() {
 
 check_cluster() {
     validate_contract
+    if [[ -n "$CLUSTER_NAME" && ! -s "$KUBECONFIG" ]]; then
+        fail "Kubeconfig not found at $KUBECONFIG; run 'make cluster-up' (or 'make cluster-up REUSE_CLUSTER=true' for an existing cluster)."
+    fi
     local server uid fresh_server fresh_uid
     server=$(kube config view --minify -o 'jsonpath={.clusters[0].cluster.server}')
     [[ -n "$server" ]] || fail "No API server found for context $KUBE_CONTEXT."
