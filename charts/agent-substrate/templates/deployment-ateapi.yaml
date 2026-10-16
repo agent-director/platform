@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ateapi
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "agent-substrate.apiService" . }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
     app.kubernetes.io/component: ateapi
@@ -13,6 +14,10 @@ spec:
       app.kubernetes.io/component: ateapi
   template:
     metadata:
+      {{- if and (not .Values.global.tls.useOcpServingCert) (not .Values.tls.existingBundleSecret) }}
+      annotations:
+        checksum/tls: {{ include "agent-substrate.tlsData" . | sha256sum }}
+      {{- end }}
       labels:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: ateapi
@@ -51,24 +56,33 @@ spec:
         resources:
           {{- toYaml .Values.ateapi.resources | nindent 10 }}
         args:
-        - "--grpc-listen-addr=0.0.0.0:50051"
-        - "--postgres-connection-string=$(POSTGRES_URL)"
+        - "--grpc-listen-addr=0.0.0.0:{{ include "agent-substrate.apiPort" . }}"
+        - "--postgres-read-write-connection-string=$(POSTGRES_URL)"
+        - "--postgres-owner-connection-string=$(POSTGRES_URL)"
+        - "--postgres-read-write-role={{ .Values.database.user }}"
+        - "--postgres-owner-role={{ .Values.database.user }}"
         - "--grpc-server-cred-bundle=/etc/tls/bundle.pem"
+        - "--pod-identity-ca-certs=/etc/tls/ca.crt"
         - "--authentication-config=/etc/tls/auth.yaml"
         - "--actor-id-ca-pool=/etc/tls/empty.json"
         - "--actor-id-jwt-pool=/etc/tls/empty.json"
+        startupProbe:
+          tcpSocket:
+            port: {{ include "agent-substrate.apiPort" . }}
+          periodSeconds: 5
+          failureThreshold: 24
         readinessProbe:
           tcpSocket:
-            port: 50051
+            port: {{ include "agent-substrate.apiPort" . }}
           initialDelaySeconds: 2
           periodSeconds: 5
         livenessProbe:
           tcpSocket:
-            port: 50051
+            port: {{ include "agent-substrate.apiPort" . }}
           initialDelaySeconds: 5
           periodSeconds: 10
         ports:
-        - containerPort: 50051
+        - containerPort: {{ include "agent-substrate.apiPort" . }}
           name: grpc
         env:
         - name: POD_NAMESPACE
@@ -106,15 +120,16 @@ spec:
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
+              name: {{ include "agent-substrate.databaseCredential" . | quote }}
               key: password
         - name: PGUSER
           valueFrom:
             secretKeyRef:
-              name: {{ printf "%s.%s.credentials.postgresql.acid.zalan.do" (.Values.database.superuser | default "agent-director-admin") .Values.database.host | quote }}
+              name: {{ include "agent-substrate.databaseCredential" . | quote }}
               key: username
+        # pgx reads PGPASSWORD directly; upstream logs this DSN/flag at startup.
         - name: POSTGRES_URL
-          value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Values.database.host }}.{{ .Values.platformNamespace }}.svc.cluster.local:5432/postgres?sslmode=require&connect_timeout=10"
+          value: "postgres://$(PGUSER)@{{ include "agent-substrate.databaseDNS" . }}:{{ .Values.database.port }}/{{ .Values.database.name }}?sslmode=verify-full&sslrootcert=/etc/db-trust/ca.crt&connect_timeout=10"
         volumeMounts:
         - name: sa-token
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
@@ -122,8 +137,8 @@ spec:
         - name: tls
           mountPath: /etc/tls
           readOnly: true
-        - name: db-tls
-          mountPath: /etc/db-tls
+        - name: db-trust
+          mountPath: /etc/db-trust
           readOnly: true
       volumes:
         - name: sa-token
@@ -145,34 +160,47 @@ spec:
                         fieldPath: metadata.namespace
         - name: tls
           secret:
-            secretName: agent-substrate-tls # pragma: allowlist secret
-        - name: db-tls
-          secret:
-            secretName: platform-db-tls # pragma: allowlist secret
+            secretName: {{ include "agent-substrate.credentialSecret" . }}
+            items:
+              - key: bundle.pem
+                path: bundle.pem
+              - key: ca.crt
+                path: ca.crt
+              - key: auth.yaml
+                path: auth.yaml
+              - key: empty.json
+                path: empty.json
+        - name: db-trust
+          configMap:
+            name: {{ .Values.database.trustConfigMap | quote }}
+            items:
+              - key: {{ .Values.database.trustKey | quote }}
+                path: ca.crt
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ateapi
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "agent-substrate.apiService" . }}
   annotations:
     {{- if .Values.global.tls.useOcpServingCert }}
-    service.beta.openshift.io/serving-cert-secret-name: {{ .Values.tls.secretName | default "agent-substrate-tls" | quote }}
+    service.beta.openshift.io/serving-cert-secret-name: {{ include "agent-substrate.tlsSecret" . | quote }}
     {{- end }}
 spec:
   selector:
     {{- include "agent-substrate.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: ateapi
   ports:
-  - port: 50051
-    targetPort: 50051
+  - port: {{ include "agent-substrate.apiPort" . }}
+    targetPort: grpc
     name: grpc
 
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: ateapi
+  name: {{ include "agent-substrate.apiService" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
@@ -187,17 +215,56 @@ spec:
     - Egress
   ingress:
     - from:
-      - podSelector: {} # Allow all pods within the same namespace
+        - podSelector:
+            matchLabels:
+              {{- include "agent-substrate.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: atecontroller
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.platformNamespace }}
+          podSelector:
+            matchLabels:
+              app: workers
+      ports:
+        - protocol: TCP
+          port: {{ include "agent-substrate.apiPort" . }}
   egress:
     - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: kube-system # Allow DNS
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
     - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: {{ .Values.platformNamespace | default "platform" }} # Allow Postgres/RustFS
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.platformNamespace }}
+          podSelector:
+            matchLabels:
+              cluster-name: {{ .Values.database.host }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
     - to:
-{{ include "agent-substrate.apiServerEgress" . | indent 6 }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.platformNamespace }}
+          podSelector:
+            matchLabels:
+              app: rustfs
+      ports:
+        - protocol: TCP
+          port: {{ .Values.rustfs.port }}
+    {{- $apiPeers := include "agent-substrate.apiServerEgress" . }}
+    {{- if $apiPeers }}
     - to:
-      - podSelector: {} # Allow intra-namespace
+{{ $apiPeers | indent 8 }}
+      ports:
+        {{- range .Values.global.apiServerPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}

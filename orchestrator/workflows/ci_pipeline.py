@@ -13,7 +13,7 @@ class CIPipelineState(TypedDict):
 @workflow.defn(name="CIPipelineWorkflow")
 class CIPipelineWorkflow:
     @workflow.run
-    async def run(self, job_id: str) -> dict:
+    async def run(self, job_id: str) -> CIPipelineState:
         # Stub workflow returning hardcoded dict
         return {
             "job_id": job_id,

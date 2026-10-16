@@ -12,103 +12,52 @@ permissions:
   pull-requests: read
 
 jobs:
-
   scan-and-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Get Date for Cache
-        id: date
-        run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
 
-      - name: Cache Trivy Database
-        uses: actions/cache@v6.1.0
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ steps.date.outputs.date }}
-          restore-keys: |
-            trivy-db-
-
-      - name: Install System Dependencies
-        run: |
-          HELM_VERSION="v$(grep '^helm ' .tool-versions | awk '{print $2}')"
-          KUBECONFORM_VERSION="v$(grep '^kubeconform ' .tool-versions | awk '{print $2}')"
-          TRIVY_VERSION="$(grep '^trivy ' .tool-versions | awk '{print $2}')"
-          HADOLINT_VERSION="v$(grep '^hadolint ' .tool-versions | awk '{print $2}')"
-          mkdir -p ~/.local/bin
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
-          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin kubeconform
-          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xzf - -C ~/.local/bin trivy
-          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
-          chmod +x ~/.local/bin/hadolint
-
-      - name: Download Trivy Database
-        run: |
-          TRIVY_SKIP_DB_UPDATE="false" TRIVY_JAVA_SKIP_DB_UPDATE="false" trivy image --download-db-only
-
-      - name: Environment Setup
-        env:
-          GH_USER: ${{ github.actor }}
-          GH_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pip install uv
-          make setup
-
-      - name: Run Pytest
-        run: make test
+      - name: Set up project dependencies
+        run: make setup
 
       - name: Install gh-actions-lock extension
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: gh extension install github/gh-actions-lock --pin v0.1.6
 
-      - name: Run Prek (Commit Hooks)
+      - name: Run commit gates
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: uvx prek run --all-files --verbose
+          GH_TOKEN: ${{ github.token }}
+        run: make lint
 
-      - name: Run Prek (Pre-Push Hooks - Trivy IaC)
-        run: uvx prek run trivy-fs --all-files --verbose
+      - name: Build frontend
+        run: make build-frontend
 
+      - name: Run infrastructure security gate
+        run: make scan-iac
 
   kind-integration:
     runs-on: ubuntu-latest
     needs: scan-and-lint
     environment: e2e-tests
     env:
+      CLUSTER_NAME: platform-ci-${{ github.run_id }}-${{ github.run_attempt }}
       GH_USER: ${{ github.actor }}
       GH_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - name: Install System Dependencies
-        run: |
-          HELM_VERSION="v$(grep '^helm ' .tool-versions | awk '{print $2}')"
-          KUBECONFORM_VERSION="v$(grep '^kubeconform ' .tool-versions | awk '{print $2}')"
-          TRIVY_VERSION="$(grep '^trivy ' .tool-versions | awk '{print $2}')"
-          HADOLINT_VERSION="v$(grep '^hadolint ' .tool-versions | awk '{print $2}')"
-          KIND_VERSION="v$(grep '^kind ' .tool-versions | awk '{print $2}')"
-          mkdir -p ~/.local/bin
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin --strip-components=1 linux-amd64/helm
-          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xzf - -C ~/.local/bin kubeconform
-          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xzf - -C ~/.local/bin trivy
-          curl -fsSL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" -o ~/.local/bin/hadolint
-          chmod +x ~/.local/bin/hadolint
-          curl -Lo ~/.local/bin/kind "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64"
-          chmod +x ~/.local/bin/kind
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
 
-      - name: Create k8s Kind Cluster via Makefile
+      - name: Set up project dependencies
+        run: make setup
+
+      - name: Create owned kind cluster
         run: make cluster-up
 
-      - name: Export Cluster URL
-        run: |
-          echo "KUBE_API_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')" >> "$GITHUB_ENV"
-
-      - name: Install uv
-        run: pip install uv
-
-      - name: Run Integration Suite
+      - name: Run kind integration
         run: make test-integration

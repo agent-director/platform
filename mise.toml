@@ -1,0 +1,48 @@
+# Root toolchain and environment configuration.
+min_version = "2026.10.8"
+
+[tools]
+python = "3.14.8"
+node = "26.11.1"
+uv = "0.12.23"
+pnpm = "12.11.2"
+prek = "0.5.5"
+ruff = "0.16.8"
+gitleaks = "8.30.1"
+actionlint = "1.7.12"
+hadolint = "2.15.1"
+kube-linter = "0.8.3"
+helm = "4.3.0"
+kind = "0.33.0"
+kubectl = "1.36.1"
+jq = "1.8.2"
+kubeconform = "0.8.0"
+trivy = "0.75.0"
+
+[settings]
+lockfile = true
+lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64", "macos-x64"]
+python.uv_venv_auto = "source"
+python.compile = false
+
+[tool_config]
+locked = true
+
+[env]
+PLATFORM_ROOT = "{{ config_root }}"
+PLATFORM_MISE_ACTIVE = "1"
+PLATFORM_CACHE_DIR = "{{ config_root }}/.cache"
+UV_PYTHON = { value = "{% if tools.python is defined %}{{ tools.python.path }}{% else %}3.14.8{% endif %}", tools = true }
+UV_PYTHON_DOWNLOADS = "never"
+UV_PROJECT_ENVIRONMENT = "{{ config_root }}/.venv"
+UV_CACHE_DIR = "{{ config_root }}/.cache/uv"
+PREK_HOME = "{{ config_root }}/.cache/prek"
+RUFF_CACHE_DIR = "{{ config_root }}/.cache/ruff"
+PYTHONPYCACHEPREFIX = "{{ config_root }}/.cache/pycache"
+HELM_CACHE_HOME = "{{ config_root }}/.cache/helm/cache"
+HELM_CONFIG_HOME = "{{ config_root }}/.cache/helm/config"
+HELM_DATA_HOME = "{{ config_root }}/.cache/helm/data"
+TRIVY_CACHE_DIR = "{{ config_root }}/.cache/trivy"
+pnpm_config_store_dir = "{{ config_root }}/.cache/pnpm/store"
+pnpm_config_cache_dir = "{{ config_root }}/.cache/pnpm/cache"
+pnpm_config_state_dir = "{{ config_root }}/.cache/pnpm/state"

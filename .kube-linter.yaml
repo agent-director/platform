@@ -1,5 +1,10 @@
+# KubeLinter's built-in defaults remain enabled (31 checks in v0.8.3).
+# Component-specific exceptions belong on the owning resource as
+# ignore-check.kube-linter.io/<check>: <concrete runtime/upstream reason>.
+# Do not use ignore-check.kube-linter.io/all or global baseline exclusions.
 checks:
   addAllBuiltIn: false
-  doNotAutoAddDefaults: true
+  doNotAutoAddDefaults: false
   include:
-    - "env-var-secret"
+    - no-readiness-probe
+    - no-liveness-probe

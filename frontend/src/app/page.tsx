@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-
 export default function Dashboard() {
   const [config, setConfig] = useState<any>(null);
   const [configInput, setConfigInput] = useState('');
@@ -21,7 +19,7 @@ export default function Dashboard() {
 
   const fetchConfig = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/config`);
+      const res = await fetch('/api/config');
       const data = await res.json();
       setConfig(data);
       setConfigInput(JSON.stringify(data, null, 2));
@@ -33,7 +31,7 @@ export default function Dashboard() {
   const updateConfig = async () => {
     try {
       // JSON is valid YAML; send raw string to backend for parsing
-      const res = await fetch(`${API_URL}/api/config`, {
+      const res = await fetch('/api/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,7 +62,7 @@ export default function Dashboard() {
     setChatInput('');
 
     try {
-      const res = await fetch(`${API_URL}/v1/chat/completions`, {
+      const res = await fetch('/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

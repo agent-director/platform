@@ -2,26 +2,51 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-frontend
+  name: {{ include "platform.resourceName" (dict "root" . "component" "frontend") }}
   labels:
-    app: frontend
+    {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
     matchLabels:
-      app: frontend
+      {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: frontend
+        {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
-            - containerPort: 3000
-              protocol: TCP
+            - name: http
+              containerPort: {{ include "platform.port" (dict "root" . "component" "frontend") }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
           resources:
             requests:
               cpu: 100m
@@ -32,24 +57,26 @@ spec:
           env:
             - name: HOSTNAME
               value: "0.0.0.0"
-            - name: NEXT_PUBLIC_API_URL
-              # Construct the base URL from the tailscale hostname
-              value: "https://{{ .Values.caddyTailscale.hostname }}.tailnet-xxxx.ts.net"
-
+            - name: PORT
+              value: {{ include "platform.port" (dict "root" . "component" "frontend") | quote }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend
-  labels:
-    app: frontend
+  name: {{ include "platform.serviceName" (dict "root" . "component" "frontend") }}
 spec:
   type: ClusterIP
   ports:
-    - port: 3000
-      targetPort: 3000
+    - port: {{ include "platform.port" (dict "root" . "component" "frontend") }}
+      targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: frontend
+    {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
 {{- end }}

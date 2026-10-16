@@ -1,14 +1,29 @@
+# Unified repository and container security policy.
+# Callers override --scanners (e.g. misconfig,secret for IaC vs vuln,secret for images).
 exit-code: 1
+severity:
+  - HIGH
+  - CRITICAL
+cache-dir: .cache/trivy
+ignorefile: .trivyignore.yaml
 vulnerability:
   ignore-unfixed: true
-severity:
-  - CRITICAL
-scanners:
-  - vuln
-  - secret
-db:
-  skip-update: true
-  java-skip-update: true
 pkg-types:
   - os
   - library
+scan:
+  scanners:
+    - vuln
+    - misconfig
+    - secret
+  skip-dirs:
+    - .cache
+    - .mise
+    - .venv
+    - node_modules
+    - frontend/node_modules
+    - frontend/.cache
+    - frontend/.next
+    - .git
+  skip-files:
+    - .secrets.baseline

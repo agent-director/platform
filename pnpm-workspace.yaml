@@ -1,0 +1,17 @@
+packages:
+  - frontend
+
+# Root mise selects the tools; pnpm must not download replacements on drift.
+pmOnFail: error
+runtimeOnFail: error
+engineStrict: true
+verifyDepsBeforeRun: error
+
+# The launcher supplies an absolute cache root, including from frontend/.
+storeDir: '${PLATFORM_CACHE_DIR}/pnpm/store'
+cacheDir: '${PLATFORM_CACHE_DIR}/pnpm/cache'
+
+# Reviewed locked dependencies currently have no install lifecycle scripts.
+# Any future build script requires an explicit, version-scoped decision.
+strictDepBuilds: true
+allowBuilds: {}

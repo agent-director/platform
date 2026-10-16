@@ -6,9 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
-.pytest_cache/
-.coverage
-.coverage.*
 .env
 
 # Helm dependencies
@@ -18,10 +15,6 @@ charts/*/charts/*.tgz
 venv/
 .venv/
 
-# Tooling caches
-.mypy_cache/
-.ruff_cache/
-
 # IDEs
 .vscode/
 .idea/
@@ -30,11 +23,7 @@ venv/
 rendered.yaml
 *.log
 
-# Node.js
-frontend/node_modules/
+# Installed Node dependencies remain separate from disposable artifact caches.
+node_modules/
 frontend/.next/
 frontend/next-env.d.ts
-
-# Local scans & execution
-.local-rootfs-*/
-.local-scans/

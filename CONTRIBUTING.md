@@ -26,11 +26,12 @@ type(scope): description
 Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route endpoint`
 
 ### Scopes
-- `gateway`: Unified API, LiteLLM gateway, routing
+- `api`: Unified API, API configuration, request handling
+- `gateway`: LiteLLM gateway and model routing
 - `orchestrator`: Temporal workers, workflows, activities
 - `charts`: Helm chart templates, values, dependencies
 - `k8s`: Kubernetes manifests, MCP relay configs
-- `scripts`: Developer utilities, local worker scripts
+- `scripts`: Repository tooling, schema maintenance and local lifecycle
 - `tests`: Test suites, fixtures, mock harnesses
 - `git`: Repository plumbing, workflow configurations
 - `platform`: Cross-cutting orchestrator, gateway, and infrastructure changes
@@ -57,21 +58,22 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 
 ## Architecture & Monorepo Structure
 
-We use an **Nx-managed Modular Monorepo**. To ensure isolated dependencies, cacheable CI runs, and strict architectural boundaries, code MUST be placed in the correct directory:
+The current checkout contains `unified_api/`, `orchestrator/`, `director/`, `frontend/`, `charts/`, `images/` and repository maintenance `scripts/`. It uses one Python project and a minimal pnpm workspace; it is not yet an Nx/apps/libs/tools workspace. Keep deployable runtimes distinct from maintenance tooling, and do not introduce the planned directory/repository migration as an incidental cleanup.
 
-- **`apps/` (Deployable Runtimes):** Containers, web servers, and UI bundles that get executed or deployed. They should remain "thin" and mostly wire up shared libraries.
-  - Examples: `apps/core` (API), `apps/ui` (React), `apps/sandbox-exec` (Daemon), `apps/charts` (Helm).
-- **`libs/` (Shared Code & Contracts):** The bulk of the codebase. Reusable Python modules, UI components, and API schemas.
-  - Examples: `libs/contracts` (Shared OpenAPI/Types).
-- **`tools/` (Generators & Automation):** Scripts, Copier templates, and DX improvements used to maintain the codebase, not shipped to users.
-  - Examples: `tools/toolkit-template` (Scaffolding), `tools/scripts` (BATS/Bash).
+Root `mise.toml` and `mise.lock` select the toolchain.
 ## Tooling & Execution
 
-Always use `uv` for Python execution and dependency management:
-- Run scripts: `uv run script.py`
-- Run tests: `uv run pytest tests/`
-- Add dependencies: `uv add <package>`
+Use `mise exec --` (or `make` targets) so commands have the same selected tools, interpreter and `.cache` environment as CI. `uv` remains the Python package/environment manager:
+- Run scripts: `mise exec -- uv run script.py`
+- Add dependencies: `mise exec -- uv add <package>`
+- Validate: `make typecheck`, `make lint`, `make scan-iac`, `make scan-secrets`
+- Format only: `make format` (pinned Prek formatting hook)
 
+Use `pnpm` and its frozen workspace lock for frontend dependencies. Normal setup builds Helm dependencies from committed locks.
+
+### Running Tests
+
+We strictly separate our tests to ensure fast feedback and reliable infrastructure validation. See [`tests/README.md`](tests/README.md) for the full testing contract and instructions on how to run them locally and in CI.
 ## Developer Guidelines
 
 ### Writing Temporal Activities (LLM Invocations)
@@ -81,12 +83,13 @@ Due to the inherent non-determinism of LLMs, all LLM invocations **must** be iso
 - Pass necessary state via LangGraph checkpoint serialization.
 
 ### Local Bring-Up & Helm Deployment
-Deploying the base infrastructure (PostgreSQL, Temporal, LiteLLM proxy, Agent Substrate workers) relies on the `charts/platform` Helm chart.
-- Local environment bring-up requires Kubernetes (e.g., Docker Desktop, Minikube, or kind).
-- Follow the infrastructure guides (TBD) for deploying the chart and establishing the required sandbox configurations.
+Local integration uses a kind cluster bound to `127.0.0.1`, the upstream PostgreSQL operator release, the platform chart and the substrate chart. See the chart and testing READMEs for profiles.
+- `make cluster-up` creates a worktree-owned cluster (default `CLUSTER_NAME=platform-dev`) with isolated kubeconfig.
+- `make test-integration` builds images, deploys, and runs the integration suite against that cluster.
+- `make teardown` destroys only a cluster with verified local creation ownership.
 
 ### Agent Substrate Sandbox Capabilities
-The `temporal-worker` pod acts as the Agent Substrate Sandbox. When implementing workflows:
+Temporal workers are control-plane workloads, not the sandbox itself. Agent Substrate manages sandbox execution. When implementing sandbox-bound work:
 - Assume the execution environment drops all elevated capabilities (e.g., `CAP_SYS_ADMIN`).
 - Sandboxes operate on a read-only root filesystem.
 - Network routes to cluster-internal control plane services are strictly dropped. Allowlist required MCP endpoints explicitly.

@@ -101,7 +101,7 @@ metadata:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 rules:
 - apiGroups: [""]
-  resources: ["nodes", "namespaces", "secrets"]
+  resources: ["nodes", "namespaces"]
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
@@ -145,6 +145,8 @@ rules:
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+# The controller reconciles sandbox isolation only in the workload namespace.
+# trivy:ignore:KSV-0056
 - apiGroups: ["networking.k8s.io"]
   resources: ["networkpolicies"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -167,12 +169,13 @@ subjects:
   namespace: {{ .Release.Namespace }}
 
 ---
+# v0.3.0 scopes its Secret informer to POD_NAMESPACE and metadata.name.
 # 4. NAMESPACE SCOPE: Least-Privilege Secret Reader (Egress MITM)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader
-  namespace: ate-system
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 rules:
@@ -186,7 +189,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: {{ include "agent-substrate.fullname" . }}-egress-secret-reader-binding
-  namespace: ate-system
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
 roleRef:

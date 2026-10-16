@@ -4,6 +4,8 @@ description: Unified multi-agent control plane
 type: application
 version: 0.1.1
 appVersion: "1.0.0"
+annotations:
+  agent-director.io/olm-schema-ref: "5359e60525288af86885e14d89e3210878f87274"
 dependencies:
   - name: temporal
     version: 1.7.0

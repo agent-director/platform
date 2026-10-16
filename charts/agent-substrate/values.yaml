@@ -1,12 +1,16 @@
 global:
   image:
-    tag: latest
+    tag: local
   apiServerCIDRs: []
+  # Include Service and translated endpoint listener ports (kind defaults).
+  apiServerPorts: [443, 6443]
   tls:
     useOcpServingCert: false
 
 ateapi:
   replicaCount: 1
+  service:
+    port: 50051
   image:
     repository: ghcr.io/agent-director/ateapi
     pullPolicy: Always
@@ -38,15 +42,25 @@ atecontroller:
   affinity: {}
 
 database:
-  host: "platform-db"
+  host: platform-db
+  port: 5432
+  user: agent_substrate
+  name: agent_substrate
+  credentialSecret: "" # Defaults to the scoped operator-generated role secret.
+  trustConfigMap: platform-db-trust
+  trustKey: ca.crt
 
 rustfs:
-  secretName: "rustfs-auth-secret" # pragma: allowlist secret
-  host: "rustfs"
+  secretName: "platform-rustfs-auth" # pragma: allowlist secret
+  host: "platform-rustfs"
   port: 9000
 
 tls:
-  secretName: agent-substrate-tls # pragma: allowlist secret
+  secretName: "" # Defaults to the release-derived serving TLS Secret.
+  # OCP's two-key serving Secret is insufficient for upstream bundle/auth flags.
+  # Supply a preassembled Secret with bundle.pem, ca.crt, auth.yaml, empty.json.
+  # bundle.pem: PKCS#8 PRIVATE KEY, leaf certificate, then CA certificates.
+  existingBundleSecret: ""
 
 platformNamespace: platform
 
