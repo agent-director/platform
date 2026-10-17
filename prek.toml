@@ -26,6 +26,7 @@ hooks = [
 repo = "local"
 hooks = [
   { id = "actions-lock", name = "GH Actions Lock", entry = "make actions-lock", language = "system", files = "^\\.github/workflows/", pass_filenames = false, priority = 0 },
+  { id = "check-helm-deps", name = "Check Helm Deps", entry = "make check-helm-deps", language = "system", files = "^charts/", pass_filenames = false, priority = 0 },
   { id = "ruff", name = "ruff", entry = "mise exec -- ruff check --fix", language = "system", types = ["python"], priority = 0 },
   { id = "ruff-format", name = "ruff format", entry = "mise exec -- ruff format", language = "system", types = ["python"], priority = 1 },
   { id = "gitleaks", name = "Detect hardcoded secrets", entry = "make scan-secrets-staged", language = "system", pass_filenames = false, always_run = true, priority = 1 },
@@ -34,7 +35,6 @@ hooks = [
   { id = "checkov", name = "Checkov", entry = "make lint-checkov", language = "system", files = "^(charts/|\\.checkov\\.yaml$)", pass_filenames = false, priority = 1 },
   { id = "kube-linter", name = "KubeLinter", entry = "make lint-kubernetes", language = "system", files = "^(charts/|\\.kube-linter\\.yaml$)", pass_filenames = false, priority = 1 },
   { id = "typecheck", name = "Whole-project Pyrefly", entry = "make typecheck", language = "system", types = ["python"], pass_filenames = false, always_run = true, priority = 1 },
-  { id = "check-helm-deps", name = "Check Helm Deps", entry = "make check-helm-deps", language = "system", files = "^charts/", pass_filenames = false, priority = 1 },
   { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false, priority = 1 },
   { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^(charts/|\\.schemas/)", pass_filenames = false, priority = 1 },
   { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false, priority = 1 },

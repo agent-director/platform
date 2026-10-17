@@ -25,6 +25,19 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@v5.1.2
 
+      - name: Warm and cache Trivy vulnerability databases
+        uses: actions/cache@v6.1.0
+        with:
+          path: .cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
+      - name: Ensure Trivy vulnerability databases are current
+        run: |
+          mise exec -- trivy image --config trivy.yaml --download-db-only
+          mise exec -- trivy image --config trivy.yaml --download-java-db-only
+
       - name: Discover exported runtime images
         id: set-matrix
         run: |

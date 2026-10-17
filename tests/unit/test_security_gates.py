@@ -398,6 +398,8 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     assert hooks["end-of-file-fixer"]["priority"] == 0
     assert hooks["actions-lock"]["priority"] == 0
     assert hooks["actions-lock"]["entry"] == "make actions-lock"
+    assert hooks["check-helm-deps"]["priority"] == 0
+    assert hooks["check-helm-deps"]["entry"] == "make check-helm-deps"
     assert hooks["ruff"]["priority"] == 0
     assert hooks["ruff"]["entry"] == "mise exec -- ruff check --fix"
     assert hooks["ruff-format"]["priority"] == 1
@@ -412,7 +414,6 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
         "checkov",
         "kube-linter",
         "helm-lint",
-        "check-helm-deps",
         "kubeconform",
         "trivy-fs",
         "pytest",

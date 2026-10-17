@@ -34,6 +34,14 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@v5.1.2
 
+      - name: Restore Trivy vulnerability database cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: .cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4.4.1
 

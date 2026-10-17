@@ -50,6 +50,20 @@
         "https://github.com/pre-commit/pre-commit-hooks"
       ],
       "abandonmentThreshold": "2 years"
+    },
+    {
+      "matchPackageNames": [
+        "pnpm",
+        "ghcr.io/pnpm/pnpm"
+      ],
+      "groupName": "pnpm"
+    },
+    {
+      "matchPackageNames": [
+        "python",
+        "docker.io/library/python"
+      ],
+      "groupName": "python"
     }
   ],
   "customManagers": [

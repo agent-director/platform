@@ -37,7 +37,11 @@ help:
 	  'teardown [CLUSTER_NAME=platform-dev] (owned local kind cluster only)'
 
 setup:
-	./scripts/dev-setup.sh
+	$(MISE) install --locked
+	$(RUN) uv sync --locked
+	$(RUN) pnpm --dir frontend install --frozen-lockfile
+	$(MAKE) check-helm-deps
+	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:
 	$(RUN) uv run --locked pyrefly check --config pyproject.toml
@@ -91,8 +95,8 @@ lint-helm: check-helm-deps
 check-helm-deps:
 	@if [[ ! -f charts/platform/charts/temporal-1.7.0.tgz ]]; then \
 	  $(RUN) helm repo add temporal https://go.temporal.io/helm-charts --force-update; \
+	  $(RUN) helm dependency build charts/platform --skip-refresh; \
 	fi
-	$(RUN) helm dependency build charts/platform --skip-refresh
 
 update-schemas:
 	$(RUN) uv run --locked scripts/update-crds.py all
@@ -132,7 +136,21 @@ scan-image:
 	  --format table --pkg-types os --severity CRITICAL --exit-code 1 "$$IMAGE_REF"
 
 scan-local:
-	./scripts/run-all-local-scans.sh "$(if $(IMAGE),$(IMAGE),all)"
+	@selection="$(if $(IMAGE),$(IMAGE),all)"; \
+	matched=0; \
+	while IFS=$$'\t' read -r name dockerfile target; do \
+	  [[ -n "$$name" ]] || continue; \
+	  component="$${dockerfile#images/}"; component="$${component%/Dockerfile}"; \
+	  if [[ "$$selection" == "all" || "$$selection" == "$$name" || "$$selection" == "$$component" || "$$selection" == "images/$$component" ]]; then \
+	    matched=1; \
+	    tag="local-scan/$$name:$$(git rev-parse --short HEAD 2>/dev/null || printf 'local')"; \
+	    target_args=(); if [[ -n "$$target" ]]; then target_args=(--target "$$target"); fi; \
+	    $(RUN) docker buildx build -f "$$dockerfile" --load $${target_args[@]+"$${target_args[@]}"} -t "$$tag" .; \
+	    $(MAKE) scan-image IMAGE_REF="$$tag"; \
+	    docker image rm "$$tag" >/dev/null 2>&1 || true; \
+	  fi; \
+	done < <($(RUN) uv run --no-project scripts/images.py --format tsv); \
+	[[ "$$matched" -eq 1 ]] || { printf 'ERROR: Unknown image selection: %s\n' "$$selection" >&2; exit 2; }
 
 actions-lock:
 	gh actions-lock --no-migrate-local-actions
