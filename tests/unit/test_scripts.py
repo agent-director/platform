@@ -119,13 +119,13 @@ case "$command" in
     case " $* " in
       *' scripts/images.py '*)
         [[ "${FAIL_STAGE:-}" != discovery ]] || exit 53
-        exec "$FAKE_UV" run --no-project --no-sync --python "$FAKE_PYTHON" python "$FAKE_ROOT/scripts/images.py" --format tsv
+        exec "$FAKE_PYTHON" "$FAKE_ROOT/scripts/images.py" --format tsv
         ;;
       *' python -c '*)
         [[ "$1" == run && ( "$2" == --locked || "$2" == --no-project ) && "$3" == python && "$4" == -c ]] || exit 94
         code=$5
         shift 5
-        exec "$FAKE_UV" run --no-project --no-sync --python "$FAKE_PYTHON" python -c "$code" "$@"
+        exec "$FAKE_PYTHON" -c "$code" "$@"
         ;;
       *' pytest '*)
         if [[ -n "${FAKE_ORPHAN_PID_FILE:-}" ]]; then
@@ -163,8 +163,8 @@ class ScriptHarness:
         chart_dir.mkdir(parents=True)
         (chart_dir / "temporal-1.7.0.tgz").write_bytes(b"stub")
         shutil.copy(
-            REPO_ROOT / "charts/platform/postgres-operator-values.yaml",
-            directory / "charts/platform/postgres-operator-values.yaml",
+            REPO_ROOT / "charts/postgres-operator-values.yaml",
+            directory / "charts/postgres-operator-values.yaml",
         )
         image = directory / "images" / "unit"
         image.mkdir(parents=True)

@@ -4,6 +4,9 @@ SHELL := /bin/bash
 
 MISE := mise
 RUN := $(MISE) exec --
+# renovate: datasource=pypi depName=checkov
+CHECKOV_VERSION ?= 3.3.26
+KUBECONFORM_FLAGS := -strict -summary -skip KataConfig -schema-location default -schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 CLUSTER_NAME ?= platform-dev
 KUBE_CONTEXT ?= $(if $(CLUSTER_NAME),kind-$(CLUSTER_NAME),)
 KUBECONFIG := $(if $(CLUSTER_NAME),$(CURDIR)/.cache/clusters/$(CLUSTER_NAME)/kubeconfig,$(KUBECONFIG))
@@ -24,7 +27,7 @@ export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE I
 .PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
-.PHONY: scan-iac scan-secrets scan-image scan-local verify-actions-lock
+.PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
 
 help:
 	@printf '%s\n' 'setup / typecheck / build-frontend / lint / format / pytest-unit' \
@@ -38,10 +41,10 @@ setup:
 
 typecheck:
 	$(RUN) uv run --locked pyrefly check --config pyproject.toml
-	$(RUN) pnpm --filter platform-ui typecheck
+	$(RUN) pnpm --dir frontend typecheck
 
 build-frontend:
-	$(RUN) pnpm --filter platform-ui build
+	$(RUN) pnpm --dir frontend build
 
 lint:
 	$(RUN) prek run --all-files
@@ -80,8 +83,10 @@ pytest-integration: check-cluster
 lint-helm: check-helm-deps
 	@for chart in charts/*/Chart.yaml; do \
 	  $(RUN) helm lint "$${chart%/Chart.yaml}"; \
-	done; \
-	$(RUN) uv run --locked scripts/render_profiles.py > /dev/null
+	done
+	@$(RUN) helm template platform charts/platform --namespace platform > /dev/null
+	@$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml > /dev/null
+	@$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate > /dev/null
 
 check-helm-deps:
 	@if [[ ! -f charts/platform/charts/temporal-1.7.0.tgz ]]; then \
@@ -93,24 +98,20 @@ update-schemas:
 	$(RUN) uv run --locked scripts/update-crds.py all
 
 lint-checkov:
-	$(RUN) uv run --locked scripts/checkov_profiles.py
+	env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+	  $(RUN) uvx "checkov@$(CHECKOV_VERSION)" --framework helm -d charts --config-file .checkov.yaml --quiet --compact
 
 lint-kube: lint-kubernetes
 
-lint-kubernetes:
-	@directory=$$($(RUN) uv run --locked scripts/render_profiles.py); \
-	for profile in default kind substrate; do \
-	  $(RUN) kube-linter lint "$$directory/$$profile.yaml" --config .kube-linter.yaml; \
-	done
+lint-kubernetes: check-helm-deps
+	$(RUN) helm template platform charts/platform --namespace platform | $(RUN) kube-linter lint - --config .kube-linter.yaml
+	$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml | $(RUN) kube-linter lint - --config .kube-linter.yaml
+	$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate | $(RUN) kube-linter lint - --config .kube-linter.yaml
 
-check-schema:
-	@directory=$$($(RUN) uv run --locked scripts/render_profiles.py); \
-	for profile in default kind substrate; do \
-	  $(RUN) kubeconform -strict -summary -skip KataConfig \
-	    -schema-location default \
-	    -schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-	    "$$directory/$$profile.yaml"; \
-	done
+check-schema: check-helm-deps
+	$(RUN) helm template platform charts/platform --namespace platform | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
+	$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
+	$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
 
 scan-iac:
 	$(RUN) trivy fs --config trivy.yaml --scanners misconfig,secret .
@@ -118,20 +119,23 @@ scan-iac:
 scan-secrets:
 	$(RUN) gitleaks git --log-opts="HEAD" --redact --config .gitleaks.toml
 
+scan-secrets-staged:
+	$(RUN) gitleaks git --pre-commit --staged --redact --config .gitleaks.toml
+
 scan-image:
 	@[[ -n "$${IMAGE_REF:-}" ]] || { printf 'ERROR: Set IMAGE_REF=<image:tag>\n' >&2; exit 1; }
 	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types library --severity HIGH,CRITICAL --exit-code 1 \
-	  --skip-db-update=false --skip-java-db-update=false "$$IMAGE_REF"
+	  --format table --pkg-types library --severity HIGH,CRITICAL --exit-code 1 "$$IMAGE_REF"
 	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types os --severity HIGH --exit-code 0 \
-	  --skip-db-update=false --skip-java-db-update=false "$$IMAGE_REF"
+	  --format table --pkg-types os --severity HIGH --exit-code 0 "$$IMAGE_REF"
 	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types os --severity CRITICAL --exit-code 1 \
-	  --skip-db-update=false --skip-java-db-update=false "$$IMAGE_REF"
+	  --format table --pkg-types os --severity CRITICAL --exit-code 1 "$$IMAGE_REF"
 
 scan-local:
 	./scripts/run-all-local-scans.sh "$(if $(IMAGE),$(IMAGE),all)"
+
+actions-lock:
+	gh actions-lock --no-migrate-local-actions
 
 verify-actions-lock:
 	gh actions-lock --verify --no-migrate-local-actions

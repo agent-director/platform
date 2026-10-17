@@ -3,7 +3,7 @@
 This chart retains the current release ownership: PostgreSQL, RustFS, application
 workloads and the Temporal dependency live in the **same platform release**. The
 Zalando `postgres-operator` is installed directly as a standalone release from
-its upstream Helm repository (`charts/platform/postgres-operator-values.yaml`).
+its upstream Helm repository (`charts/postgres-operator-values.yaml`).
 The explicitly deferred Checkov exclusion for `charts/platform` remains unchanged.
 
 ## Profiles and installation

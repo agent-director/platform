@@ -164,9 +164,7 @@ settings:
 
 importers:
 
-  .: {}
-
-  frontend:
+  .:
     dependencies:
       lucide-react:
         specifier: 1.52.0

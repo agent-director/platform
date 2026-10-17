@@ -17,7 +17,7 @@ done
 builtin printf 'Installing the locked root toolchain and project dependencies.\n'
 mise install --locked
 mise exec -- uv sync --locked
-mise exec -- pnpm install --frozen-lockfile
+mise exec -- pnpm --dir frontend install --frozen-lockfile
 mise exec -- helm repo add temporal https://go.temporal.io/helm-charts --force-update
 mise exec -- helm dependency build charts/platform --skip-refresh
 

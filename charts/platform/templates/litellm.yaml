@@ -35,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: litellm
-          image: {{ .Values.litellm.image | quote }}
+          image: "{{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}"
           imagePullPolicy: IfNotPresent
           securityContext:
             readOnlyRootFilesystem: true

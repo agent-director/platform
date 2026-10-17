@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: temporal-dev
-          image: {{ .Values.temporalDev.image | quote }}
+          image: "{{ .Values.temporalDev.image.repository }}:{{ .Values.temporalDev.image.tag }}"
           imagePullPolicy: IfNotPresent
           command: ["temporal"]
           args:

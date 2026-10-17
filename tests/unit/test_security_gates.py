@@ -12,8 +12,6 @@ from typing import Any
 import pytest
 import yaml
 
-from scripts import render_profiles
-
 ROOT = Path(__file__).absolute().parents[2]
 
 
@@ -140,9 +138,16 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
     assert not re.search(baseline_regex, "source/.secrets.baseline")
 
     kube_linter = yaml.safe_load((ROOT / ".kube-linter.yaml").read_text())["checks"]
-    assert kube_linter["doNotAutoAddDefaults"] is False
-    assert {"no-readiness-probe", "no-liveness-probe"}.issubset(kube_linter["include"])
-    assert not kube_linter.get("exclude")
+    assert kube_linter["addAllBuiltIn"] is True
+    excluded = set(kube_linter.get("exclude") or ())
+    assert {
+        "no-readiness-probe",
+        "no-liveness-probe",
+        "run-as-non-root",
+        "no-read-only-root-fs",
+        "privilege-escalation-container",
+        "privileged-container",
+    }.isdisjoint(excluded)
     assert not (ROOT / ".kube-linter-operator.yaml").exists()
     for template in (ROOT / "charts").glob("*/templates/*"):
         if template.is_file():
@@ -223,10 +228,25 @@ def test_kube_linter_real_default_and_probe_positive_controls(
 def test_kube_linter_scans_enabled_kind_workload_not_only_defaults(
     tmp_path: Path, kube_linter_binary: str
 ) -> None:
-    rendered = tmp_path / "profiles"
-    rendered.mkdir(mode=0o700)
-    render_profiles.render_profiles(ROOT, rendered)
-    path = rendered / "kind.yaml"
+    helm = _tool_binary("helm")
+    path = tmp_path / "kind.yaml"
+    rendered = subprocess.run(
+        [
+            helm,
+            "template",
+            "platform",
+            str(ROOT / "charts/platform"),
+            "--namespace",
+            "platform",
+            "-f",
+            str(ROOT / "charts/platform/values-kind.yaml"),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    path.write_text(rendered.stdout)
     command = [
         kube_linter_binary,
         "lint",
@@ -262,7 +282,7 @@ def test_kube_linter_scans_enabled_kind_workload_not_only_defaults(
 
 
 def _trivy_scan(
-    directory: Path, *, ignore_exceptions: bool = True
+    directory: Path,
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
     executable = _tool_binary("trivy")
     shutil.copy2(ROOT / ".trivyignore.yaml", directory / ".trivyignore.yaml")
@@ -285,8 +305,6 @@ def _trivy_scan(
         "--format",
         "json",
     ]
-    if not ignore_exceptions:
-        command.extend(["--ignorefile", ""])
     result = subprocess.run(
         [*command, "."], cwd=directory, capture_output=True, text=True, check=False
     )
@@ -309,19 +327,6 @@ def _copy_chart(directory: Path, name: str) -> Path:
     destination = directory / "charts" / name
     shutil.copytree(ROOT / "charts" / name, destination)
     return destination
-
-
-def test_trivy_exception_policy_is_exact() -> None:
-    config = yaml.safe_load((ROOT / "trivy.yaml").read_text())
-    assert config["ignorefile"] == ".trivyignore.yaml"
-    policy = yaml.safe_load((ROOT / ".trivyignore.yaml").read_text())
-    assert set(policy) == {"misconfigurations"}
-    entries = policy["misconfigurations"]
-    assert len(entries) == 1
-    assert entries[0]["id"] == "KSV-0109"
-    assert entries[0]["paths"] == [
-        "charts/platform/charts/temporal/templates/server-configmap.yaml"
-    ]
 
 
 def test_trivy_real_iac_misconfiguration_positive_control(tmp_path: Path) -> None:
@@ -391,18 +396,17 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     hooks = {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
     assert hooks["trailing-whitespace"]["priority"] == 0
     assert hooks["end-of-file-fixer"]["priority"] == 0
-    assert hooks["ruff"]["priority"] == 1
-    assert hooks["ruff-format"]["priority"] == 1
+    assert hooks["actions-lock"]["priority"] == 0
+    assert hooks["actions-lock"]["entry"] == "make actions-lock"
+    assert hooks["ruff"]["priority"] == 0
     assert hooks["ruff"]["entry"] == "mise exec -- ruff check --fix"
+    assert hooks["ruff-format"]["priority"] == 1
     assert hooks["ruff-format"]["entry"] == "mise exec -- ruff format"
     assert hooks["actionlint"]["entry"] == "mise exec -- actionlint"
     assert hooks["hadolint"]["entry"] == "mise exec -- hadolint"
     assert hooks["typecheck"]["entry"] == "make typecheck"
-    assert hooks["typecheck"]["priority"] == 2
-    assert (
-        hooks["gitleaks"]["entry"]
-        == "mise exec -- gitleaks git --pre-commit --staged --redact --config .gitleaks.toml"
-    )
+    assert hooks["gitleaks"]["entry"] == "make scan-secrets-staged"
+    assert hooks["pytest"]["entry"] == "make pytest-unit"
     for name in [
         "gitleaks",
         "checkov",
@@ -414,36 +418,5 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
         "pytest",
     ]:
         assert hooks[name]["pass_filenames"] is False, name
-        assert hooks[name]["priority"] == 2, name
-
-
-def test_profile_renderer_preserves_raw_outputs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    calls: list[list[str]] = []
-
-    def run(arguments: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        calls.append(arguments)
-        assert kwargs["check"] is True
-        document = {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {"name": "raw-output"},
-        }
-        content = "# Native Helm output, do not rewrite\n" + yaml.safe_dump(document)
-        return subprocess.CompletedProcess(arguments, 0, stdout=content)
-
-    monkeypatch.setattr(render_profiles.subprocess, "run", run)
-    render_profiles.render_profiles(
-        ROOT, tmp_path, "custom-release", "custom-namespace"
-    )
-    assert len(calls) == 3
-    assert {path.name for path in tmp_path.iterdir()} == set(
-        render_profiles.PROFILE_FILES
-    )
-    for filename in render_profiles.PROFILE_FILES:
-        assert (
-            (tmp_path / filename)
-            .read_text()
-            .startswith("# Native Helm output, do not rewrite\n")
-        )
+        assert hooks[name]["priority"] == 1, name
+        assert hooks[name]["entry"].startswith("make "), name

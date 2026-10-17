@@ -452,7 +452,7 @@ deploy() {
         --repo https://opensource.zalando.com/postgres-operator/charts/postgres-operator \
         --version "$POSTGRES_OPERATOR_VERSION" \
         --namespace "$PROVIDER_NAMESPACE" --create-namespace \
-        -f charts/platform/postgres-operator-values.yaml \
+        -f charts/postgres-operator-values.yaml \
         --wait --timeout "$WAIT_TIMEOUT"
     wait_deployments "$PROVIDER_NAMESPACE" "$PROVIDER_RELEASE_NAME"
     kube wait --for=condition=Established crd/postgresqls.acid.zalan.do --timeout "$WAIT_TIMEOUT"

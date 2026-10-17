@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: rustfs
-          image: {{ .Values.rustfs.image | quote }}
+          image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false

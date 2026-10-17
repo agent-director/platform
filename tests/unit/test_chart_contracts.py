@@ -394,10 +394,38 @@ def test_substrate_metadata_matches_selected_source_version(chart_dir: str) -> N
 
 def test_provider_spilo_identity_can_read_group_owned_tls(chart_dir: str) -> None:
     values = yaml.safe_load(
-        (Path(chart_dir) / "postgres-operator-values.yaml").read_text()
+        (Path(chart_dir).parent / "postgres-operator-values.yaml").read_text()
     )
     configuration = values["configKubernetes"]
     assert configuration["enable_readiness_probe"] is True
     assert configuration["spilo_runasuser"] == 101
     assert configuration["spilo_runasgroup"] == 103
     assert configuration["spilo_fsgroup"] == 103
+
+
+def test_chart_values_use_renovate_compatible_image_mappings(chart_dir: str) -> None:
+    charts_root = Path(chart_dir).parent
+
+    def check_images(node: Any, path: str = "") -> None:
+        if not isinstance(node, dict):
+            return
+        for key, value in node.items():
+            current = f"{path}.{key}" if path else key
+            if key == "image":
+                assert isinstance(value, dict), (
+                    f"{current} must be a {{repository, tag}} mapping for Renovate helm-values"
+                )
+                if path.startswith("platform/"):
+                    assert {"repository", "tag"} <= set(value), (
+                        f"{current} must define repository and tag"
+                    )
+                else:
+                    assert "repository" in value or "tag" in value, (
+                        f"{current} must define repository or tag"
+                    )
+            else:
+                check_images(value, current)
+
+    for values_file in sorted(charts_root.glob("*/values*.yaml")):
+        rel = f"{values_file.parent.name}/{values_file.name}"
+        check_images(yaml.safe_load(values_file.read_text()), rel)

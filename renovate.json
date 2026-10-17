@@ -56,12 +56,13 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
+        "/^Makefile$/",
         "/^\\.github/workflows/.*\\.ya?ml$/",
         "/^images/.*/Dockerfile$/",
         "/^scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]
