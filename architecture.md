@@ -10,32 +10,32 @@ The deployed Python API is `unified_api.main:app`; LiteLLM is a separate model-p
 
 - **Unified API:** FastAPI request/configuration surface with validated injected settings. Its health endpoint reports process availability, not proof that every backing service is healthy.
 - **Temporal worker:** polls the configured namespace/task queue, supervises startup/shutdown, and exposes process health plus SDK-backed readiness. Integration tests execute a real SDK workflow against this worker.
-- **Frontend:** Next.js application in a pnpm workspace. Browser requests use same-origin `/api` and `/v1` routes rather than a runtime `NEXT_PUBLIC_API_URL` that would already have been frozen at build time.
+- **Frontend:** Next.js application in `frontend/` managed by `pnpm`. Browser requests use same-origin `/api` and `/v1` routes rather than a runtime `NEXT_PUBLIC_API_URL` that would already have been frozen at build time.
 - **LiteLLM:** separately deployed model proxy; the API receives its actual Service URL from chart configuration.
-- **Agent Substrate:** separately deployed API/controller with scoped database credentials, explicit TLS bundle inputs and matching Service/SAN/server-name wiring. The pinned upstream controller has documented probe limitations; it is not given fictitious listeners.
+- **Agent Substrate:** separately deployed `v0.4.0` API/controller (`ateapi` and `atecontroller`) with scoped database credentials, explicit TLS bundle inputs, matching Service/SAN/server-name wiring, and live HTTP `/metrics` probes on `:8080` for the controller.
 
 ## Toolchain and artifact ownership
 
-Root mise metadata selects executable/interpreter versions. uv owns Python packaging, lock resolution and `.venv`; pnpm owns frontend dependencies. Native ecosystem metadata needed by other consumers is generated or drift-checked against the root authority. Compatibility constraints are not exact development pins.
+Root `mise.toml` and `mise.lock` select the CLI and runtime toolchain. `uv` owns Python packaging, lock resolution and `.venv`; `pnpm` owns `frontend/` dependencies and `frontend/pnpm-lock.yaml`. Container Dockerfiles pin their own `FROM <repo>:<tag>@sha256:<digest>` images directly so standalone builds and Renovate's `dockerfile` manager work without wrapper scripts.
 
 Helm owns cluster names, namespaces, Services and port configuration. Runtime code consumes validated environment settings rather than deriving Helm names. Test fixtures discover the deployed lifecycle contract and own their temporary host access endpoints.
 
-Shared image discovery identifies exported Docker targets for CI, kind loading and scans. The API/worker Dockerfiles still use their own runtime builds; no common Python dependency-filled base was introduced. Frontend containers retain a hardened distroless runtime and the selected builder Node binary.
+Shared image discovery (`scripts/images.py`) identifies exported Docker targets for CI, kind loading and scans. The API/worker Dockerfiles use their own runtime builds; no common Python dependency-filled base is introduced. Frontend containers copy the distroless Node runtime into the `pnpm` builder stage so both build and runtime execute the same hardened Node binary.
 
 ## Backing-service lifecycle
 
-This change preserves the current chart layout. The PostgreSQL operator remains a separately installed release, now selected by a locked wrapper dependency. The platform chart still owns PostgreSQL/RustFS and the selected Temporal profile. Planned infrastructure extraction is not performed here.
+This change preserves the current chart layout. The upstream Zalando `postgres-operator` (`2.0.3`) is installed directly from its Helm repository using `charts/postgres-operator-values.yaml`. The platform chart owns PostgreSQL/RustFS, application workloads, Langfuse, and the selected Temporal profile. Planned infrastructure extraction is not performed here.
 
-Provider versions, packaged CRDs and cached validation schemas must agree. Normal setup/CI materializes committed locks; dependency updates are deliberate maintenance operations, not automatic setup side effects.
+Provider versions, packaged CRDs and cached validation schemas must agree (`make update-schemas`). Normal setup/CI materializes committed locks; dependency updates are deliberate maintenance operations, not automatic setup side effects.
 
-Full Temporal requires ordering beyond Helm dependency declaration:
+Both `PROFILE=kind` and `PROFILE=full` converge in a single Helm pass:
 
-1. Establish the selected provider CRDs/controller and backing database resources.
-2. Verify required credentials, trust material and authenticated SQL readiness.
-3. Enable the full Temporal server/schema runtime without workers so its namespace hook can complete after Helm's wait boundary.
-4. Enable workers in the same platform release.
+1. Install the upstream `postgres-operator` release and wait for the `postgresqls.acid.zalan.do` CRD.
+2. Install `charts/platform` (`temporal.enabled: true`, `workers.enabled: true`, and `langfuse.enabled: true` by default in `values.yaml`, with non-hook schema/namespace Jobs via `useHelmHooks: false`; or `temporalDev.enabled: true` in `values-kind.yaml`).
+3. Verify required credentials, trust material, authenticated SQL readiness, and platform Deployment rollouts.
+4. Copy scoped database/RustFS secrets and CA trust into `agent-substrate` and install `charts/agent-substrate`.
 
-Existing healthy full deployments are not silently bootstrapped again. Implicit profile/namespace migrations are rejected before cluster mutation. Schema migration is not undone by Helm rollback. Production deployment or data migration is not implied by local validation.
+Production deployment or data migration is not implied by local validation.
 
 ## Temporal execution profiles
 
@@ -57,6 +57,6 @@ The unused standalone filesystem-worker prototype and Tailscale Serve JSON are r
 
 Unit tests cover Python logic, local tooling/script contracts, Helm profiles and native scanner positive controls without a live Kubernetes cluster. Integration tests separately prove backing-service access and runtime wiring through owned loopback forwards. They must fail on failed discovery rather than reduce coverage silently.
 
-Complementary gates do not substitute for one another. KubeLinter uses distinct profile contexts and two narrowly documented upstream operator exceptions. Gitleaks detects current source rather than only an empty staged diff. Trivy enables its misconfiguration scanner explicitly. The deferred `charts/platform` Checkov exclusion is preserved and disclosed.
+Complementary gates do not substitute for one another. KubeLinter enables all built-in checks (`addAllBuiltIn: true`) with an explicit opt-out list in `.kube-linter.yaml`. Gitleaks runs in `git` mode (`--pre-commit --staged` for pre-commit and `--log-opts="HEAD"` for branch history). Trivy enforces vulnerability, misconfiguration, and secret scanning via `trivy.yaml`. The deferred `charts/platform` Checkov exclusion is preserved and disclosed.
 
 Local teardown deletes only an explicitly named, verified owned kind cluster. It is not an application uninstall, production purge or operator-removal process.

@@ -7,7 +7,7 @@ The suite separates local logic/tooling contracts from live Kubernetes integrati
 ```sh
 make setup
 make typecheck
-make pytest-unit PYTEST_ARGS='-n 0'
+make pytest-unit
 ```
 
 `tests/unit/` covers API/configuration logic, worker supervision, script safety/failure cleanup, independently asserted Helm profiles and native scanner positive controls. It does not create a live Kubernetes cluster or build/pull Docker images.
@@ -34,6 +34,6 @@ Coverage includes authenticated database queries, real Temporal SDK execution ag
 
 - `make typecheck`: locked Pyrefly over Python code and TypeScript typechecking for the frontend.
 - `make format`: pinned Prek formatting only.
-- `make lint`: all pre-commit hooks running in parallel priority tiers (`0` fixers, `1` formatters, `2` linters/unit tests).
+- `make lint`: all pre-commit hooks running in two parallel priority tiers (`0` autofixers/materializers, `1` formatters, linters, and parallel unit tests).
 - `make lint-kubernetes`, `make check-schema`, `make lint-checkov`: rendered profile validation against KubeLinter, Kubeconform (`.schemas/`), and Checkov.
 - `make scan-secrets`, `make scan-iac`, `make scan-local`: Gitleaks (`git` mode) and Trivy IaC/image enforcement.

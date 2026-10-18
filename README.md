@@ -38,8 +38,8 @@ For direct commands, use `mise exec --` so tool selection and cache settings mat
 
 ```sh
 mise exec -- uv run --locked director --help
-mise exec -- pnpm --filter platform-ui typecheck
-mise exec -- pnpm --filter platform-ui build
+mise exec -- pnpm --dir frontend typecheck
+mise exec -- pnpm --dir frontend build
 ```
 
 ## Local kind validation
@@ -60,6 +60,6 @@ See [tests/README.md](tests/README.md) and [charts/platform/README.md](charts/pl
 
 ## Validation and caches
 
-Project-local caches, temporary artifacts, scan logs and frontend outputs live under `.cache/`; `.venv` remains separate. Tracked `.schemas/` and CRDs are versioned validation inputs.
+Project-local tool caches and cluster state live under `.cache/`; `.venv` and `frontend/.next` remain separate. Tracked `.schemas/` and CRDs are versioned validation inputs.
 
 Security gates include Gitleaks secret detection (`make scan-secrets`), Trivy misconfiguration and vulnerability scanning (`make scan-iac` and `make scan-local`), KubeLinter (`make lint-kubernetes`), Kubeconform schema validation (`make check-schema`), and Checkov (`make lint-checkov`). The `charts/platform` Checkov exclusion is intentionally retained for its separately planned compliance work.

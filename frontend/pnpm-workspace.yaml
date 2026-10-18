@@ -1,8 +1,5 @@
 packages:
   - .
 
-storeDir: '${PLATFORM_CACHE_DIR}/pnpm/store'
-cacheDir: '${PLATFORM_CACHE_DIR}/pnpm/cache'
-
 strictDepBuilds: true
 allowBuilds: {}

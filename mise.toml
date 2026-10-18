@@ -29,9 +29,6 @@ python.compile = false
 locked = true
 
 [env]
-PLATFORM_ROOT = "{{ config_root }}"
-PLATFORM_MISE_ACTIVE = "1"
-PLATFORM_CACHE_DIR = "{{ config_root }}/.cache"
 UV_PYTHON_DOWNLOADS = "never"
 UV_PROJECT_ENVIRONMENT = "{{ config_root }}/.venv"
 UV_CACHE_DIR = "{{ config_root }}/.cache/uv"
