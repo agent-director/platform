@@ -29,8 +29,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: temporal-worker
-          image: "{{ .Values.global.image.repository }}/platform-worker:{{ .Values.global.image.tag }}"
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.workers.image.repository }}:{{ .Values.workers.image.tag }}"
+          imagePullPolicy: {{ .Values.workers.image.pullPolicy }}
           command: ["python", "-m", "orchestrator.temporal_worker"]
           securityContext:
             readOnlyRootFilesystem: true

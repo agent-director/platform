@@ -416,8 +416,14 @@ def test_chart_values_use_renovate_compatible_image_mappings(chart_dir: str) -> 
                     f"{current} must be a {{repository, tag}} mapping for Renovate helm-values"
                 )
                 if path.startswith("platform/"):
+                    assert not current.endswith(".global.image"), (
+                        f"{current} must not use a global image prefix in platform values"
+                    )
                     assert {"repository", "tag"} <= set(value), (
                         f"{current} must define repository and tag"
+                    )
+                    assert "/" in str(value["repository"]).removeprefix("ghcr.io/"), (
+                        f"{current}.repository must be a complete image path, not a registry/org prefix"
                     )
                 else:
                     assert "repository" in value or "tag" in value, (
