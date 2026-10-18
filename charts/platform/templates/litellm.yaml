@@ -1,72 +1,105 @@
-{{- if .Values.litellm.enabled }}
+{{- if or .Values.litellm.enabled .Values.unifiedApi.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "platform.fullname" . }}-litellm-config
+  name: {{ include "platform.resourceName" (dict "root" . "component" "litellm-config") }}
 data:
   litellm_config.yaml: |
 {{ .Files.Get "files/litellm_config.yaml" | indent 4 }}
-
+{{- end }}
+{{- if .Values.litellm.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-litellm
+  name: {{ include "platform.resourceName" (dict "root" . "component" "litellm") }}
   labels:
-    app: litellm
+    {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: litellm
+      {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: litellm
+        {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: litellm
-          image: "ghcr.io/berriai/litellm:main-latest"
+          image: "{{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}"
           imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           args:
-            - "--config"
-            - "/app/config/litellm_config.yaml"
-            - "--port"
-            - "4000"
-            - "--detailed_debug"
+            - --config
+            - /app/config/litellm_config.yaml
+            - --port
+            - {{ include "platform.port" (dict "root" . "component" "litellm") | quote }}
           ports:
-            - containerPort: 4000
-              protocol: TCP
+            - name: http
+              containerPort: {{ include "platform.port" (dict "root" . "component" "litellm") }}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: http
           env:
-            # Disable Admin UI
             - name: LITELLM_MODE
-              value: "PRODUCTION"
+              value: PRODUCTION
+            - name: HOME
+              value: /tmp
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
           envFrom:
             - secretRef:
-                name: {{ include "platform.fullname" . }}-secrets
+                name: {{ include "platform.resourceName" (dict "root" . "component" "secrets") }}
                 optional: true
           volumeMounts:
             - name: litellm-config
               mountPath: /app/config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: litellm-config
           configMap:
-            name: {{ include "platform.fullname" . }}-litellm-config
+            name: {{ include "platform.resourceName" (dict "root" . "component" "litellm-config") }}
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: litellm
-  labels:
-    app: litellm
+  name: {{ include "platform.serviceName" (dict "root" . "component" "litellm") }}
 spec:
   type: ClusterIP
   ports:
-    - port: 4000
-      targetPort: 4000
+    - port: {{ include "platform.port" (dict "root" . "component" "litellm") }}
+      targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: litellm
+    {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 4 }}
 {{- end }}

@@ -2,37 +2,43 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "platform.fullname" . }}-unified-api
+  name: {{ include "platform.resourceName" (dict "root" . "component" "unifiedApi") }}
   labels:
-    app: unified-api
+    {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 4 }}
 spec:
   replicas: {{ .Values.unifiedApi.replicaCount }}
   selector:
     matchLabels:
-      app: unified-api
+      {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: unified-api
+        {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: unified-api
-          image: '{{ .Values.global.image.repository | default "ghcr.io/agent-director" }}/unified-api:{{ .Values.global.image.tag | default "latest" }}'
+          image: "{{ .Values.unifiedApi.image.repository }}:{{ .Values.unifiedApi.image.tag }}"
+          imagePullPolicy: {{ .Values.unifiedApi.image.pullPolicy }}
           securityContext:
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
             capabilities:
-              drop:
-                - ALL
-          imagePullPolicy: IfNotPresent
+              drop: [ALL]
           ports:
-            - containerPort: 8000
-              protocol: TCP
+            - name: http
+              containerPort: {{ include "platform.port" (dict "root" . "component" "unifiedApi") }}
           resources:
             requests:
               cpu: 100m
@@ -40,61 +46,83 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
           env:
+            - name: UVICORN_PORT
+              value: {{ include "platform.port" (dict "root" . "component" "unifiedApi") | quote }}
+            - name: LITELLM_URL
+              value: {{ include "platform.httpURL" (dict "root" . "component" "litellm") | quote }}
+            - name: LITELLM_CONFIG_PATH
+              value: /app/unified_api/litellm_config.yaml
+            - name: ADMIN_ALLOWLIST_PATH
+              value: /etc/unified-api/allowlist.yaml
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "platform.%s-db.credentials.postgresql.acid.zalan.do" .Release.Name | quote }}
+                  name: {{ include "platform.databaseCredential" (dict "root" . "user" "platform") }}
                   key: username
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ printf "platform.%s-db.credentials.postgresql.acid.zalan.do" .Release.Name | quote }}
+                  name: {{ include "platform.databaseCredential" (dict "root" . "user" "platform") }}
                   key: password
             - name: DATABASE_URL
-              value: "postgres://$(PGUSER):$(PGPASSWORD)@{{ .Release.Name }}-db:5432/postgres"
+              value: "postgresql://$(PGUSER):$(PGPASSWORD)@{{ include "platform.databaseDNS" . }}:{{ .Values.database.port }}/platform?sslmode=verify-full&sslrootcert=/etc/db-trust/ca.crt"
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "platform.fullname" . }}-secrets
+                  name: {{ include "platform.resourceName" (dict "root" . "component" "secrets") }}
                   key: GITHUB_TOKEN
                   optional: true
             - name: GITHUB_REPO
               value: {{ .Values.unifiedApi.githubRepo | quote }}
           volumeMounts:
-            - name: tmp-volume
+            - name: tmp
               mountPath: /tmp
             - name: admin-allowlist
               mountPath: /etc/unified-api
               readOnly: true
             - name: litellm-config
-              mountPath: /app/gateway/litellm_config.yaml
+              mountPath: /app/unified_api/litellm_config.yaml
               subPath: litellm_config.yaml
               readOnly: true
+            - name: db-trust
+              mountPath: /etc/db-trust
+              readOnly: true
       volumes:
-        - name: tmp-volume
+        - name: tmp
           emptyDir: {}
         - name: admin-allowlist
           configMap:
-            name: admin-allowlist
+            name: {{ include "platform.resourceName" (dict "root" . "component" "admin-allowlist") }}
         - name: litellm-config
           configMap:
-            name: {{ include "platform.fullname" . }}-litellm-config
-
+            name: {{ include "platform.resourceName" (dict "root" . "component" "litellm-config") }}
+        - name: db-trust
+          configMap:
+            name: {{ include "platform.databaseTrust" . }}
+            items:
+              - key: {{ include "platform.databaseCAKey" . }}
+                path: ca.crt
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: unified-api
-  labels:
-    app: unified-api
+  name: {{ include "platform.serviceName" (dict "root" . "component" "unifiedApi") }}
 spec:
   type: ClusterIP
   ports:
-    - port: 8000
-      targetPort: 8000
+    - port: {{ include "platform.port" (dict "root" . "component" "unifiedApi") }}
+      targetPort: http
       protocol: TCP
       name: http
   selector:
-    app: unified-api
+    {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 4 }}
 {{- end }}

@@ -1,77 +1,43 @@
 # Configuration file for `prek`, a git hook framework written in Rust.
 # See https://prek.j178.dev for more information.
 #:schema https://www.schemastore.org/prek.json
+default_install_hook_types = ["pre-commit", "pre-push"]
+
+# Priority tiers:
+#   0 = fast whitespace/EOF/lockfile auto-fixers and ruff autofixer
+#   1 = ruff formatter and all read-only linters, typechecks, schema/security checks, and unit tests in parallel
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "v6.0.0"
 hooks = [
   { id = "trailing-whitespace", priority = 0 },
   { id = "end-of-file-fixer", priority = 0 },
-  { id = "check-yaml", priority = 0, args = ["--allow-multiple-documents"], exclude = "^charts/.*" },
-  { id = "check-json", priority = 0 },
-  { id = "check-toml", priority = 0 },
-  { id = "check-added-large-files", priority = 0, args = ["--maxkb=1000"] },
-  { id = "check-merge-conflict", priority = 0 },
-  { id = "detect-private-key", priority = 0 }
+  { id = "check-yaml", args = ["--allow-multiple-documents"], exclude = "^charts/.*", priority = 1 },
+  { id = "check-json", priority = 1 },
+  { id = "check-toml", priority = 1 },
+  { id = "check-added-large-files", args = ["--maxkb=1000"], priority = 1 },
+  { id = "check-merge-conflict", priority = 1 },
+  { id = "detect-private-key", priority = 1 },
 ]
 
-[[repos]]
-repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.16.8"
-hooks = [
-  { id = "ruff", priority = 0 },
-  { id = "ruff-format", priority = 0 }
-]
-
-[[repos]]
-repo = "https://github.com/gitleaks/gitleaks"
-rev = "v8.30.1"
-hooks = [
-  { id = "gitleaks", priority = 0, exclude = "^\\.secrets\\.baseline$" }
-]
-[[repos]]
-repo = "https://github.com/rhysd/actionlint"
-rev = "v1.7.12"
-hooks = [
-  { id = "actionlint", priority = 0 }
-]
-
-[[repos]]
-repo = "https://github.com/pre-commit/mirrors-mypy"
-rev = "v2.3.1"
-hooks = [
-  { id = "mypy", priority = 0, args = ["--ignore-missing-imports", "--explicit-package-bases"] }
-]
-
-[[repos]]
-repo = "https://github.com/bridgecrewio/checkov"
-rev = "3.3.26"
-hooks = [
-  { id = "checkov", priority = 0, args = ["-d", "charts", "--framework", "helm"], files = "^charts/" }
-]
-
-[[repos]]
-repo = "https://github.com/hadolint/hadolint"
-rev = "v2.15.1"
-hooks = [
-  { id = "hadolint", priority = 0, files = "Dockerfile" }
-]
-
-[[repos]]
-repo = "https://github.com/stackrox/kube-linter"
-rev = "v0.8.3"
-hooks = [
-  { id = "kube-linter", priority = 0, args = ["--config", ".kube-linter.yaml", "charts/platform", "charts/agent-substrate"] }
-]
-
+# File-scoped hooks (pass_filenames = true) use `mise exec -- <tool>`;
+# project-wide gates (pass_filenames = false) use `make <target>`.
 [[repos]]
 repo = "local"
 hooks = [
-  { id = "actions-lock", name = "GH Actions Lock", entry = "gh actions-lock --no-migrate-local-actions", language = "system", files = "^\\.github/workflows/", pass_filenames = false },
-  { id = "check-helm-deps", name = "Check Helm Deps", entry = "make check-helm-deps", language = "system", files = "^charts/", pass_filenames = false },
-  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false },
-  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^charts/", pass_filenames = false },
-  { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
-  { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"], pass_filenames = false },
-  { id = "pytest", name = "Run Unit Tests", entry = "make test", language = "system", pass_filenames = false }
+  { id = "actions-lock", name = "GH Actions Lock", entry = "make actions-lock", language = "system", files = "^\\.github/workflows/", pass_filenames = false, priority = 0 },
+  { id = "check-helm-deps", name = "Check Helm Deps", entry = "make check-helm-deps", language = "system", files = "^charts/", pass_filenames = false, priority = 0 },
+  { id = "ruff", name = "ruff", entry = "mise exec -- ruff check --fix", language = "system", types = ["python"], priority = 0 },
+  { id = "ruff-format", name = "ruff format", entry = "mise exec -- ruff format", language = "system", types = ["python"], priority = 1 },
+  { id = "gitleaks", name = "Detect hardcoded secrets", entry = "make scan-secrets-staged", language = "system", pass_filenames = false, always_run = true, priority = 1 },
+  { id = "actionlint", name = "Lint GitHub Actions workflow files", entry = "mise exec -- actionlint", language = "system", files = "^\\.github/workflows/.*\\.ya?ml$", priority = 1 },
+  { id = "hadolint", name = "Lint Dockerfiles", entry = "mise exec -- hadolint", language = "system", files = "Dockerfile", priority = 1 },
+  { id = "checkov", name = "Checkov", entry = "make lint-checkov", language = "system", files = "^(charts/|\\.checkov\\.yaml$)", pass_filenames = false, priority = 1 },
+  { id = "kube-linter", name = "KubeLinter", entry = "make lint-kubernetes", language = "system", files = "^(charts/|\\.kube-linter\\.yaml$)", pass_filenames = false, priority = 1 },
+  { id = "typecheck", name = "Whole-project Pyrefly", entry = "make typecheck", language = "system", types = ["python"], pass_filenames = false, always_run = true, priority = 1 },
+  { id = "helm-lint", name = "Helm Lint", entry = "make lint-helm", language = "system", files = "^charts/", pass_filenames = false, priority = 1 },
+  { id = "kubeconform", name = "Kubeconform", entry = "make check-schema", language = "system", files = "^(charts/|\\.schemas/)", pass_filenames = false, priority = 1 },
+  { id = "trivy-fs", name = "Trivy IaC", entry = "make scan-iac", language = "system", stages = ["pre-push", "manual"], pass_filenames = false, priority = 1 },
+  { id = "trivy-ci-parity", name = "Trivy CI Parity (Build+RootFS)", entry = "make scan-local", language = "system", stages = ["pre-push", "manual"], pass_filenames = false, priority = 1 },
+  { id = "pytest", name = "Run Unit Tests", entry = "make pytest-unit", language = "system", pass_filenames = false, priority = 1 },
 ]

@@ -1,53 +1,53 @@
 global:
   image:
-    tag: "latest"
+    repository: ghcr.io/agent-director
+    tag: local
   tls:
     useOcpServingCert: false
 fullnameOverride: ""
+nameOverride: ""
 
 adminAllowlist:
   - "admin@example.com"
-
-imagePullSecrets:
-  - name: ghcr-secret
+imagePullSecrets: []
 
 database:
-  teamId: "agent-director"
-  superuser: "agent-director-admin"
+  teamId: agent-director
   version: "18"
+  port: 5432
+  substrateUser: agent_substrate
+  substrateDatabase: agent_substrate
 
 rustfs:
   enabled: true
-  image: "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff"
+  image:
+    repository: rustfs/rustfs
+    tag: "1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff"
+  service:
+    port: 9000
+  consolePort: 9001
   persistence:
-    size: "10Gi"
-  accessKey: "rustfsadmin"
-  secretKey: "rustfsadmin" # pragma: allowlist secret
-gitSync:
-  repo: "https://github.com/agent-director/platform.git"
-  branch: "main"
+    size: 10Gi
+  accessKey: rustfsadmin
+  secretKey: "" # Generated once and reused on upgrade.
+  substrateNamespace: agent-substrate
 
 secrets:
   langfuseNextauthSecret: "secret"
   langfuseSalt: "salt"
   litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
 
-# Unprivileged Sidecar Bridge Ingress
 caddyTailscale:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
-    tag: latest
-  hostname: "" # Dynamically generated via helper if left blank
-  tailnet: ""  # Must be provided via --set or values override (e.g. from .env)
+    tag: local
+  hostname: ""
+  tailnet: ""
   ephemeral: false
   storage:
     size: 100Mi
-
-  # The TS_AUTHKEY should be provided via secret:
-  # kubectl create secret generic tailscale-auth --from-literal=TS_AUTHKEY=tskey-auth-xxxx
   secretName: tailscale-auth
-
   caddyConfig: |
     {
         order coraza_waf first
@@ -72,7 +72,6 @@ caddyTailscale:
                 SecRuleEngine On
                 SecRequestBodyAccess On
                 SecResponseBodyAccess Off
-                # Enable JSON parsing for API traffic
                 SecAction "id:900990,phase:1,nolog,pass,t:none,setvar:tx.crs_setup_version=330"
             `
         }
@@ -85,105 +84,262 @@ caddyTailscale:
         }
         bind tailscale/{{ include "platform.tailscaleHostname" . }}
         tailscale_auth
-        request_header X-Webauth-Name {http.auth.user.tailscale_name}
-        request_header X-Webauth-Email {http.auth.user.tailscale_user}
-        request_header X-Webauth-User {http.auth.user.tailscale_user}
-        request_header X-Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
-
+        # Overwrite untrusted client identity; this is the header the API expects.
+        request_header Tailscale-User-Login {http.auth.user.tailscale_user}
+        request_header Tailscale-Tailnet {http.auth.user.tailscale_tailnet}
         request_body {
             max_size 10MB
         }
-
-        handle /* {
-            reverse_proxy frontend:3000
+        {{ if .Values.unifiedApi.enabled }}
+        @api path /api /api/* /v1 /v1/*
+        handle @api {
+            reverse_proxy {{ include "platform.serviceDNS" (dict "root" . "component" "unifiedApi") }}:{{ include "platform.port" (dict "root" . "component" "unifiedApi") }}
         }
+        {{ end }}
+        {{ if .Values.frontend.enabled }}
+        handle {
+            reverse_proxy {{ include "platform.serviceDNS" (dict "root" . "component" "frontend") }}:{{ include "platform.port" (dict "root" . "component" "frontend") }}
+        }
+        {{ end }}
+    }
+
+    # Dedicated kubelet-only readiness listener; not exposed by a Service.
+    :8080 {
+        respond /health 200
     }
 
 unifiedApi:
   enabled: true
   replicaCount: 1
   image:
-    repository: unified-api
+    repository: ghcr.io/agent-director/unified-api
     tag: local
     pullPolicy: IfNotPresent
-  githubRepo: "YOUR_ORG/YOUR_CONFIG_REPO"
+  githubRepo: YOUR_ORG/YOUR_CONFIG_REPO
   service:
     port: 8000
-
 frontend:
   enabled: true
   replicaCount: 1
   image:
-    repository: frontend
+    repository: ghcr.io/agent-director/frontend
     tag: local
     pullPolicy: IfNotPresent
-  env:
-    HOSTNAME: "0.0.0.0"
   service:
     port: 3000
-
 workers:
   enabled: true
   replicaCount: 1
+  temporalNamespace: default
+  taskQueue: agent-task-queue
+  health:
+    port: 8081
+  substrateNamespace: agent-substrate
+  substratePort: 50051
 litellm:
   enabled: true
+  image:
+    repository: ghcr.io/berriai/litellm
+    tag: "main-v1.79.0-stable@sha256:169a2446b37d5a02ebc12f1c94692ba1ed4c3525475ced3f31a462960c0a90a7"
   service:
     port: 4000
+langfuse:
+  enabled: true
+  image:
+    repository: langfuse/langfuse
+    tag: "2@sha256:85c278dcab96c15db94191a5c1664f85aba2d7fb6771a00e99681c902c4b7015"
+  service:
+    port: 3000
 
+# Opt-in in-kind CLI profile; not a production server or durable store.
+temporalDev:
+  enabled: false
+  image:
+    repository: temporalio/admin-tools
+    tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
+  service:
+    port: 7233
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Temporal chart 1.7.0 uses v1 datastore keys and non-hook Jobs for single-pass convergence.
 temporal:
-  cassandra:
-    enabled: false
-  elasticsearch:
-    enabled: false
-  prometheus:
-    enabled: false
-  postgresql:
-    enabled: false
-  mysql:
-    enabled: false
+  enabled: true
+  fullnameOverride: "platform-temporal"
+  serviceAccount:
+    create: false
+    name: platform-temporal-schema
   server:
-    config:
-      persistence:
-        default:
-          driver: "sql"
-          sql:
-            driver: "postgres12"
-            host: "platform-db"
-            port: 5432
-            database: "temporal"
-            user: "temporal"
-            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
-        visibility:
-          driver: "sql"
-          sql:
-            driver: "postgres12"
-            host: "platform-db"
-            port: 5432
-            database: "temporal_visibility"
-            user: "temporal"
-            existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do" # pragma: allowlist secret
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
     securityContext:
-      runAsUser: null
-      fsGroup: null
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
     additionalVolumes:
-      - name: temporal-scratch
+      - name: db-trust
+        configMap:
+          name: platform-db-trust
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - name: scratch
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: server-runtime-config
+        emptyDir:
+          sizeLimit: 128Mi
+    additionalVolumeMounts:
+      - name: db-trust
+        mountPath: /etc/db-trust
+        readOnly: true
+      - name: scratch
+        mountPath: /tmp
+      - name: server-runtime-config
+        mountPath: /etc/temporal/config
+    frontend:
+      service:
+        port: 7233
+      containerSecurityContext: &temporalContainerSecurity
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+    history:
+      containerSecurityContext: *temporalContainerSecurity
+    matching:
+      containerSecurityContext: *temporalContainerSecurity
+    worker:
+      containerSecurityContext: *temporalContainerSecurity
+      # The internal Temporal worker has membership, not a workflow RPC listener.
+      readinessProbe:
+        tcpSocket:
+          port: membership
+      livenessProbe:
+        tcpSocket:
+          port: membership
+    config:
+      namespaces:
+        create: true
+        useHelmHooks: false
+        namespace:
+          - name: "default"
+            retention: 3d
+      persistence:
+        defaultStore: default
+        visibilityStore: visibility
+        numHistoryShards: 512
+        datastores:
+          default:
+            sql:
+              pluginName: postgres12
+              databaseName: temporal
+              connectAddr: "platform-db.platform.svc.cluster.local:5432"
+              connectProtocol: tcp
+              user: temporal
+              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
+              secretKey: password
+              createDatabase: false
+              manageSchema: true
+              tls:
+                enabled: true
+                caFile: /etc/db-trust/ca.crt
+                enableHostVerification: true
+                serverName: "platform-db.platform.svc.cluster.local"
+          visibility:
+            sql:
+              pluginName: postgres12
+              databaseName: temporal_visibility
+              connectAddr: "platform-db.platform.svc.cluster.local:5432"
+              connectProtocol: tcp
+              user: temporal
+              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
+              secretKey: password
+              createDatabase: false
+              manageSchema: true
+              tls:
+                enabled: true
+                caFile: /etc/db-trust/ca.crt
+                enableHostVerification: true
+                serverName: "platform-db.platform.svc.cluster.local"
+  admintools:
+    enabled: false
+    image:
+      repository: temporalio/admin-tools
+      tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
+    additionalVolumes:
+      - name: db-trust
+        configMap:
+          name: platform-db-trust
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - name: scratch
         emptyDir:
           sizeLimit: 1Gi
     additionalVolumeMounts:
-      - name: temporal-scratch
-        mountPath: /var/lib/temporal
-  admintools:
+      - name: db-trust
+        mountPath: /etc/db-trust
+        readOnly: true
+      - name: scratch
+        mountPath: /tmp
+  web:
+    enabled: false
+  schema:
+    useHelmHooks: false
+    serviceAccount:
+      create: false
+      name: platform-temporal-schema
+    jobAnnotations:
+      ignore-check.kube-linter.io/no-readiness-probe: "Schema/namespace setup are finite lifecycle Jobs; successful exit, not serving readiness, gates rollout."
+      ignore-check.kube-linter.io/no-liveness-probe: "Schema/namespace setup use bounded retries and the Helm timeout; container liveness probes are not meaningful for their completion markers."
+    backoffLimit: 100
+    activeDeadlineSeconds: 600
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
     securityContext:
-      runAsUser: null
-      fsGroup: null
-
-# OpenShift Sandboxed Containers (Kata) Operator
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext: *temporalContainerSecurity
+  test:
+    podAnnotations:
+      ignore-check.kube-linter.io/no-readiness-probe: "Upstream Helm test is a one-shot CLI health command, not a serving workload."
+      ignore-check.kube-linter.io/no-liveness-probe: "Upstream Helm test terminates with its health result; liveness is not applicable."
+      ignore-check.kube-linter.io/run-as-non-root: "Pinned admin-tools 1.32.0 image declares USER temporal (UID 1000); upstream test template exposes no securityContext value."
+      ignore-check.kube-linter.io/no-read-only-root-fs: "Upstream one-shot test template exposes no securityContext override; server/schema/dev workloads explicitly require read-only roots."
+    resources:
+      requests:
+        cpu: 100m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
 
 sandboxedContainers:
   enabled: true
-  channel: "stable"
+  channel: stable
   checkNodeEligibility: false
-
-# Temporarily disabled until Tier 0.15 Temporal V1 Migration
-temporal:
-  enabled: false

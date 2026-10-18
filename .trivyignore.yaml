@@ -1,0 +1,10 @@
+# Scoped exception for the upstream Temporal 1.7.0 subchart ConfigMap template,
+# which renders `password: "{{ .Env.TEMPORAL_STORE_PASSWORD }}"` for dockerize
+# runtime env substitution rather than storing a literal secret in the ConfigMap.
+misconfigurations:
+  - id: KSV-0109
+    paths:
+      - charts/platform/charts/temporal/templates/server-configmap.yaml
+    statement: >-
+      Upstream Temporal server-configmap.yaml contains a dockerize environment
+      variable placeholder ({{ .Env.TEMPORAL_STORE_PASSWORD }}), not a secret value.

@@ -1,27 +1,43 @@
-# Platform Helm Chart
+# Platform chart
 
-This Helm chart (`charts/platform`) defines the base infrastructure for the `agent-director`.
+This chart retains the current release ownership: PostgreSQL, RustFS, application
+workloads and the Temporal dependency live in the **same platform release**. The
+Zalando `postgres-operator` is installed directly as a standalone release from
+its upstream Helm repository (`charts/postgres-operator-values.yaml`).
+The explicitly deferred Checkov exclusion for `charts/platform` remains unchanged.
 
-## Components Deployed
-- **PostgreSQL:** Backing store for Temporal state, LiteLLM routing rules, LangGraph checkpoints, and MCP registry schemas.
-- **Temporal Cluster:** The core engine for the Automation Plane.
-- **LiteLLM Proxy:** The Gateway pods intercepting and routing LLM calls.
-- **OpenShell Worker Nodes:** The isolated sandbox environment where agent tools and execution occur.
-- **Tailscale Ingress (Optional):** A secure, private ingress solution leveraging Tailscale and Caddy as unprivileged sidecars to route traffic to the unified API and frontend.
+## Profiles and installation
 
-## Local Bring-Up
-*(TBD: Full step-by-step for local deployment)*
-
-Generally, deployment requires a local Kubernetes cluster (e.g., Docker Desktop, Minikube, kind):
-```bash
-helm upgrade --install platform ./charts/platform --namespace agent-director --create-namespace
+```sh
+make cluster-up
+make deploy PROFILE=kind
 ```
 
-## Prerequisites
-- **Kubernetes 1.28+**: The chart utilizes Kubernetes 1.28 Native Sidecars (`initContainers` with `restartPolicy: Always`) for the Tailscale ingress deployment. Ensure your cluster supports this feature.
+`PROFILE=full` (the chart's default in `values.yaml`) selects the pinned Temporal
+`1.7.0` server chart with non-hook schema and namespace setup Jobs (`useHelmHooks: false`)
+so single-pass Helm convergence succeeds alongside the `postgresql` CR.
+`PROFILE=kind` (`values-kind.yaml`) switches to the lightweight in-cluster Temporal
+CLI development server (`temporalDev.enabled: true`, `temporal.enabled: false`) while
+keeping application workloads, workers, and Langfuse enabled by default.
 
-## Security Configurations
-- The OpenShell worker nodes are configured with minimal capabilities.
-- Network policies are defined to restrict the sandbox from accessing cluster-internal control plane services or cloud IMDS, except for explicitly allowlisted MCP endpoints.
-- The Tailscale ingress utilizes a Caddy reverse proxy to enforce volumetric limits (e.g., 10MB max request body, 120s body read timeouts) to protect internal services.
-- Tailscale state is durably stored in Kubernetes Secrets instead of PVCs to improve scheduling reliability.
+## Endpoint and credential contract
+
+`platform.resourceName`, `serviceName`, `serviceDNS` and `port` helpers own
+resource names, cluster DNS and listener/Service ports. Supported
+`<component>.service.port` values drive listeners, Services, environment,
+probes and applicable NetworkPolicies. Names are release-derived and honor
+`fullnameOverride`; database identity remains `<release>-db`.
+
+Application database users are separate owners with no superuser/createdb
+flags. Substrate receives the `agent_substrate` role and database by default.
+Only public database CA material in `<release>-db-trust` is mounted or copied to
+consumers; `<release>-db-tls` and its private key remain in the platform
+namespace.
+
+## Ingress
+
+Caddy authenticates through its Tailscale plugin and **overwrites**
+`Tailscale-User-Login` and `Tailscale-Tailnet` from authenticated plugin identity,
+matching the API's identity header and RFC 6648 naming conventions. `/api`, `/api/*`,
+`/v1` and `/v1/*` are routed to the API without stripping their paths; remaining
+requests go to the frontend.

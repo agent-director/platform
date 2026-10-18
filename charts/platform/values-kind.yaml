@@ -1,0 +1,11 @@
+# Disposable local profile: Temporal CLI runs inside kind; no external Docker IP.
+temporal:
+  enabled: false
+temporalDev:
+  enabled: true
+workers:
+  enabled: true
+caddyTailscale:
+  enabled: false
+sandboxedContainers:
+  enabled: false

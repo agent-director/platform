@@ -16,7 +16,7 @@ dependencies = [
     "orjson",
     "sniffio>=1.3.1",
     "pyyaml>=6.0.3",
-    "pytest-timeout>=2.4.0",
+    "cachetools>=7.2.1",
 ]
 
 [project.scripts]
@@ -26,23 +26,47 @@ director = "director.main:main"
 dev = [
     "pytest",
     "pytest-asyncio",
-    "pytest-cov==7.1.0",
-    "pre-commit",
-    "locust",
+    "pytest-timeout>=2.4.0",
+    "pyrefly>=1.3.2",
+    "cryptography",
     "kubernetes",
-    "types-PyYAML"
+    "types-PyYAML",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-timeout = 30
-markers = [
-    "e2e: End-to-end tests requiring a Kubernetes cluster",
-]
+pythonpath = ["."]
+testpaths = ["tests/unit"]
+norecursedirs = ["tests/integration"]
+timeout = 120
+cache_dir = ".cache/pytest"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-n", "auto", "--dist", "worksteal", "--basetemp=.cache/pytest/tmp"]
+
+[tool.ruff]
+cache-dir = ".cache/ruff"
+
+[tool.uv]
+cache-dir = ".cache/uv"
+
+[tool.pyrefly]
+preset = "strict"
+permissive-ignores = false
+type-ignore-unknown-tag-behavior = "no-effect"
+project-excludes = [".cache/**", ".venv/**"]
+python-interpreter-path = ".venv/bin/python"
+# Direct `uv run scripts/<name>.py` adds scripts/ to Python's import path.
+search-path = [".", "scripts"]
+check-unannotated-defs = true
+
+[tool.pyrefly.errors]
+# Keep import failures and stale suppressions enforcing; do not blanket-ignore modules.
+missing-import = "error"
+unused-ignore = "error"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["director", "gateway", "orchestrator"]
+packages = ["director", "unified_api", "orchestrator"]

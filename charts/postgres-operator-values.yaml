@@ -1,0 +1,28 @@
+# Values for the upstream Zalando postgres-operator release
+# (https://opensource.zalando.com/postgres-operator/charts/postgres-operator).
+image:
+  pullPolicy: IfNotPresent
+configGeneral:
+  enable_crd_registration: true
+configKubernetes:
+  enable_readiness_probe: true
+  # Spilo's postgres identity needs group access to the operator's 0640 TLS mount.
+  spilo_runasuser: 101
+  spilo_runasgroup: 103
+  spilo_fsgroup: 103
+resources:
+  requests:
+    cpu: 100m
+    memory: 250Mi
+  limits:
+    cpu: 500m
+    memory: 500Mi
+securityContext:
+  runAsUser: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]

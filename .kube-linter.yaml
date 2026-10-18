@@ -1,5 +1,24 @@
+# Enable all built-in KubeLinter checks and explicitly opt out of non-applicable checks.
+# Component-specific exceptions belong on the owning resource as
+# ignore-check.kube-linter.io/<check>: <concrete runtime/upstream reason>.
+# Do not use ignore-check.kube-linter.io/all.
 checks:
-  addAllBuiltIn: false
-  doNotAutoAddDefaults: true
-  include:
-    - "env-var-secret"
+  addAllBuiltIn: true
+  exclude:
+    - access-to-create-pods
+    - access-to-secrets
+    - dangling-networkpolicypeer-podselector
+    - default-service-account
+    - dnsconfig-options
+    - env-value-from
+    - minimum-three-replicas
+    - no-node-affinity
+    - no-rolling-update-strategy
+    - non-isolated-pod
+    - privileged-ports
+    - read-secret-from-env-var
+    - required-annotation-email
+    - required-label-owner
+    - restart-policy
+    - sorted-keys
+    - use-namespace

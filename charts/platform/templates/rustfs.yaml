@@ -2,106 +2,136 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rustfs
+  name: {{ include "platform.resourceName" (dict "root" . "component" "rustfs") }}
   labels:
-    app: rustfs
+    {{- include "platform.selectorLabels" (dict "root" . "component" "rustfs") | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
-      app: rustfs
+      {{- include "platform.selectorLabels" (dict "root" . "component" "rustfs") | nindent 6 }}
   template:
     metadata:
       labels:
-        app: rustfs
+        {{- include "platform.selectorLabels" (dict "root" . "component" "rustfs") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-      - name: rustfs
-        image: {{ .Values.rustfs.image | quote }}
-        env:
-        - name: RUSTFS_ADDRESS
-          value: ":9000"
-        - name: RUSTFS_CONSOLE_ADDRESS
-          value: ":9001"
-        - name: RUSTFS_CONSOLE_ENABLE
-          value: "false"
-        - name: RUSTFS_VOLUMES
-          value: "/data"
-        - name: RUSTFS_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: rustfs-auth-secret
-              key: accessKey
-        - name: RUSTFS_SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: rustfs-auth-secret
-              key: secretKey
-        ports:
-        - containerPort: 9000
-        volumeMounts:
-        - name: data
-          mountPath: /data
+        - name: rustfs
+          image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          env:
+            - name: RUSTFS_ADDRESS
+              value: ":{{ include "platform.port" (dict "root" . "component" "rustfs") }}"
+            - name: RUSTFS_CONSOLE_ADDRESS
+              value: ":{{ .Values.rustfs.consolePort }}"
+            - name: RUSTFS_CONSOLE_ENABLE
+              value: "false"
+            - name: RUSTFS_VOLUMES
+              value: /data
+            - name: RUSTFS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-auth") }}
+                  key: accessKey
+            - name: RUSTFS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-auth") }}
+                  key: secretKey
+          ports:
+            - name: api
+              containerPort: {{ include "platform.port" (dict "root" . "component" "rustfs") }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+          startupProbe:
+            httpGet:
+              path: /health
+              port: api
+            failureThreshold: 60
+            periodSeconds: 2
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
       volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: rustfs-pvc
-
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-data") }}
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: rustfs-pvc
+  name: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-data") }}
 spec:
-  accessModes:
-    - ReadWriteOnce
+  accessModes: [ReadWriteOnce]
   resources:
     requests:
       storage: {{ .Values.rustfs.persistence.size | quote }}
-
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: rustfs
+  name: {{ include "platform.serviceName" (dict "root" . "component" "rustfs") }}
 spec:
   ports:
-  - port: 9000
-    targetPort: 9000
-    name: api
+    - port: {{ include "platform.port" (dict "root" . "component" "rustfs") }}
+      targetPort: api
+      name: api
   selector:
-    app: rustfs
-
-
+    {{- include "platform.selectorLabels" (dict "root" . "component" "rustfs") | nindent 4 }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: rustfs-netpol
-  namespace: {{ .Release.Namespace }}
-  labels:
-    app: rustfs
+  name: {{ include "platform.resourceName" (dict "root" . "component" "rustfs-netpol") }}
 spec:
   podSelector:
     matchLabels:
-      app: rustfs
-  policyTypes:
-  - Ingress
-  - Egress
+      {{- include "platform.selectorLabels" (dict "root" . "component" "rustfs") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
   ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: {{ .Release.Namespace }}
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: agent-substrate
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: {{ .Release.Namespace }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.rustfs.substrateNamespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: ateapi
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "rustfs") }}
+  egress: []
 {{- end }}

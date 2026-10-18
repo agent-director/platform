@@ -30,14 +30,16 @@
     },
     {
       "matchPackageNames": [
-        "agent-substrate/substrate"
+        "agent-substrate/substrate",
+        "zalando/postgres-operator"
       ],
       "postUpgradeTasks": {
         "commands": [
-          "uv run --with pyyaml python scripts/update-crds.py"
+          "mise exec -- uv run --locked scripts/update-crds.py all"
         ],
         "fileFilters": [
-          "charts/agent-substrate/crds/*.yaml"
+          "charts/agent-substrate/crds/*.yaml",
+          ".schemas/**/*.json"
         ],
         "executionMode": "branch"
       }
@@ -48,17 +50,33 @@
         "https://github.com/pre-commit/pre-commit-hooks"
       ],
       "abandonmentThreshold": "2 years"
+    },
+    {
+      "matchPackageNames": [
+        "pnpm",
+        "ghcr.io/pnpm/pnpm"
+      ],
+      "groupName": "pnpm"
+    },
+    {
+      "matchPackageNames": [
+        "python",
+        "docker.io/library/python"
+      ],
+      "groupName": "python"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
       "managerFilePatterns": [
+        "/^Makefile$/",
         "/^\\.github/workflows/.*\\.ya?ml$/",
-        "/^images/.*/Dockerfile$/"
+        "/^images/.*/Dockerfile$/",
+        "/^scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?\\s+[A-Za-z0-9_]+=\"?(?<currentValue>[^\"\\s]+)\"?"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]

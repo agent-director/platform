@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: atecontroller
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "agent-substrate.resourceName" (dict "root" . "component" "atecontroller") }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
     app.kubernetes.io/component: atecontroller
@@ -13,6 +14,10 @@ spec:
       app.kubernetes.io/component: atecontroller
   template:
     metadata:
+      {{- if and (not .Values.global.tls.useOcpServingCert) (not .Values.tls.existingBundleSecret) }}
+      annotations:
+        checksum/tls: {{ include "agent-substrate.tlsData" . | sha256sum }}
+      {{- end }}
       labels:
         {{- include "agent-substrate.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: atecontroller
@@ -48,25 +53,30 @@ spec:
           capabilities:
             drop:
               - ALL
-        livenessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          tcpSocket:
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
         resources:
           {{- toYaml .Values.atecontroller.resources | nindent 10 }}
 
         command: ["/usr/local/bin/atecontroller"]
         args:
-        - "--ateapi-conn-spec=ateapi:50051"
+        - "--ateapi-conn-spec={{ include "agent-substrate.apiDNS" . }}:{{ include "agent-substrate.apiPort" . }}"
         - "--ateapi-client-cert=/etc/tls/bundle.pem"
-        - "--ateapi-ca-file=/etc/tls/bundle.pem"
-        - "--ateapi-server-name=ateapi"
+        - "--ateapi-ca-file=/etc/tls/ca.crt"
+        - "--ateapi-server-name={{ include "agent-substrate.apiDNS" . }}"
+        ports:
+        - containerPort: 8080
+          name: metrics
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10
         env:
         - name: POD_NAMESPACE
           valueFrom:
@@ -109,13 +119,18 @@ spec:
                         fieldPath: metadata.namespace
         - name: tls
           secret:
-            secretName: agent-substrate-tls # pragma: allowlist secret
+            secretName: {{ include "agent-substrate.credentialSecret" . }}
+            items:
+              - key: bundle.pem
+                path: bundle.pem
+              - key: ca.crt
+                path: ca.crt
 
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: atecontroller
+  name: {{ include "agent-substrate.resourceName" (dict "root" . "component" "atecontroller") }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "agent-substrate.labels" . | nindent 4 }}
@@ -128,15 +143,32 @@ spec:
   policyTypes:
     - Ingress
     - Egress
-  ingress:
-    - from:
-      - podSelector: {} # Allow all pods within the same namespace
+  ingress: []
   egress:
     - to:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: kube-system # Allow DNS
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- $apiPeers := include "agent-substrate.apiServerEgress" . }}
+    {{- if $apiPeers }}
     - to:
-{{ include "agent-substrate.apiServerEgress" . | indent 6 }}
+{{ $apiPeers | indent 8 }}
+      ports:
+        {{- range .Values.global.apiServerPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
     - to:
-      - podSelector: {} # Allow intra-namespace
+        - podSelector:
+            matchLabels:
+              {{- include "agent-substrate.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: ateapi
+      ports:
+        - protocol: TCP
+          port: {{ include "agent-substrate.apiPort" . }}
