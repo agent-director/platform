@@ -39,14 +39,14 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cachetools", specifier = ">=7.2.1" },
+    { name = "cachetools", specifier = "==7.2.1" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "litellm" },
     { name = "mcp" },
     { name = "orjson" },
     { name = "psycopg", extras = ["binary"] },
-    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "pyyaml", specifier = "==6.0.3" },
     { name = "temporalio" },
     { name = "uvicorn" },
     { name = "watchdog" },
@@ -56,11 +56,11 @@ requires-dist = [
 dev = [
     { name = "cryptography" },
     { name = "kubernetes" },
-    { name = "pyrefly", specifier = ">=1.3.2" },
+    { name = "pyrefly", specifier = "==1.3.2" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
-    { name = "pytest-timeout", specifier = ">=2.4.0" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "pytest-timeout", specifier = "==2.4.0" },
+    { name = "pytest-xdist", specifier = "==3.8.0" },
     { name = "types-pyyaml" },
 ]
 
