@@ -298,7 +298,7 @@ print(ports[0])
 }
 
 build_platform_options() {
-    platform_args=(--namespace "$NAMESPACE" --set "global.image.tag=$IMAGE_TAG" \
+    platform_args=(--namespace "$NAMESPACE" --set "workers.image.tag=$IMAGE_TAG" \
         --set "unifiedApi.image.tag=$IMAGE_TAG" --set "frontend.image.tag=$IMAGE_TAG" \
         --set "caddyTailscale.image.tag=$IMAGE_TAG" \
         --set "workers.substrateNamespace=$SUBSTRATE_NAMESPACE" --set "rustfs.substrateNamespace=$SUBSTRATE_NAMESPACE")
