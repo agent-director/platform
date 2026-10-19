@@ -488,6 +488,8 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     assert set(nx_cfg["targetDefaults"]) >= {"lint", "typecheck", "test", "build"}
     for target in ("lint", "typecheck", "test", "build"):
         assert nx_cfg["targetDefaults"][target]["cache"] is True
+    assert "^default" in nx_cfg["targetDefaults"]["typecheck"]["inputs"]
+    assert "^default" in nx_cfg["targetDefaults"]["test"]["inputs"]
 
     nxignore = {
         line.strip()
@@ -559,6 +561,10 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/graphify-brain-refresh.yaml").read_text()
     )
+    assert workflow["concurrency"] == {
+        "group": "graphify-brain-refresh",
+        "cancel-in-progress": False,
+    }
     assert workflow["permissions"] == {}
     job = workflow["jobs"]["refresh-brain"]
     assert job["permissions"] == {"contents": "write"}

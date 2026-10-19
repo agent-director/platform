@@ -30,6 +30,7 @@
       "cache": true,
       "inputs": [
         "default",
+        "^default",
         "pythonWorkspace"
       ]
     },
@@ -37,6 +38,7 @@
       "cache": true,
       "inputs": [
         "default",
+        "^default",
         "pythonWorkspace",
         "{workspaceRoot}/conftest.py"
       ]

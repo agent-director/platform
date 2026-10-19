@@ -37,7 +37,7 @@ make nx-affected
 make graphify
 ```
 
-`make format` invokes the pinned Prek formatter only. `make lint` runs all 16 configured hooks in parallel priority tiers (`0` and `1`); its formatting/fixer hooks may modify files. `make nx-graph` writes the Nx project graph to `.cache/nx/graph.json`, `make nx-affected` runs affected `lint,typecheck,test,build` targets across the 7 workspace projects, and `make graphify` extracts the repository AST graph into `graphify-out/` (respecting `.graphifyignore`). Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
+`make format` invokes the pinned Prek formatter only. `prek.toml` defines 8 `pre-commit-hooks` and 16 `local` hooks (24 configured hooks total: 22 on the default `pre-commit` stage and 2 on the `pre-push`/`manual` stage); `make lint` runs all 22 default-stage hooks in parallel priority tiers (`0` and `1`), and its formatting/fixer hooks may modify files. `make nx-graph` writes the Nx project graph to `.cache/nx/graph.json`, `make nx-affected` runs affected `lint,typecheck,test,build` targets across the 7 workspace projects, and `make graphify` extracts the repository AST graph into `graphify-out/` (respecting `.graphifyignore`). Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
 
 For direct commands, use `mise exec --` so tool selection and cache settings match Make and CI:
 
