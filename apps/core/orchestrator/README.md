@@ -1,10 +1,10 @@
 # Orchestrator
 
-The `orchestrator` package runs a Temporal worker with `AgentWorkflow`, `CIPipelineWorkflow`, `PMStandupWorkflow` and the `execute_block` activity. These workflows currently return representative placeholder results; they do not execute real CI pipelines, standups or LLM calls. LangGraph-backed state and a host-local runner remain future work.
+The `orchestrator` package (`apps/core/orchestrator/` in the `agent-director-core` workspace package) runs a Temporal worker with `AgentWorkflow`, `CIPipelineWorkflow`, `PMStandupWorkflow` and the `execute_block` activity. These workflows currently return representative placeholder results; they do not execute real CI pipelines, standups or LLM calls. LangGraph-backed state and a host-local runner remain future work.
 
 ## Runtime configuration
 
-Run `uv run --locked -m orchestrator.temporal_worker` after setting the required `TEMPORAL_URL=host:port`. The typed `WorkerSettings` boundary rejects missing or malformed addresses; Helm supplies the Service endpoint for the selected kind-CLI or full-server profile.
+Run `mise exec -- uv run --locked -m orchestrator.temporal_worker` after setting the required `TEMPORAL_URL=host:port`. Unit tests live in `apps/core/tests/unit/test_orchestrator.py` and run via `make pytest-unit` or `mise exec -- uv run --locked pytest apps/core/tests/unit/test_orchestrator.py`. The typed `WorkerSettings` boundary rejects missing or malformed addresses; Helm supplies the Service endpoint for the selected kind-CLI or full-server profile.
 
 - `TEMPORAL_NAMESPACE`: defaults to `default`.
 - `TEMPORAL_TASK_QUEUE`: defaults to `agent-task-queue`; clients must use the same queue.

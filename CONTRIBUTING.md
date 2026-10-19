@@ -26,12 +26,20 @@ type(scope): description
 Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route endpoint`
 
 ### Scopes
+- `workspace`: Python `uv` workspaces, `pnpm` workspace configuration, lockfiles
+- `layout`: Repository directory structure and package relocations
+- `nx`: Nx build graph (`nx.json`, `project.json`), task orchestration, `nx-mcp`
+- `dx`: Developer experience, Graphify code intelligence, editor/MCP tooling
+- `core`: Control-plane Python package (`apps/core`: `unified_api`, `orchestrator`, `director`)
+- `ui`: Next.js frontend application (`apps/ui`), Biome linting, MSW mocks
+- `sandbox-exec`: In-sandbox Robyn execution daemon (`apps/sandbox-exec`)
+- `contracts`: Shared Pydantic schemas (`libs/contracts`)
 - `api`: Unified API, API configuration, request handling
 - `gateway`: LiteLLM gateway and model routing
 - `orchestrator`: Temporal workers, workflows, activities
 - `charts`: Helm chart templates, values, dependencies
 - `k8s`: Kubernetes manifests, MCP relay configs
-- `scripts`: Repository tooling, schema maintenance and local lifecycle
+- `scripts`: Repository tooling, schema maintenance and local lifecycle (`tools/scripts`)
 - `tests`: Test suites, fixtures, mock harnesses
 - `git`: Repository plumbing, workflow configurations
 - `platform`: Cross-cutting orchestrator, gateway, and infrastructure changes
@@ -58,22 +66,32 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 
 ## Architecture & Monorepo Structure
 
-The current checkout contains `unified_api/`, `orchestrator/`, `director/`, `frontend/`, `charts/`, `images/` and repository maintenance `scripts/`. It uses one Python project and a minimal pnpm workspace; it is not yet an Nx/apps/libs/tools workspace. Keep deployable runtimes distinct from maintenance tooling, and do not introduce the planned directory/repository migration as an incidental cleanup.
+The repository is structured as a **SOTA Hybrid Nx Modular Monorepo**:
+- `apps/core/`: Control-plane Python package (`agent-director-core`) containing `unified_api/`, `orchestrator/`, `director/`, and co-located unit tests (`apps/core/tests/unit/`).
+- `apps/ui/`: Self-contained Next.js 16 `pnpm` workspace (`apps/ui/package.json`, `apps/ui/pnpm-workspace.yaml`, `apps/ui/pnpm-lock.yaml`) with Biome (`apps/ui/biome.json`) and MSW contract mocks (`apps/ui/src/mocks/`).
+- `apps/sandbox-exec/`: Isolated Robyn in-sandbox execution daemon (`agent-director-sandbox-exec`) and unit tests (`apps/sandbox-exec/tests/unit/`).
+- `libs/contracts/`: Shared Pydantic v2 contract schemas (`agent-director-contracts`) and unit tests (`libs/contracts/tests/unit/`).
+- `tools/scripts/`: Operational and CI scripts (`deploy.sh`, `teardown.sh`, `test-integration.sh`, `images.py`, `update-crds.py`).
+- `charts/`, `images/`, `tests/`: Helm charts (`charts/platform`, `charts/agent-substrate`), multi-stage container `Dockerfile`s, cross-cutting unit contract tests (`tests/unit/`), and live kind integration tests (`tests/integration/`).
 
-Root `mise.toml` and `mise.lock` select the toolchain.
+Root `mise.toml` and `mise.lock` select the toolchain (including `biome`). Static import boundaries between Python workspace packages are enforced by Ruff `TID251` (`banned-api`) and `tests/unit/test_module_boundaries.py`.
+
 ## Tooling & Execution
 
-Use `mise exec --` (or `make` targets) so commands have the same selected tools, interpreter and `.cache` environment as CI. `uv` remains the Python package/environment manager:
-- Run scripts: `mise exec -- uv run script.py`
-- Add dependencies: `mise exec -- uv add <package>`
-- Validate: `make typecheck`, `make lint`, `make scan-iac`, `make scan-secrets`
+Use `mise exec --` (or `make` targets) so commands have the same selected tools, interpreter and `.cache` environment as CI. `uv` owns the Python workspace (`pyproject.toml` and `uv.lock`):
+- Setup all workspaces and hooks: `make setup`
+- Run scripts: `mise exec -- uv run --no-project tools/scripts/images.py --format matrix`
+- Validate: `make typecheck`, `make lint`, `make pytest-unit`, `make nx-affected`, `make scan-iac`, `make scan-secrets`
 - Format only: `make format` (pinned Prek formatting hook)
+- Code intelligence: `make graphify`
 
-Use `pnpm` and its frozen workspace lock for frontend dependencies. Normal setup builds Helm dependencies from committed locks.
+`prek.toml` runs 16 local hooks across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `check-helm-deps`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `actionlint`, `hadolint`, `typecheck`, `gitleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `pytest`).
+
+Use `pnpm --dir apps/ui` and its frozen workspace lock (`apps/ui/pnpm-lock.yaml`) for frontend dependencies. Normal setup builds Helm dependencies from committed locks.
 
 ### Running Tests
 
-We strictly separate our tests to ensure fast feedback and reliable infrastructure validation. See [`tests/README.md`](tests/README.md) for the full testing contract and instructions on how to run them locally and in CI.
+We strictly separate our tests across co-located package unit suites (`apps/core/tests/unit/`, `apps/sandbox-exec/tests/unit/`, `libs/contracts/tests/unit/`), cross-cutting repository contract tests (`tests/unit/`), and live cluster integration tests (`tests/integration/`). See [`tests/README.md`](tests/README.md) for the full testing contract and instructions on how to run them locally and in CI.
 ## Developer Guidelines
 
 ### Writing Temporal Activities (LLM Invocations)

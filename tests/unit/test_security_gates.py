@@ -568,3 +568,57 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
         if str(step.get("uses", "")).startswith("actions/checkout@")
     )
     assert checkout_step["with"]["persist-credentials"] is False
+
+
+def test_hack_shadow_repository_gitignore_and_scratch_cleanup() -> None:
+    hack_dir = ROOT / "hack"
+    if not hack_dir.is_dir():
+        pytest.skip("hack/ shadow context is not present in this checkout")
+    hack_gitignore = hack_dir / ".gitignore"
+    assert hack_gitignore.is_file()
+    ignored_entries = {
+        line.strip()
+        for line in hack_gitignore.read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    assert {
+        "worktrees/",
+        "repos/",
+        "extracted-repos/",
+        "*.bak*",
+        "*.log",
+        ".DS_Store",
+    } <= ignored_entries
+    assert not (hack_dir / "findings.json").exists()
+
+
+def test_monorepo_documentation_scopes_and_roadmap_paths() -> None:
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    for scope in (
+        "workspace",
+        "layout",
+        "nx",
+        "dx",
+        "core",
+        "ui",
+        "sandbox-exec",
+        "contracts",
+    ):
+        assert f"- `{scope}`:" in contributing
+
+    readme = (ROOT / "README.md").read_text()
+    for module_path in (
+        "apps/core",
+        "apps/ui",
+        "apps/sandbox-exec",
+        "libs/contracts",
+        "tools/scripts",
+    ):
+        assert module_path in readme
+
+    roadmap_path = ROOT / "hack/plans/ROADMAP.md"
+    if roadmap_path.is_file():
+        roadmap = roadmap_path.read_text()
+        assert (
+            re.search(r"agent-director/(core|ui|sandbox-exec|charts)", roadmap) is None
+        )

@@ -2,25 +2,26 @@
 
 ## Current state versus planned product
 
-This checkout is a control-plane prototype, not a completed agent orchestration product. Runtime components share Kubernetes while preserving workload, credential and network boundaries. Future repository/Nx reorganization, durable platform data models, richer workflow APIs, authenticated local runners and production Temporal authorization are not implemented by this tooling change.
+This checkout is a control-plane prototype structured as a **SOTA Hybrid Nx Modular Monorepo** (`apps/core`, `apps/ui`, `apps/sandbox-exec`, `libs/contracts`, `tools/scripts`, and root `charts/`, `images/`, `tests/`), not a completed agent orchestration product. Runtime components share Kubernetes while preserving workload, credential, dependency, and network boundaries. Durable platform data models, richer workflow APIs, authenticated local runners, and production Temporal authorization remain planned roadmap work.
 
-The deployed Python API is `unified_api.main:app`; LiteLLM is a separate model-proxy workload. Temporal workflows remain deterministic and non-deterministic work belongs in activities. Existing example workflows/HTTP workflow endpoints include stub behavior, which tests must not describe as proof of a complete task execution engine.
+The deployed Python API is `unified_api.main:app` (in `apps/core/unified_api/`); LiteLLM is a separate model-proxy workload. Temporal workflows (`apps/core/orchestrator/`) remain deterministic and non-deterministic work belongs in activities. Existing example workflows/HTTP workflow endpoints include stub behavior, which tests must not describe as proof of a complete task execution engine.
 
 ## Runtime components
 
-- **Unified API:** FastAPI request/configuration surface with validated injected settings. Its health endpoint reports process availability, not proof that every backing service is healthy.
-- **Temporal worker:** polls the configured namespace/task queue, supervises startup/shutdown, and exposes process health plus SDK-backed readiness. Integration tests execute a real SDK workflow against this worker.
-- **Frontend:** Next.js application in `frontend/` managed by `pnpm`. Browser requests use same-origin `/api` and `/v1` routes rather than a runtime `NEXT_PUBLIC_API_URL` that would already have been frozen at build time.
+- **Unified API (`apps/core/unified_api/`):** FastAPI request/configuration surface with validated injected settings (`agent-director-core`). Its health endpoint reports process availability, not proof that every backing service is healthy.
+- **Temporal worker (`apps/core/orchestrator/`):** polls the configured namespace/task queue, supervises startup/shutdown, and exposes process health plus SDK-backed readiness. Integration tests execute a real SDK workflow against this worker.
+- **Sandbox Execution Daemon (`apps/sandbox-exec/`):** isolated Robyn (`robyn==0.88.0`) package (`agent-director-sandbox-exec`) sharing typed Pydantic schemas via `libs/contracts` (`agent-director-contracts`) and enforcing constant-time Bearer token authentication (`SANDBOX_AUTH_TOKEN`, `hmac.compare_digest`, fail-closed when empty) on `POST /hydrate` and `/readyz`. Its container image (`images/sandbox/Dockerfile`) remains on a non-listening stub entrypoint until Tier 2.2 runtime secret injection is wired.
+- **Frontend (`apps/ui/`):** Next.js 16 application in the self-contained `apps/ui/` `pnpm` workspace (`strictDepBuilds: true`, `minimumReleaseAge: 2880`, `allowBuilds: { nx: false, "nx-mcp": false, msw: false }`), checked by `mise`-pinned Biome (`2.5.15`, `lint/security`) and equipped with MSW contract mocks (`apps/ui/src/mocks/`). Browser requests use same-origin `/api` and `/v1` routes rather than a runtime `NEXT_PUBLIC_API_URL` that would already have been frozen at build time.
 - **LiteLLM:** separately deployed model proxy; the API receives its actual Service URL from chart configuration.
 - **Agent Substrate:** separately deployed `v0.4.0` API/controller (`ateapi` and `atecontroller`) with scoped database credentials, explicit TLS bundle inputs, matching Service/SAN/server-name wiring, and live HTTP `/metrics` probes on `:8080` for the controller.
 
 ## Toolchain and artifact ownership
 
-Root `mise.toml` and `mise.lock` select the CLI and runtime toolchain. `uv` owns Python packaging, lock resolution and `.venv`; `pnpm` owns `frontend/` dependencies and `frontend/pnpm-lock.yaml`. Container Dockerfiles pin their own `FROM <repo>:<tag>@sha256:<digest>` images directly so standalone builds and Renovate's `dockerfile` manager work without wrapper scripts.
+Root `mise.toml` and `mise.lock` select the CLI and runtime toolchain (including `biome=2.5.15`) and set `NX_NO_CLOUD=true`, `NX_DAEMON=false`, and `NX_CACHE_DIRECTORY`. `uv` owns Python workspace packaging (`[tool.uv.workspace]` members `apps/core`, `apps/sandbox-exec`, and `libs/contracts`), lock resolution (`uv.lock`), and `.venv`; `pnpm` owns `apps/ui/` dependencies and `apps/ui/pnpm-lock.yaml`; and Nx (`nx.json`, `.nxignore`, `.mcp.json`, and 7 `project.json` files) orchestrates build-graph target caching. Static import boundaries between Python packages are enforced by Ruff `TID251` (`flake8-tidy-imports.banned-api`) and `tests/unit/test_module_boundaries.py` (`ast.parse`). Container Dockerfiles pin their own `FROM <repo>:<tag>@sha256:<digest>` images directly and install only their target workspace package (`uv sync --locked --package <member> --no-install-workspace --no-dev`) so standalone builds and Renovate's `dockerfile` manager work without wrapper scripts.
 
 Helm owns cluster names, namespaces, Services and port configuration. Runtime code consumes validated environment settings rather than deriving Helm names. Test fixtures discover the deployed lifecycle contract and own their temporary host access endpoints.
 
-Shared image discovery (`scripts/images.py`) identifies exported Docker targets for CI, kind loading and scans. The API/worker Dockerfiles use their own runtime builds; no common Python dependency-filled base is introduced. Frontend containers copy the distroless Node runtime into the `pnpm` builder stage so both build and runtime execute the same hardened Node binary.
+Shared image discovery (`tools/scripts/images.py`) identifies exported Docker targets for CI, kind loading and scans. The API/worker/sandbox Dockerfiles use their own per-package runtime builds; no common Python dependency-filled base is introduced. Frontend containers copy the distroless Node runtime into the `pnpm` builder stage so both build and runtime execute the same hardened Node binary.
 
 ## Backing-service lifecycle
 
