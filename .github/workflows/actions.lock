@@ -14,6 +14,10 @@ workflows:
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
         - 'jdx/mise-action@v5.1.2'
+    '.github/workflows/graphify-brain-refresh.yaml':
+        - 'actions/cache@v6.1.0'
+        - 'actions/checkout@v7.0.1'
+        - 'jdx/mise-action@v5.1.2'
     '.github/workflows/infra-ci.yml':
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'

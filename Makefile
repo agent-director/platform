@@ -25,7 +25,7 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix nx-graph nx-affected
+.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix nx-graph nx-affected graphify
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
@@ -70,6 +70,9 @@ nx-graph:
 
 nx-affected:
 	$(NX) affected -t lint,typecheck,test,build --parallel=3
+
+graphify:
+	GRAPHIFY_BACKEND=none $(RUN) uvx --from "graphifyy==0.9.92" graphify extract . --code-only && GRAPHIFY_BACKEND=none $(RUN) uvx --from "graphifyy==0.9.92" graphify cluster-only . --no-viz --no-label
 
 cluster-up:
 	./tools/scripts/deploy.sh cluster-up

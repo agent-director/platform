@@ -525,3 +525,46 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     ui_proj = json.loads((ROOT / "apps/ui/project.json").read_text())
     assert ui_proj["targets"]["build"]["dependsOn"] == ["typecheck"]
     assert "{projectRoot}/.next/types/**" in ui_proj["targets"]["typecheck"]["outputs"]
+
+
+def test_graphify_ignore_makefile_and_workflow_security() -> None:
+    graphify_ignore = {
+        line.strip()
+        for line in (ROOT / ".graphifyignore").read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    assert {
+        "hack/**",
+        ".env*",
+        ".secrets.baseline",
+        ".cache/**",
+        ".venv/**",
+        "**/node_modules/**",
+        ".nx/**",
+        "graphify-out/**",
+        "charts/*/charts/**",
+        ".schemas/**",
+        "apps/ui/.next/**",
+    } <= graphify_ignore
+
+    makefile = (ROOT / "Makefile").read_text()
+    assert "graphify:" in makefile
+    assert 'uvx --from "graphifyy==0.9.92" graphify extract . --code-only' in makefile
+    assert (
+        'uvx --from "graphifyy==0.9.92" graphify cluster-only . --no-viz --no-label'
+        in makefile
+    )
+    assert "GRAPHIFY_BACKEND=none" in makefile
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/graphify-brain-refresh.yaml").read_text()
+    )
+    assert workflow["permissions"] == {}
+    job = workflow["jobs"]["refresh-brain"]
+    assert job["permissions"] == {"contents": "write"}
+    checkout_step = next(
+        step
+        for step in job["steps"]
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    )
+    assert checkout_step["with"]["persist-credentials"] is False
