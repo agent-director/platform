@@ -58,8 +58,9 @@ def handle_hydrate(
     if not verify_bearer_token(auth_header, expected_token):
         return (status_codes.HTTP_401_UNAUTHORIZED, '{"detail":"Unauthorized"}')
     try:
-        payload = HydrateRequest.model_validate_json(body)
-    except ValidationError:
+        raw_body = body.decode("utf-8") if isinstance(body, bytes) else body
+        payload = HydrateRequest.model_validate_json(raw_body)
+    except (UnicodeDecodeError, ValidationError):
         return (
             status_codes.HTTP_422_UNPROCESSABLE_ENTITY,
             '{"detail":"Invalid hydrate request"}',

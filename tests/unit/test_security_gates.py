@@ -528,6 +528,30 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     assert ui_proj["targets"]["build"]["dependsOn"] == ["typecheck"]
     assert "{projectRoot}/.next/types/**" in ui_proj["targets"]["typecheck"]["outputs"]
 
+    charts_proj = json.loads((ROOT / "charts/project.json").read_text())
+    assert {
+        "{workspaceRoot}/Makefile",
+        "{workspaceRoot}/.kube-linter.yaml",
+        "{workspaceRoot}/.checkov.yaml",
+        "{workspaceRoot}/.schemas/**/*",
+    } <= set(charts_proj["targets"]["lint"]["inputs"])
+
+    repo_tests_proj = json.loads((ROOT / "tests/project.json").read_text())
+    assert {
+        "{workspaceRoot}/Makefile",
+        "{workspaceRoot}/prek.toml",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/.nxignore",
+        "{workspaceRoot}/.graphifyignore",
+        "{workspaceRoot}/trivy.yaml",
+        "{workspaceRoot}/.trivyignore.yaml",
+        "{workspaceRoot}/.gitleaks.toml",
+        "{workspaceRoot}/.kube-linter.yaml",
+        "{workspaceRoot}/.checkov.yaml",
+        "{workspaceRoot}/images/**/*",
+        "{workspaceRoot}/.github/workflows/**/*",
+    } <= set(repo_tests_proj["targets"]["test"]["inputs"])
+
 
 def test_graphify_ignore_makefile_and_workflow_security() -> None:
     graphify_ignore = {

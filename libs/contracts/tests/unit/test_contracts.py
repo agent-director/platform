@@ -60,6 +60,40 @@ def test_hydrate_request_validation_and_schema() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("kwargs"),
+    [
+        {"workspace_id": "../../etc/passwd", "repo_url": "https://example.com/r.git"},
+        {"workspace_id": "   ", "repo_url": "https://example.com/r.git"},
+        {"workspace_id": ".hidden", "repo_url": "https://example.com/r.git"},
+        {"workspace_id": "ws-123", "repo_url": "-oProxyCommand=evil"},
+        {"workspace_id": "ws-123", "repo_url": "   "},
+        {"workspace_id": "ws-123", "repo_url": "https://example.com/..\n/r.git"},
+        {"workspace_id": "ws-123", "repo_url": "https://example.com/../r.git"},
+        {
+            "workspace_id": "ws-123",
+            "repo_url": "https://example.com/r.git",
+            "ref": "--upload-pack=evil",
+        },
+        {
+            "workspace_id": "ws-123",
+            "repo_url": "https://example.com/r.git",
+            "ref": "   ",
+        },
+        {
+            "workspace_id": "ws-123",
+            "repo_url": "https://example.com/r.git",
+            "ref": "refs/heads/../main",
+        },
+    ],
+)
+def test_hydrate_request_rejects_traversal_and_option_injection(
+    kwargs: dict[str, str],
+) -> None:
+    with pytest.raises(ValidationError):
+        HydrateRequest.model_validate(kwargs)
+
+
 def test_hydrate_response_round_trip_and_schema() -> None:
     resp = HydrateResponse(
         workspace_id="ws-123",

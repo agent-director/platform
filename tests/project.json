@@ -13,7 +13,30 @@
       "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml"
     },
     "test": {
-      "command": "mise exec -- uv run --locked --no-sync pytest tests/unit --basetemp=.cache/pytest/tmp-repo-tests"
+      "command": "mise exec -- uv run --locked --no-sync pytest tests/unit --basetemp=.cache/pytest/tmp-repo-tests",
+      "inputs": [
+        "default",
+        "^default",
+        "pythonWorkspace",
+        "{workspaceRoot}/conftest.py",
+        "{workspaceRoot}/Makefile",
+        "{workspaceRoot}/prek.toml",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/.nxignore",
+        "{workspaceRoot}/.graphifyignore",
+        "{workspaceRoot}/trivy.yaml",
+        "{workspaceRoot}/.trivyignore.yaml",
+        "{workspaceRoot}/.gitleaks.toml",
+        "{workspaceRoot}/.kube-linter.yaml",
+        "{workspaceRoot}/.checkov.yaml",
+        "{workspaceRoot}/renovate.json",
+        "{workspaceRoot}/.env.example",
+        "{workspaceRoot}/README.md",
+        "{workspaceRoot}/CONTRIBUTING.md",
+        "{workspaceRoot}/architecture.md",
+        "{workspaceRoot}/images/**/*",
+        "{workspaceRoot}/.github/workflows/**/*"
+      ]
     }
   }
 }

@@ -93,6 +93,30 @@ async def test_hydrate_validates_request_and_returns_response(
     malformed_status, _ = handle_hydrate(b"{not-valid-json", headers, environ=env)
     assert malformed_status == 422
 
+    invalid_utf8_status, _ = handle_hydrate(b"\xff\xfe", headers, environ=env)
+    assert invalid_utf8_status == 422
+
+    for bad_payload in (
+        {"workspace_id": "../../etc/passwd", "repo_url": "https://example.com/r.git"},
+        {"workspace_id": "   ", "repo_url": "https://example.com/r.git"},
+        {"workspace_id": "ws-1", "repo_url": "-oProxyCommand=evil"},
+        {"workspace_id": "ws-1", "repo_url": "   "},
+        {
+            "workspace_id": "ws-1",
+            "repo_url": "https://example.com/r.git",
+            "ref": "--upload-pack=evil",
+        },
+        {
+            "workspace_id": "ws-1",
+            "repo_url": "https://example.com/r.git",
+            "ref": "   ",
+        },
+    ):
+        rejected_status, _ = handle_hydrate(
+            json.dumps(bad_payload), headers, environ=env
+        )
+        assert rejected_status == 422, bad_payload
+
     valid_body = json.dumps(
         {
             "workspace_id": "ws-alpha",
