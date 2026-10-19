@@ -1,13 +1,13 @@
 #!/bin/bash
 # Uses an existing kind cluster. Creation/deletion belong to the caller.
 set -euo pipefail
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 run() { mise exec -- "$@"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    printf '%s\n' 'Usage: scripts/test-integration.sh [existing-kind-cluster-name] [pytest-args...]' \
+    printf '%s\n' 'Usage: tools/scripts/test-integration.sh [existing-kind-cluster-name] [pytest-args...]' \
         'Environment: NAMESPACE, RELEASE_NAME, SUBSTRATE_NAMESPACE, SUBSTRATE_RELEASE_NAME, PROFILE=kind|full.' \
         'BUILD_IMAGES=false explicitly reuses already-built local artifacts; no cluster is created or destroyed.'
     exit 0
@@ -92,7 +92,7 @@ run_owned() {
     return "$status"
 }
 
-run_owned "$ROOT/scripts/deploy.sh" check-cluster
+run_owned "$ROOT/tools/scripts/deploy.sh" check-cluster
 mkdir -p "$ROOT/.cache/integration"
 DISCOVERY_FILE=$(mktemp "$ROOT/.cache/integration/clusters.XXXXXXXX")
 run_owned mise exec -- kind get clusters > "$DISCOVERY_FILE"
@@ -103,7 +103,7 @@ while IFS= read -r name; do
 done <<< "$EXISTING"
 [[ "$FOUND" == true ]] || fail "Kind cluster $CLUSTER_NAME does not exist; the caller must create it explicitly."
 
-IMAGE_DEFINITIONS=$(run uv run --no-project scripts/images.py --format tsv)
+IMAGE_DEFINITIONS=$(run uv run --no-project tools/scripts/images.py --format tsv)
 [[ -n "$IMAGE_DEFINITIONS" ]] || fail 'No exported images discovered.'
 IMAGES_TO_LOAD=()
 while IFS=$'\t' read -r name dockerfile target; do
@@ -122,7 +122,7 @@ while IFS=$'\t' read -r name dockerfile target; do
     fi
 done <<< "$IMAGE_DEFINITIONS"
 run_owned mise exec -- kind load docker-image "${IMAGES_TO_LOAD[@]}" --name "$CLUSTER_NAME"
-run_owned "$ROOT/scripts/deploy.sh" deploy
+run_owned "$ROOT/tools/scripts/deploy.sh" deploy
 
 run_owned mise exec -- uv run --locked pytest tests/integration/ -n 0 "$@"
 printf 'Integration suite passed; selected cluster %s is retained.\n' "$CLUSTER_NAME"

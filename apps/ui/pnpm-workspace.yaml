@@ -3,3 +3,4 @@ packages:
 
 strictDepBuilds: true
 allowBuilds: {}
+minimumReleaseAge: 2880

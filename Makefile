@@ -39,16 +39,16 @@ help:
 setup:
 	$(MISE) install --locked
 	$(RUN) uv sync --locked --all-packages
-	$(RUN) pnpm --dir frontend install --frozen-lockfile
+	$(RUN) pnpm --dir apps/ui install --frozen-lockfile
 	$(MAKE) check-helm-deps
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:
 	$(RUN) uv run --locked pyrefly check --config pyproject.toml
-	$(RUN) pnpm --dir frontend typecheck
+	$(RUN) pnpm --dir apps/ui typecheck
 
 build-frontend:
-	$(RUN) pnpm --dir frontend build
+	$(RUN) pnpm --dir apps/ui build
 
 lint:
 	$(RUN) prek run --all-files
@@ -62,24 +62,24 @@ pytest-unit:
 	$(RUN) uv run --locked pytest $(PYTEST_ARGS)
 
 image-matrix:
-	@$(RUN) uv run --no-project scripts/images.py --format matrix
+	@$(RUN) uv run --no-project tools/scripts/images.py --format matrix
 
 cluster-up:
-	./scripts/deploy.sh cluster-up
+	./tools/scripts/deploy.sh cluster-up
 
 cluster-down: teardown
 
 check-cluster:
-	./scripts/deploy.sh check-cluster
+	./tools/scripts/deploy.sh check-cluster
 
 deploy:
-	./scripts/deploy.sh deploy
+	./tools/scripts/deploy.sh deploy
 
 teardown:
-	./scripts/teardown.sh "$(CLUSTER_NAME)"
+	./tools/scripts/teardown.sh "$(CLUSTER_NAME)"
 
 test-integration:
-	./scripts/test-integration.sh "$(CLUSTER_NAME)" $(PYTEST_ARGS)
+	./tools/scripts/test-integration.sh "$(CLUSTER_NAME)" $(PYTEST_ARGS)
 
 pytest-integration: check-cluster
 	$(RUN) uv run --locked pytest tests/integration/ -n 0 $(PYTEST_ARGS)
@@ -99,7 +99,7 @@ check-helm-deps:
 	fi
 
 update-schemas:
-	$(RUN) uv run --locked scripts/update-crds.py all
+	$(RUN) uv run --locked tools/scripts/update-crds.py all
 
 lint-checkov:
 	env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
@@ -149,7 +149,7 @@ scan-local:
 	    $(MAKE) scan-image IMAGE_REF="$$tag"; \
 	    docker image rm "$$tag" >/dev/null 2>&1 || true; \
 	  fi; \
-	done < <($(RUN) uv run --no-project scripts/images.py --format tsv); \
+	done < <($(RUN) uv run --no-project tools/scripts/images.py --format tsv); \
 	[[ "$$matched" -eq 1 ]] || { printf 'ERROR: Unknown image selection: %s\n' "$$selection" >&2; exit 2; }
 
 actions-lock:

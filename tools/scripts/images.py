@@ -11,7 +11,7 @@ import re
 import shlex
 from pathlib import Path
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 IMAGE_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
 
 

@@ -1,8 +1,11 @@
 .git
 .github
+.claude
 .mise
+.nx/
 .schemas
 charts
+graphify-out/
 hack
 tests
 *.md

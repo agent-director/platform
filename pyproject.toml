@@ -73,7 +73,7 @@ permissive-ignores = false
 type-ignore-unknown-tag-behavior = "no-effect"
 project-excludes = [".cache/**", ".venv/**", "node_modules/**", "apps/ui/**", "graphify-out/**"]
 python-interpreter-path = ".venv/bin/python"
-search-path = [".", "apps/core", "apps/sandbox-exec", "libs/contracts", "scripts", "tools", "tools/scripts"]
+search-path = [".", "apps/core", "apps/sandbox-exec", "libs/contracts", "tools", "tools/scripts"]
 check-unannotated-defs = true
 
 [tool.pyrefly.errors]

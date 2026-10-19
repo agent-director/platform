@@ -2,7 +2,7 @@
 # Shared local lifecycle contract. No command uses the caller's ambient context.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 run() { mise exec -- "$@"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -106,7 +106,7 @@ validate_helm_options() {
 
 usage() {
     printf '%s\n' \
-        'Usage: scripts/deploy.sh cluster-up|check-cluster|deploy [Helm options after --]' \
+        'Usage: tools/scripts/deploy.sh cluster-up|check-cluster|deploy [Helm options after --]' \
         'Set CLUSTER_NAME (defaults to platform-dev), NAMESPACE, RELEASE_NAME and PROFILE=kind|full.' \
         'Existing clusters require REUSE_CLUSTER=true and are not newly owned.' \
         'DEPLOY_VALUES and SUBSTRATE_VALUES optionally name Helm values files.'

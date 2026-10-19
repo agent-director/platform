@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).absolute().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 SUBSTRATE_VERSION = re.compile(
     r"^ARG AGENT_SUBSTRATE_VERSION=(v?\d+\.\d+\.\d+(?:-[\w.-]+)?)$", re.MULTILINE
@@ -127,7 +127,7 @@ def crd_outputs(
 
 
 def postgres_outputs(root: Path) -> dict[Path, str]:
-    deploy_script = root / "scripts/deploy.sh"
+    deploy_script = root / "tools/scripts/deploy.sh"
     match = POSTGRES_OPERATOR_VERSION.search(deploy_script.read_text())
     if match is None:
         raise ValueError(f"Missing exact POSTGRES_OPERATOR_VERSION in {deploy_script}")

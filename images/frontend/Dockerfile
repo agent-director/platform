@@ -5,11 +5,11 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=runtime-base /nodejs /nodejs
 ENV PATH="/nodejs/bin:/opt/pnpm:${PATH}"
-COPY frontend/package.json frontend/pnpm-workspace.yaml frontend/pnpm-lock.yaml ./
+COPY apps/ui/package.json apps/ui/pnpm-workspace.yaml apps/ui/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
-COPY frontend/next.config.js frontend/tsconfig.json ./
-COPY frontend/src ./src
-COPY frontend/public ./public
+COPY apps/ui/next.config.js apps/ui/tsconfig.json ./
+COPY apps/ui/src ./src
+COPY apps/ui/public ./public
 RUN pnpm run build
 
 FROM runtime-base AS runtime

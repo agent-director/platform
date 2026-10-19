@@ -1,13 +1,13 @@
 #!/bin/bash
 # Local-only destruction: never uninstall a provider/release or delete a namespace.
 set -euo pipefail
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 run() { mise exec -- "$@"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    printf '%s\n' 'Usage: scripts/teardown.sh [explicit-owned-kind-cluster-name]' \
+    printf '%s\n' 'Usage: tools/scripts/teardown.sh [explicit-owned-kind-cluster-name]' \
         'Only clusters successfully created by this worktree lifecycle may be destroyed.'
     exit 0
 fi

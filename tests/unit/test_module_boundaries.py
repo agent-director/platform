@@ -49,13 +49,12 @@ def test_sandbox_exec_never_imports_control_plane_packages() -> None:
 
 
 def test_core_and_scripts_never_import_sandbox_exec() -> None:
-    files = (
-        _python_files_under("apps/core")
-        + _python_files_under("tools/scripts")
-        + _python_files_under("scripts")
-    )
-    assert files, "Expected Python files in apps/core and scripts"
-    for py_file in files:
+    core_files = _python_files_under("apps/core")
+    script_files = _python_files_under("tools/scripts")
+    assert core_files, "Expected Python files in apps/core"
+    assert script_files, "Expected Python files in tools/scripts"
+    assert _python_files_under("scripts") == []
+    for py_file in core_files + script_files:
         overlap = _imported_top_level_modules(py_file) & SANDBOX_MODULES
         assert not overlap, (
             f"{py_file.relative_to(REPO_ROOT)} imports forbidden {overlap}"

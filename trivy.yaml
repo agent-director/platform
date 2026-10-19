@@ -18,12 +18,16 @@ scan:
     - secret
   skip-dirs:
     - .cache
+    - .claude
     - .mise
+    - .nx
     - .venv
+    - graphify-out
+    - hack
     - node_modules
-    - frontend/node_modules
-    - frontend/.cache
-    - frontend/.next
+    - apps/ui/node_modules
+    - apps/ui/.cache
+    - apps/ui/.next
     - .git
   skip-files:
     - .secrets.baseline

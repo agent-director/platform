@@ -1,5 +1,7 @@
 hack/
 .cache/
+.nx/
+graphify-out/
 __pycache__/
 *.pyc
 .DS_Store
@@ -25,6 +27,6 @@ rendered.yaml
 
 # Installed Node dependencies remain separate from disposable artifact caches.
 node_modules/
-frontend/.next/
-frontend/next-env.d.ts
-frontend/tsconfig.tsbuildinfo
+apps/ui/.next/
+apps/ui/next-env.d.ts
+apps/ui/tsconfig.tsbuildinfo

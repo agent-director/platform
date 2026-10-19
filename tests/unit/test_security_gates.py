@@ -163,6 +163,54 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
     assert trivy["exit-code"] == 1
     assert trivy["cache-dir"] == ".cache/trivy"
     assert "db" not in trivy
+    skip_dirs = set(trivy["scan"]["skip-dirs"])
+    assert {
+        "hack",
+        ".claude",
+        ".nx",
+        "graphify-out",
+        "apps/ui/node_modules",
+        "apps/ui/.cache",
+        "apps/ui/.next",
+    } <= skip_dirs
+    assert not any(str(entry).startswith("frontend/") for entry in skip_dirs)
+
+
+def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
+    pnpm_ws = yaml.safe_load((ROOT / "apps/ui/pnpm-workspace.yaml").read_text())
+    assert pnpm_ws["packages"] == ["."]
+    assert pnpm_ws["strictDepBuilds"] is True
+    assert pnpm_ws["minimumReleaseAge"] == 2880
+    assert isinstance(pnpm_ws.get("allowBuilds"), dict)
+
+    gitignore_lines = {
+        line.strip()
+        for line in (ROOT / ".gitignore").read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    assert {
+        "hack/",
+        ".nx/",
+        "graphify-out/",
+        "apps/ui/.next/",
+        "apps/ui/next-env.d.ts",
+        "apps/ui/tsconfig.tsbuildinfo",
+    } <= gitignore_lines
+    assert not any(line.startswith("frontend/") for line in gitignore_lines)
+
+    dockerignore_lines = {
+        line.strip()
+        for line in (ROOT / ".dockerignore").read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    assert {".claude", ".nx/", "graphify-out/", "hack"} <= dockerignore_lines
+    assert not any(line.startswith("frontend/") for line in dockerignore_lines)
+
+    env_example = (ROOT / ".env.example").read_text()
+    assert (
+        'GITHUB_CONFIG_PATH="apps/core/unified_api/litellm_config.yaml"' in env_example
+    )
+    assert 'GITHUB_CONFIG_PATH="unified_api/litellm_config.yaml"' not in env_example
 
 
 @pytest.mark.parametrize(
