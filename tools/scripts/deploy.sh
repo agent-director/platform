@@ -347,8 +347,6 @@ temporal_svc = temporal_url.split(".")[0]
 temporal_port = temporal_url.rsplit(":", 1)[1]
 trust_cm = [c for c in by_kind("ConfigMap") if c["metadata"]["name"] == f"{db_name}-trust"][0]
 trust_key = list(trust_cm.get("data", {}).keys())[0] if trust_cm.get("data") else "ca.crt"
-schema_prefix = temporal_svc.removesuffix("-frontend").removesuffix("-temporal-dev")
-schema_sa = f"{schema_prefix}-temporal-schema"
 substrate_secret_user = substrate_user.replace("_", "-")
 json.dump({
     "databaseResource": db_name,

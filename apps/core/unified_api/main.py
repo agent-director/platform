@@ -1,6 +1,7 @@
 """Unified API BFF; workflow endpoints currently return placeholder responses."""
 
 import base64
+import hmac
 import re
 import uuid
 from collections.abc import AsyncGenerator, AsyncIterator
@@ -62,7 +63,8 @@ def get_current_user(
         auth_header = request.headers.get("Authorization", "")
         if (
             not settings.internal_token
-            or auth_header != f"Bearer {settings.internal_token}"
+            or not auth_header
+            or not hmac.compare_digest(auth_header, f"Bearer {settings.internal_token}")
         ) and settings.environment != "dev":
             raise HTTPException(
                 status_code=401, detail="Invalid internal service token"

@@ -13,6 +13,12 @@ export const handlers = [
 	http.get("/health", () =>
 		HttpResponse.json<HealthContract>({ status: "ok" }),
 	),
+	http.get("/api/config", () =>
+		HttpResponse.json<ModelConfigContract>({
+			model_list: [{ model_name: "claude-sonnet-5-5" }],
+			router_settings: {},
+		}),
+	),
 	http.get("/api/config/models", () =>
 		HttpResponse.json<ModelConfigContract>({
 			model_list: [{ model_name: "claude-sonnet-5-5" }],

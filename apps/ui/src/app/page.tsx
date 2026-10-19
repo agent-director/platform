@@ -26,7 +26,6 @@ export default function Dashboard() {
 			}
 		};
 		fetchConfig();
-		// Stub initial workflows
 		setWorkflows([{ id: "wf_12345", state: "running" }]);
 	}, []);
 
@@ -43,7 +42,14 @@ export default function Dashboard() {
 			});
 			if (res.ok) {
 				const data = await res.json();
-				setPrUrl(data.url);
+				const candidateUrl = data.pr_url ?? data.url;
+				if (
+					typeof candidateUrl === "string" &&
+					(candidateUrl.startsWith("https://") ||
+						candidateUrl.startsWith("http://"))
+				) {
+					setPrUrl(candidateUrl);
+				}
 			} else {
 				alert(`Failed to submit PR: ${await res.text()}`);
 			}

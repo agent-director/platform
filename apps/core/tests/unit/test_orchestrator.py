@@ -1,5 +1,6 @@
 import asyncio
 import signal
+from collections.abc import Callable
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -327,8 +328,6 @@ async def test_worker_health_http_responses(
 async def test_worker_main_injects_settings_and_cleans_signal_handlers(
     binding_fails: bool,
 ) -> None:
-    from collections.abc import Callable
-
     settings = WorkerSettings(
         temporal_url="custom-temporal.test:8233",
         namespace="custom-namespace",

@@ -46,13 +46,15 @@ extend-select = ["TID251"]
 "unified_api".msg = "Control-plane unified_api cannot be imported outside apps/core."
 "orchestrator".msg = "Control-plane orchestrator cannot be imported outside apps/core."
 "director".msg = "Control-plane director CLI cannot be imported outside apps/core."
+"sandbox_exec".msg = "Do not import in-sandbox daemon code outside apps/sandbox-exec."
 
 [tool.ruff.lint.per-file-ignores]
 "apps/core/**" = ["TID251"]
+"apps/sandbox-exec/**" = ["TID251"]
 "tests/**" = ["TID251"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["contracts", "director", "orchestrator", "sandbox_exec", "unified_api"]
+known-first-party = ["contracts", "director", "orchestrator", "sandbox_exec", "scripts", "unified_api"]
 
 [tool.uv]
 cache-dir = ".cache/uv"

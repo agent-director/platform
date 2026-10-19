@@ -13,7 +13,6 @@ class PMStandupState(TypedDict):
 class PMStandupWorkflow:
     @workflow.run
     async def run(self, job_id: str) -> PMStandupState:
-        # Stub workflow returning hardcoded dict
         return {
             "job_id": job_id,
             "status": "blockers_identified",

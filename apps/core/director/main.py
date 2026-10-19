@@ -8,7 +8,6 @@ def main(args: list[str] | None = None) -> None:
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # Scaffold a run command
     run_parser = subparsers.add_parser("run", help="Run a workflow")
     run_parser.add_argument("workflow_name", help="Name of the workflow to run")
 

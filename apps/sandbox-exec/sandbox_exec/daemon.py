@@ -29,7 +29,7 @@ def verify_bearer_token(auth_header: str | None, expected_token: str) -> bool:
     if not auth_header.startswith(prefix):
         return False
     candidate = auth_header[len(prefix) :]
-    if not candidate or not candidate.strip():
+    if not candidate.strip():
         return False
     return hmac.compare_digest(
         candidate.encode("utf-8"),

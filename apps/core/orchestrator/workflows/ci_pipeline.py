@@ -14,7 +14,6 @@ class CIPipelineState(TypedDict):
 class CIPipelineWorkflow:
     @workflow.run
     async def run(self, job_id: str) -> CIPipelineState:
-        # Stub workflow returning hardcoded dict
         return {
             "job_id": job_id,
             "status": "quality_analyzed",

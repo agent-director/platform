@@ -1,1 +1,1 @@
-# Orchestrator package
+"""Temporal worker and workflow orchestration package."""

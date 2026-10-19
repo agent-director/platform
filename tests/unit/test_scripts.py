@@ -1,5 +1,6 @@
 """Lifecycle failure paths use fake tools only; they never touch a real cluster."""
 
+import asyncio
 import json
 import os
 import shutil
@@ -13,10 +14,12 @@ from typing import Any, TextIO, cast
 import pytest
 import yaml
 
+from tests.integration import conftest as fixtures
 from tests.integration.conftest import (
     REPO_ROOT,
     ClusterContract,
     ForwardManager,
+    OwnedForward,
     discover_workloads,
     lifecycle_values,
     parse_resources,
@@ -171,13 +174,10 @@ class ScriptHarness:
         (image / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
         jq = shutil.which("jq")
         assert jq is not None
-        uv = shutil.which("uv")
-        assert uv is not None
         self.env = {
             **os.environ,
             "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
             "FAKE_ROOT": str(directory),
-            "FAKE_UV": uv,
             "FAKE_PYTHON": sys.executable,
             "FAKE_LOG": str(directory / "commands.log"),
             "FAKE_JQ": jq,
@@ -625,8 +625,6 @@ def test_forward_signal_handler_closes_only_its_own_processes(
     manager = ForwardManager(unit_contract(), tmp_path)
     owned = FakeForwardProcess()
     unrelated = FakeForwardProcess()
-    from tests.integration.conftest import OwnedForward
-
     log = (tmp_path / "forward.log").open("w", encoding="utf-8")
     manager.forwards.append(
         OwnedForward(cast(subprocess.Popen[str], owned), log, tmp_path / "forward.log")
@@ -799,10 +797,6 @@ def test_scoped_forward_closes_only_its_child_in_shared_signal_registry(
 def test_database_readiness_deadline_covers_a_stalled_query_and_closes_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import asyncio
-
-    from tests.integration import conftest as fixtures
-
     class StalledConnection:
         closed = False
 

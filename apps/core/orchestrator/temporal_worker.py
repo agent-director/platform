@@ -18,6 +18,7 @@ from orchestrator.workflows.ci_pipeline import CIPipelineWorkflow
 from orchestrator.workflows.pm_standup import PMStandupWorkflow
 
 HEALTH_TIMEOUT_SECONDS = 3.0
+HEALTH_HEADER_LIMIT_BYTES = 4096
 
 
 @dataclass
@@ -50,7 +51,6 @@ class AgentWorkflow:
 
     @workflow.run
     async def run(self, job_input: JobInput) -> str:
-        # Schedule the activity
         result = await workflow.execute_activity(
             execute_block,
             job_input,
@@ -140,7 +140,9 @@ async def serve_health(
     check_temporal: Callable[[], Awaitable[bool]],
 ) -> None:
     try:
-        request_line = await asyncio.wait_for(reader.readline(), timeout=3)
+        request_line = await asyncio.wait_for(
+            reader.readline(), timeout=int(HEALTH_TIMEOUT_SECONDS)
+        )
         parts = request_line.decode("ascii", errors="replace").strip().split()
         if len(parts) != 3 or parts[0] != "GET":
             status, body = 400, b"bad request\n"
@@ -231,7 +233,10 @@ async def main(settings: WorkerSettings | None = None) -> None:
             worker,
             stop,
             asyncio.start_server(
-                handle_health, host="0.0.0.0", port=settings.health_port, limit=4096
+                handle_health,
+                host="0.0.0.0",
+                port=settings.health_port,
+                limit=HEALTH_HEADER_LIMIT_BYTES,
             ),
         )
     finally:
