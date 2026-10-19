@@ -2,5 +2,8 @@ packages:
   - .
 
 strictDepBuilds: true
-allowBuilds: {}
+allowBuilds:
+  nx: false
+  nx-mcp: false
+  msw: false
 minimumReleaseAge: 2880

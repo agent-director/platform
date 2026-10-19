@@ -181,7 +181,7 @@ def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
     assert pnpm_ws["packages"] == ["."]
     assert pnpm_ws["strictDepBuilds"] is True
     assert pnpm_ws["minimumReleaseAge"] == 2880
-    assert isinstance(pnpm_ws.get("allowBuilds"), dict)
+    assert pnpm_ws["allowBuilds"] == {"nx": False, "nx-mcp": False, "msw": False}
 
     gitignore_lines = {
         line.strip()
@@ -452,6 +452,11 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     assert hooks["ruff"]["entry"] == "mise exec -- ruff check --fix"
     assert hooks["ruff-format"]["priority"] == 1
     assert hooks["ruff-format"]["entry"] == "mise exec -- ruff format"
+    assert (
+        hooks["biome"]["entry"]
+        == "mise exec -- biome check --config-path apps/ui/biome.json apps/ui/src"
+    )
+    assert hooks["biome"]["priority"] == 1
     assert hooks["actionlint"]["entry"] == "mise exec -- actionlint"
     assert hooks["hadolint"]["entry"] == "mise exec -- hadolint"
     assert hooks["typecheck"]["entry"] == "make typecheck"
@@ -469,3 +474,54 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
         assert hooks[name]["pass_filenames"] is False, name
         assert hooks[name]["priority"] == 1, name
         assert hooks[name]["entry"].startswith("make "), name
+
+
+def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
+    mise_cfg = tomllib.loads((ROOT / "mise.toml").read_text())
+    assert mise_cfg["tools"]["biome"] == "2.5.15"
+    assert mise_cfg["env"]["NX_NO_CLOUD"] == "true"
+    assert mise_cfg["env"]["NX_DAEMON"] == "false"
+    assert mise_cfg["env"]["NX_CACHE_DIRECTORY"] == "{{ config_root }}/.cache/nx"
+
+    nx_cfg = json.loads((ROOT / "nx.json").read_text())
+    assert nx_cfg["cacheDirectory"] == ".cache/nx"
+    assert set(nx_cfg["targetDefaults"]) >= {"lint", "typecheck", "test", "build"}
+    for target in ("lint", "typecheck", "test", "build"):
+        assert nx_cfg["targetDefaults"][target]["cache"] is True
+
+    nxignore = {
+        line.strip()
+        for line in (ROOT / ".nxignore").read_text().splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
+    assert {"hack/", ".cache/", ".venv/", "graphify-out/", ".schemas/"} <= nxignore
+
+    biome_cfg = json.loads((ROOT / "apps/ui/biome.json").read_text())
+    assert biome_cfg["linter"]["enabled"] is True
+    assert biome_cfg["linter"]["rules"]["recommended"] is True
+    assert biome_cfg["linter"]["rules"]["security"]["recommended"] is True
+
+    project_paths = {
+        "contracts": "libs/contracts/project.json",
+        "core": "apps/core/project.json",
+        "sandbox-exec": "apps/sandbox-exec/project.json",
+        "ui": "apps/ui/project.json",
+        "charts": "charts/project.json",
+        "scripts": "tools/scripts/project.json",
+        "repo-tests": "tests/project.json",
+    }
+    basetemps: set[str] = set()
+    for expected_name, rel_path in project_paths.items():
+        proj = json.loads((ROOT / rel_path).read_text())
+        assert proj["name"] == expected_name
+        if "test" in proj.get("targets", {}):
+            cmd = proj["targets"]["test"]["command"]
+            assert "--no-sync" in cmd
+            match = re.search(r"--basetemp=(\S+)", cmd)
+            assert match is not None, f"Missing --basetemp in {rel_path}"
+            basetemps.add(match.group(1))
+    assert len(basetemps) == 4
+
+    ui_proj = json.loads((ROOT / "apps/ui/project.json").read_text())
+    assert ui_proj["targets"]["build"]["dependsOn"] == ["typecheck"]
+    assert "{projectRoot}/.next/types/**" in ui_proj["targets"]["typecheck"]["outputs"]

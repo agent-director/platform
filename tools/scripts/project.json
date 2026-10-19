@@ -1,0 +1,13 @@
+{
+  "name": "scripts",
+  "$schema": "../../apps/ui/node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "tools/scripts",
+  "implicitDependencies": ["charts"],
+  "tags": ["scope:tools", "type:scripts"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- ruff check tools/scripts"
+    }
+  }
+}

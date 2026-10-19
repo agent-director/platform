@@ -1,0 +1,19 @@
+{
+  "name": "repo-tests",
+  "$schema": "../apps/ui/node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "tests",
+  "implicitDependencies": ["core", "ui", "sandbox-exec", "charts", "scripts"],
+  "tags": ["scope:repo", "type:tests"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- ruff check tests"
+    },
+    "typecheck": {
+      "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml"
+    },
+    "test": {
+      "command": "mise exec -- uv run --locked --no-sync pytest tests/unit --basetemp=.cache/pytest/tmp-repo-tests"
+    }
+  }
+}

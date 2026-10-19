@@ -1,0 +1,25 @@
+{
+  "name": "ui",
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ui/src",
+  "implicitDependencies": ["contracts"],
+  "tags": ["scope:ui", "type:app"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- biome check --config-path apps/ui/biome.json apps/ui/src"
+    },
+    "typecheck": {
+      "command": "mise exec -- pnpm --dir apps/ui run typecheck",
+      "outputs": ["{projectRoot}/.next/types/**"]
+    },
+    "build": {
+      "command": "mise exec -- pnpm --dir apps/ui run build",
+      "dependsOn": ["typecheck"],
+      "outputs": [
+        "{projectRoot}/.next/**",
+        "!{projectRoot}/.next/cache/**"
+      ]
+    }
+  }
+}

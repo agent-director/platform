@@ -4,6 +4,7 @@ SHELL := /bin/bash
 
 MISE := mise
 RUN := $(MISE) exec --
+NX := $(RUN) pnpm --dir apps/ui exec nx
 # renovate: datasource=pypi depName=checkov
 CHECKOV_VERSION ?= 3.3.26
 KUBECONFORM_FLAGS := -strict -summary -skip KataConfig -schema-location default -schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
@@ -24,7 +25,7 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix
+.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix nx-graph nx-affected
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
@@ -63,6 +64,12 @@ pytest-unit:
 
 image-matrix:
 	@$(RUN) uv run --no-project tools/scripts/images.py --format matrix
+
+nx-graph:
+	$(NX) graph --file=.cache/nx/graph.json
+
+nx-affected:
+	$(NX) affected -t lint,typecheck,test,build --parallel=3
 
 cluster-up:
 	./tools/scripts/deploy.sh cluster-up

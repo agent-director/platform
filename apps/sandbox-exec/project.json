@@ -1,0 +1,16 @@
+{
+  "name": "sandbox-exec",
+  "$schema": "../ui/node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/sandbox-exec/sandbox_exec",
+  "implicitDependencies": ["contracts"],
+  "tags": ["scope:sandbox", "type:app"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- ruff check apps/sandbox-exec"
+    },
+    "test": {
+      "command": "mise exec -- uv run --locked --no-sync pytest apps/sandbox-exec/tests/unit --basetemp=.cache/pytest/tmp-sandbox-exec"
+    }
+  }
+}
