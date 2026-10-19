@@ -329,6 +329,11 @@ def test_settings_read_nondefault_paths(tmp_path: Path) -> None:
     assert settings.litellm_config_path == tmp_path / "models.yaml"
     assert settings.admin_allowlist_path == tmp_path / "admins.yaml"
     assert settings.allowed_origins == ("https://ui.example:4443",)
+    assert settings.github_config_path == "apps/core/unified_api/litellm_config.yaml"
+    assert (
+        Settings(litellm_url="http://custom-backend.example:4911").github_config_path
+        == "apps/core/unified_api/litellm_config.yaml"
+    )
 
 
 def test_create_app_settings_dependency_injection(
@@ -374,7 +379,7 @@ def test_import_and_explicit_settings_ignore_invalid_environment_origins() -> No
     )
     result = subprocess.run(
         ["uv", "run", "--locked", "--no-sync", "python", "-c", program],
-        cwd=Path(__file__).parents[2],
+        cwd=Path(__file__).parents[4],
         env={**os.environ, "ALLOWED_ORIGINS": "*", "LITELLM_URL": "invalid-endpoint"},
         capture_output=True,
         text=True,

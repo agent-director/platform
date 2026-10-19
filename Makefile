@@ -38,7 +38,7 @@ help:
 
 setup:
 	$(MISE) install --locked
-	$(RUN) uv sync --locked
+	$(RUN) uv sync --locked --all-packages
 	$(RUN) pnpm --dir frontend install --frozen-lockfile
 	$(MAKE) check-helm-deps
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
@@ -59,7 +59,7 @@ format:
 test: pytest-unit
 
 pytest-unit:
-	$(RUN) uv run --locked pytest tests/unit/ $(PYTEST_ARGS)
+	$(RUN) uv run --locked pytest $(PYTEST_ARGS)
 
 image-matrix:
 	@$(RUN) uv run --no-project scripts/images.py --format matrix
