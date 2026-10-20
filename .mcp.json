@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "nx-mcp": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "pnpm",
+        "--dir",
+        "apps/ui",
+        "exec",
+        "nx-mcp",
+        "../..",
+        "--no-minimal",
+        "--disableTelemetry"
+      ]
+    }
+  }
+}
