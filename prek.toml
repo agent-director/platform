@@ -2,6 +2,7 @@
 # See https://prek.j178.dev for more information.
 #:schema https://www.schemastore.org/prek.json
 default_install_hook_types = ["pre-commit", "pre-push"]
+default_stages = ["pre-commit"]
 
 # Priority tiers:
 #   0 = fast whitespace/EOF/lockfile auto-fixers and ruff autofixer

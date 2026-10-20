@@ -34,7 +34,7 @@ norecursedirs = ["tests/integration", "node_modules", ".nx", "graphify-out"]
 timeout = 120
 cache_dir = ".cache/pytest"
 asyncio_default_fixture_loop_scope = "function"
-addopts = ["-n", "auto", "--dist", "worksteal", "--basetemp=.cache/pytest/tmp"]
+addopts = ["-n", "auto", "--maxprocesses=6", "--dist", "worksteal", "--basetemp=.cache/pytest/tmp"]
 
 [tool.ruff]
 cache-dir = ".cache/ruff"

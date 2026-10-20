@@ -1,5 +1,6 @@
 """Security gate controls use nonfunctional values assembled only at runtime."""
 
+import functools
 import hashlib
 import json
 import re
@@ -23,6 +24,7 @@ def _synthetic_token() -> str:
     )
 
 
+@functools.cache
 def _tool_binary(tool: str) -> str:
     executable = shutil.which(tool)
     if executable is not None and Path(executable).is_file():
@@ -378,53 +380,53 @@ def _copy_chart(directory: Path, name: str) -> Path:
 
 
 def test_trivy_real_iac_misconfiguration_positive_control(tmp_path: Path) -> None:
-    dockerfile = tmp_path / "Dockerfile"
-    dockerfile.write_text("FROM alpine:3.20.0\nUSER 1000\nHEALTHCHECK CMD /bin/true\n")
-    result, _ = _trivy_scan(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
-    dockerfile.write_text("FROM alpine:3.20.0\nHEALTHCHECK CMD /bin/true\n")
+    clean = tmp_path / "clean" / "Dockerfile"
+    clean.parent.mkdir()
+    clean.write_text("FROM alpine:3.20.0\nUSER 1000\nHEALTHCHECK CMD /bin/true\n")
+    violating = tmp_path / "violating" / "Dockerfile"
+    violating.parent.mkdir()
+    violating.write_text("FROM alpine:3.20.0\nHEALTHCHECK CMD /bin/true\n")
     result, report = _trivy_scan(tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
-    assert ("Dockerfile", "DS-0002") in _trivy_failures(report)
-
-
-def test_trivy_substrate_inline_exception_does_not_hide_adjacent_rule(
-    tmp_path: Path,
-) -> None:
-    chart = _copy_chart(tmp_path, "agent-substrate")
-    result, report = _trivy_scan(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
-    target = "charts/agent-substrate/templates/rbac.yaml"
     assert any(
-        item["Target"] == target and item["MisconfSummary"]["Successes"] > 0
+        item["Target"] == "clean/Dockerfile" and item["MisconfSummary"]["Successes"] > 0
         for item in report["Results"]
     )
+    assert _trivy_failures(report) == {("violating/Dockerfile", "DS-0002")}
+
+
+@pytest.mark.parametrize("case", ["clean", "remove_ignore", "broaden_resources"])
+def test_trivy_substrate_inline_exception_does_not_hide_adjacent_rule(
+    tmp_path: Path, case: str
+) -> None:
+    chart = _copy_chart(tmp_path, "agent-substrate")
+    target = "charts/agent-substrate/templates/rbac.yaml"
     rbac = chart / "templates/rbac.yaml"
     original = rbac.read_text()
     assert original.count("# trivy:ignore:KSV-0056") == 1
-    rbac.write_text(original.replace("# trivy:ignore:KSV-0056\n", ""))
-    result, report = _trivy_scan(tmp_path)
-    assert result.returncode == 1, result.stdout + result.stderr
-    assert _trivy_failures(report) == {(target, "KSV-0056")}
     rule = '  resources: ["pods"]\n  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]'
     assert original.count(rule) == 1
-    rbac.write_text(
-        original.replace(rule, rule.replace('["pods"]', '["pods", "services"]'))
-    )
+    if case == "remove_ignore":
+        rbac.write_text(original.replace("# trivy:ignore:KSV-0056\n", ""))
+    elif case == "broaden_resources":
+        rbac.write_text(
+            original.replace(rule, rule.replace('["pods"]', '["pods", "services"]'))
+        )
     result, report = _trivy_scan(tmp_path)
-    assert result.returncode == 1, result.stdout + result.stderr
-    assert _trivy_failures(report) == {(target, "KSV-0056")}
+    if case == "clean":
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert any(
+            item["Target"] == target and item["MisconfSummary"]["Successes"] > 0
+            for item in report["Results"]
+        )
+    else:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert _trivy_failures(report) == {(target, "KSV-0056")}
 
 
 def test_trivy_platform_workloads_scanned(tmp_path: Path) -> None:
     chart = _copy_chart(tmp_path, "platform")
-    result, report = _trivy_scan(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
     target = "charts/platform/templates/frontend.yaml"
-    assert any(
-        item["Target"] == target and item["MisconfSummary"]["Successes"] > 0
-        for item in report["Results"]
-    )
     frontend = chart / "templates/frontend.yaml"
     original = frontend.read_text()
     frontend.write_text(
@@ -435,12 +437,17 @@ def test_trivy_platform_workloads_scanned(tmp_path: Path) -> None:
     )
     result, report = _trivy_scan(tmp_path)
     assert result.returncode == 1, result.stdout + result.stderr
+    assert any(
+        item["Target"] == target and item["MisconfSummary"]["Successes"] > 0
+        for item in report["Results"]
+    )
     assert _trivy_failures(report) == {(target, "KSV-0017")}
 
 
 def test_hook_installation_and_parallel_priority_tiers() -> None:
     config = tomllib.loads((ROOT / "prek.toml").read_text())
     assert set(config["default_install_hook_types"]) == {"pre-commit", "pre-push"}
+    assert config["default_stages"] == ["pre-commit"]
     hooks = {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
     assert hooks["trailing-whitespace"]["priority"] == 0
     assert hooks["end-of-file-fixer"]["priority"] == 0

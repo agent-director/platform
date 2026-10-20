@@ -470,25 +470,25 @@ deploy() {
     helm_context upgrade --install "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
         --wait --timeout "$WAIT_TIMEOUT"
 
-    local db_service db_port trust
-    db_service=$(contract_value databaseService)
-    db_port=$(contract_value databasePort)
+    local db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret
+    IFS=$'\t' read -r db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret < <(
+        run jq -er '[.databaseService, .databasePort, .databaseCredentialSecret, .databaseName, .substrateDatabaseCredentialSecret, .substrateDatabaseName, .temporalCredentialSecret, .temporalDatabase, .temporalVisibilityDatabase, .databaseTrustConfigMap, .databaseTrustKey, .rustfsSecret] | if all(.[]; type == "string" and length > 0) then @tsv else error("missing contract field") end' <<< "$CONTRACT"
+    )
     kube wait --for=create "postgresql/$db_service" --namespace "$NAMESPACE" --timeout "$WAIT_TIMEOUT"
-    wait_sql "$(contract_value databaseCredentialSecret)" "$(contract_value databaseName)" "$db_service" "$db_port"
-    wait_sql "$(contract_value substrateDatabaseCredentialSecret)" "$(contract_value substrateDatabaseName)" "$db_service" "$db_port"
+    wait_sql "$db_cred_secret" "$db_name" "$db_service" "$db_port"
+    wait_sql "$sub_cred_secret" "$sub_db_name" "$db_service" "$db_port"
     if [[ "$PROFILE" == full ]]; then
-        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalDatabase)" "$db_service" "$db_port"
-        wait_sql "$(contract_value temporalCredentialSecret)" "$(contract_value temporalVisibilityDatabase)" "$db_service" "$db_port"
+        wait_sql "$temp_cred_secret" "$temp_db_name" "$db_service" "$db_port"
+        wait_sql "$temp_cred_secret" "$temp_vis_db" "$db_service" "$db_port"
     fi
-    trust=$(contract_value databaseTrustConfigMap)
-    wait_configmap_key "$trust" "$(contract_value databaseTrustKey)"
+    wait_configmap_key "$trust" "$trust_key"
     wait_configmap_key kube-root-ca.crt ca.crt
     wait_deployments "$NAMESPACE" "$RELEASE_NAME"
 
     kube create namespace "$SUBSTRATE_NAMESPACE" --dry-run=client -o json | kube apply -f -
-    copy_resource secret "$(contract_value rustfsSecret)"
-    copy_resource secret "$(contract_value substrateDatabaseCredentialSecret)"
-    copy_resource configmap "$(contract_value databaseTrustConfigMap)"
+    copy_resource secret "$rustfs_secret"
+    copy_resource secret "$sub_cred_secret"
+    copy_resource configmap "$trust"
     SUBSTRATE_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/substrate-values.XXXXXXXX")
     run jq -n --argjson c "$CONTRACT" --arg ns "$NAMESPACE" --arg tag "$IMAGE_TAG" \
         '{platformNamespace:$ns,global:{image:{tag:$tag}},database:{host:$c.databaseService,port:($c.databasePort|tonumber),user:$c.substrateDatabaseUser,name:$c.substrateDatabaseName,credentialSecret:$c.substrateDatabaseCredentialSecret,trustConfigMap:$c.databaseTrustConfigMap,trustKey:$c.databaseTrustKey},rustfs:{host:$c.rustfsService,port:($c.rustfsPort|tonumber),secretName:$c.rustfsSecret}}' > "$SUBSTRATE_VALUES_FILE"
