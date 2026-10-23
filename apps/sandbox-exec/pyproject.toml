@@ -5,6 +5,7 @@ description = "Isolated in-sandbox execution and hydration daemon"
 requires-python = ">=3.11"
 dependencies = [
     "agent-director-contracts",
+    "pydantic>=2.0",
     "robyn==0.88.0",
 ]
 
@@ -17,3 +18,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sandbox_exec"]
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"unified_api".msg = "Control-plane unified_api cannot be imported outside apps/core."
+"orchestrator".msg = "Control-plane orchestrator cannot be imported outside apps/core."
+"director".msg = "Control-plane director CLI cannot be imported outside apps/core."

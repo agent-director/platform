@@ -68,26 +68,26 @@ Breaking changes: append `!` after type/scope — `feat(gateway)!: renames route
 
 The repository is structured as a **SOTA Hybrid Nx Modular Monorepo**:
 - `apps/core/`: Control-plane Python package (`agent-director-core`) containing `unified_api/`, `orchestrator/`, `director/`, and co-located unit tests (`apps/core/tests/unit/`).
-- `apps/ui/`: Self-contained Next.js 16 `pnpm` workspace (`apps/ui/package.json`, `apps/ui/pnpm-workspace.yaml`, `apps/ui/pnpm-lock.yaml`) with Biome (`apps/ui/biome.json`) and MSW contract mocks (`apps/ui/src/mocks/`).
+- `apps/ui/`: Next.js 16 frontend application (`platform-ui` in the root `pnpm` workspace) with Biome (`apps/ui/biome.json`) and MSW contract mocks & tests (`apps/ui/src/mocks/`).
 - `apps/sandbox-exec/`: Isolated Robyn in-sandbox execution daemon (`agent-director-sandbox-exec`) and unit tests (`apps/sandbox-exec/tests/unit/`).
 - `libs/contracts/`: Shared Pydantic v2 contract schemas (`agent-director-contracts`) and unit tests (`libs/contracts/tests/unit/`).
-- `tools/scripts/`: Operational and CI scripts (`deploy.sh`, `teardown.sh`, `test-integration.sh`, `images.py`, `update-crds.py`).
+- `tools/scripts/`: Operational and CI scripts (`deploy.sh`, `teardown.sh`, `test-integration.sh`, `scan-images.sh`, `fetch-graphify-brain.sh`, `images.py`, `update-crds.py`).
 - `charts/`, `images/`, `tests/`: Helm charts (`charts/platform`, `charts/agent-substrate`), multi-stage container `Dockerfile`s, cross-cutting unit contract tests (`tests/unit/`), and live kind integration tests (`tests/integration/`).
 
-Root `mise.toml` and `mise.lock` select the toolchain (including `biome`). Static import boundaries between Python workspace packages are enforced by Ruff `TID251` (`banned-api`) and `tests/unit/test_module_boundaries.py`.
+Root `mise.toml` and `mise.lock` select the toolchain (including `biome`). Static import and dependency boundaries between Python workspace packages are enforced by Ruff `TID251` (`banned-api`) and `tests/unit/test_module_boundaries.py`.
 
 ## Tooling & Execution
 
 Use `mise exec --` (or `make` targets) so commands have the same selected tools, interpreter and `.cache` environment as CI. `uv` owns the Python workspace (`pyproject.toml` and `uv.lock`):
 - Setup all workspaces and hooks: `make setup`
 - Run scripts: `mise exec -- uv run --no-project tools/scripts/images.py --format matrix`
-- Validate: `make typecheck`, `make lint`, `make pytest-unit`, `make nx-affected`, `make scan-iac`, `make scan-secrets`
+- Validate: `make typecheck`, `make lint`, `make test`, `make pytest-unit`, `make nx-affected`, `make scan-iac`, `make scan-secrets`
 - Format only: `make format` (pinned Prek formatting hook)
-- Code intelligence: `make graphify`
+- Code intelligence: `make graphify` (or `make graphify-fetch`)
 
 `prek.toml` configures 8 `pre-commit-hooks` (`trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`) and 16 `local` hooks (`actions-lock`, `check-helm-deps`, `ruff`, `ruff-format`, `biome`, `gitleaks`, `actionlint`, `hadolint`, `checkov`, `kube-linter`, `typecheck`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`) — 24 configured hooks total (22 on the default `pre-commit` stage and 2, `trivy-fs` and `trivy-ci-parity`, on the `pre-push`/`manual` stage) across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `check-helm-deps`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`, `actionlint`, `hadolint`, `typecheck`, `gitleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`).
 
-Use `pnpm --dir apps/ui` and its frozen workspace lock (`apps/ui/pnpm-lock.yaml`) for frontend dependencies. Normal setup builds Helm dependencies from committed locks.
+Use `pnpm` from the repository root (`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`) for Nx orchestration and frontend dependencies. Local AI/editor configuration (`.claude/`, `.mcp.json`) is gitignored in the public repository and hydrated from `hack/ai/` when the private Shadow Context checkout is present. Normal setup builds Helm dependencies from committed locks.
 
 ### Running Tests
 

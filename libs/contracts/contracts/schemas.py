@@ -43,3 +43,16 @@ class HydrateResponse(BaseModel):
     workspace_id: str
     hydrated: bool
     checkout_path: str
+
+
+class ConfigUpdateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    config_yaml: str
+
+
+class ConfigUpdateResponse(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: Literal["pr_created"] = "pr_created"
+    url: str = Field(min_length=1)

@@ -20,6 +20,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
+from contracts import ConfigUpdateRequest, ConfigUpdateResponse
 from unified_api.settings import Settings
 
 MALICIOUS_REGEX = re.compile(r"\.\./|<script>|system\(|exec\(", re.IGNORECASE)
@@ -61,10 +62,14 @@ def get_current_user(
 ) -> str:
     if tailscale_user_login == settings.internal_service_user:
         auth_header = request.headers.get("Authorization", "")
+        internal_token = (settings.internal_token or "").strip()
         if (
-            not settings.internal_token
+            not internal_token
             or not auth_header
-            or not hmac.compare_digest(auth_header, f"Bearer {settings.internal_token}")
+            or not hmac.compare_digest(
+                auth_header.encode("utf-8"),
+                f"Bearer {internal_token}".encode(),
+            )
         ) and settings.environment != "dev":
             raise HTTPException(
                 status_code=401, detail="Invalid internal service token"
@@ -268,10 +273,6 @@ def get_config(
         return {"model_list": []}
 
 
-class ConfigUpdateRequest(BaseModel):
-    config_yaml: str
-
-
 class PullHead(BaseModel):
     ref: str = ""
 
@@ -301,7 +302,7 @@ async def update_config(
     req: ConfigUpdateRequest,
     user: Annotated[str, Depends(verify_admin)],
     settings: Annotated[Settings, Depends(get_settings)],
-) -> dict[str, str]:
+) -> ConfigUpdateResponse:
     try:
         data = parse_config_yaml(req.config_yaml)
         if not isinstance(data, dict):
@@ -385,10 +386,9 @@ async def update_config(
         )
         if pr_resp.status_code != 201:
             raise HTTPException(status_code=500, detail="Failed to create Pull Request")
-        return {
-            "status": "pr_created",
-            "url": PullCreated.model_validate(pr_resp.json()).html_url,
-        }
+        return ConfigUpdateResponse(
+            url=PullCreated.model_validate(pr_resp.json()).html_url,
+        )
 
 
 @router.get("/health")

@@ -1,5 +1,8 @@
 hack/
 hack/**
+.claude/
+.claude/**
+.mcp.json
 .cache/
 .cache/**
 .venv/
@@ -12,6 +15,8 @@ graphify-out/
 graphify-out/**
 charts/*/charts/
 charts/*/charts/**
+charts/*/crds/
+charts/*/crds/**
 .schemas/
 .schemas/**
 apps/ui/.next/

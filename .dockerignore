@@ -1,6 +1,7 @@
 .git
 .github
 .claude
+.mcp.json
 .mise
 .nx/
 .schemas

@@ -1,6 +1,6 @@
 {
   "name": "scripts",
-  "$schema": "../../apps/ui/node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
   "sourceRoot": "tools/scripts",
   "implicitDependencies": ["charts"],
@@ -8,6 +8,9 @@
   "targets": {
     "lint": {
       "command": "mise exec -- ruff check tools/scripts"
+    },
+    "typecheck": {
+      "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml tools/scripts"
     }
   }
 }

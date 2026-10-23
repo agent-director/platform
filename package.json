@@ -1,0 +1,14 @@
+{
+  "name": "agent-director-workspace",
+  "private": true,
+  "scripts": {
+    "build": "pnpm --filter platform-ui run build",
+    "lint": "pnpm --filter platform-ui run lint",
+    "test": "pnpm --filter platform-ui run test",
+    "typecheck": "pnpm --filter platform-ui run typecheck"
+  },
+  "devDependencies": {
+    "nx": "23.3.0",
+    "nx-mcp": "0.25.0"
+  }
+}

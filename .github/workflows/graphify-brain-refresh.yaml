@@ -36,12 +36,19 @@ jobs:
           restore-keys: |
             graphify-uv-${{ runner.os }}-
 
+      - name: Hydrate prior graph-latest bundle for incremental update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/scripts/fetch-graphify-brain.sh
+
       - name: Build Graphify code intelligence bundle
         run: |
           make graphify
+          GRAPHIFY_VERSION="$(mise exec -- uv run --locked --only-group graphify python -I -c 'import importlib.metadata as m; print(m.version("graphifyy"))')"
           jq -n \
             --arg source_sha "$GITHUB_SHA" \
-            --arg graphify_version "0.9.92" \
+            --arg graphify_version "$GRAPHIFY_VERSION" \
             --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{source_sha: $source_sha, graphify_version: $graphify_version, generated_at: $generated_at}' \
             > graphify-out/metadata.json

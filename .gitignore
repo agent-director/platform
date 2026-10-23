@@ -1,4 +1,6 @@
 hack/
+.claude/
+.mcp.json
 .cache/
 .nx/
 graphify-out/

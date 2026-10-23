@@ -21,6 +21,9 @@ dev = [
     "types-PyYAML",
     "pytest-xdist==3.8.0",
 ]
+graphify = [
+    "graphifyy[sql]==0.9.92",
+]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "apps/core", "apps/sandbox-exec", "libs/contracts", "tools"]
@@ -49,8 +52,6 @@ extend-select = ["TID251"]
 "sandbox_exec".msg = "Do not import in-sandbox daemon code outside apps/sandbox-exec."
 
 [tool.ruff.lint.per-file-ignores]
-"apps/core/**" = ["TID251"]
-"apps/sandbox-exec/**" = ["TID251"]
 "tests/**" = ["TID251"]
 
 [tool.ruff.lint.isort]

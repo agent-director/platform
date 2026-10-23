@@ -5,12 +5,13 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=runtime-base /nodejs /nodejs
 ENV PATH="/nodejs/bin:/opt/pnpm:${PATH}"
-COPY apps/ui/package.json apps/ui/pnpm-workspace.yaml apps/ui/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY apps/ui/next.config.js apps/ui/tsconfig.json ./
-COPY apps/ui/src ./src
-COPY apps/ui/public ./public
-RUN pnpm run build
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/ui/package.json ./apps/ui/package.json
+RUN pnpm install --frozen-lockfile --filter platform-ui...
+COPY apps/ui/next.config.js apps/ui/tsconfig.json ./apps/ui/
+COPY apps/ui/src ./apps/ui/src
+COPY apps/ui/public ./apps/ui/public
+RUN pnpm --filter platform-ui run build
 
 FROM runtime-base AS runtime
 WORKDIR /app
@@ -19,9 +20,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder --chown=65532:65532 /app/public ./public
-COPY --from=builder --chown=65532:65532 /app/.next/standalone ./
-COPY --from=builder --chown=65532:65532 /app/.next/static ./.next/static
+COPY --from=builder --chown=65532:65532 /app/apps/ui/public ./apps/ui/public
+COPY --from=builder --chown=65532:65532 /app/apps/ui/.next/standalone ./
+COPY --from=builder --chown=65532:65532 /app/apps/ui/.next/static ./apps/ui/.next/static
 USER 65532:65532
 EXPOSE 3000
-CMD ["server.js"]
+CMD ["apps/ui/server.js"]

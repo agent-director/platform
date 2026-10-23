@@ -2,10 +2,14 @@
 
 import functools
 import hashlib
+import io
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
+import tarfile
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -179,11 +183,21 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
 
 
 def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
-    pnpm_ws = yaml.safe_load((ROOT / "apps/ui/pnpm-workspace.yaml").read_text())
-    assert pnpm_ws["packages"] == ["."]
+    pnpm_ws = yaml.safe_load((ROOT / "pnpm-workspace.yaml").read_text())
+    assert pnpm_ws["packages"] == ["apps/ui"]
     assert pnpm_ws["strictDepBuilds"] is True
     assert pnpm_ws["minimumReleaseAge"] == 2880
     assert pnpm_ws["allowBuilds"] == {"nx": False, "nx-mcp": False, "msw": False}
+    assert not (ROOT / "apps/ui/pnpm-workspace.yaml").exists()
+    assert not (ROOT / "apps/ui/pnpm-lock.yaml").exists()
+    assert (ROOT / "pnpm-lock.yaml").is_file()
+
+    root_pkg = json.loads((ROOT / "package.json").read_text())
+    assert "nx" in root_pkg["devDependencies"]
+    assert "nx-mcp" in root_pkg["devDependencies"]
+    ui_pkg = json.loads((ROOT / "apps/ui/package.json").read_text())
+    assert "nx" not in ui_pkg.get("devDependencies", {})
+    assert "nx-mcp" not in ui_pkg.get("devDependencies", {})
 
     gitignore_lines = {
         line.strip()
@@ -192,6 +206,8 @@ def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
     }
     assert {
         "hack/",
+        ".claude/",
+        ".mcp.json",
         ".nx/",
         "graphify-out/",
         "apps/ui/.next/",
@@ -205,12 +221,18 @@ def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
         for line in (ROOT / ".dockerignore").read_text().splitlines()
         if line.strip() and not line.strip().startswith("#")
     }
-    assert {".claude", ".nx/", "graphify-out/", "hack"} <= dockerignore_lines
+    assert {
+        ".claude",
+        ".mcp.json",
+        ".nx/",
+        "graphify-out/",
+        "hack",
+    } <= dockerignore_lines
     assert not any(line.startswith("frontend/") for line in dockerignore_lines)
 
     env_example = (ROOT / ".env.example").read_text()
     assert (
-        'GITHUB_CONFIG_PATH="apps/core/unified_api/litellm_config.yaml"' in env_example
+        'GITHUB_CONFIG_PATH="charts/platform/files/litellm_config.yaml"' in env_example
     )
     assert 'GITHUB_CONFIG_PATH="unified_api/litellm_config.yaml"' not in env_example
 
@@ -503,12 +525,25 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
         for line in (ROOT / ".nxignore").read_text().splitlines()
         if line.strip() and not line.strip().startswith("#")
     }
-    assert {"hack/", ".cache/", ".venv/", "graphify-out/", ".schemas/"} <= nxignore
+    assert {
+        "hack/",
+        ".claude/",
+        ".mcp.json",
+        ".cache/",
+        ".venv/",
+        "graphify-out/",
+        "charts/*/charts/",
+    } <= nxignore
+    assert ".schemas/" not in nxignore
 
     biome_cfg = json.loads((ROOT / "apps/ui/biome.json").read_text())
+    assert biome_cfg["root"] is False
     assert biome_cfg["linter"]["enabled"] is True
     assert biome_cfg["linter"]["rules"]["recommended"] is True
     assert biome_cfg["linter"]["rules"]["security"]["recommended"] is True
+    ui_pkg = json.loads((ROOT / "apps/ui/package.json").read_text())
+    assert ui_pkg["scripts"]["lint"] == "biome check --config-path biome.json src"
+    assert ui_pkg["scripts"]["test"] == "node --test src/mocks/handlers.test.ts"
 
     project_paths = {
         "contracts": "libs/contracts/project.json",
@@ -523,7 +558,8 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     for expected_name, rel_path in project_paths.items():
         proj = json.loads((ROOT / rel_path).read_text())
         assert proj["name"] == expected_name
-        if "test" in proj.get("targets", {}):
+        assert "apps/ui/node_modules" not in proj["$schema"]
+        if expected_name != "ui" and "test" in proj.get("targets", {}):
             cmd = proj["targets"]["test"]["command"]
             assert "--no-sync" in cmd
             match = re.search(r"--basetemp=(\S+)", cmd)
@@ -534,6 +570,10 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     ui_proj = json.loads((ROOT / "apps/ui/project.json").read_text())
     assert ui_proj["targets"]["build"]["dependsOn"] == ["typecheck"]
     assert "{projectRoot}/.next/types/**" in ui_proj["targets"]["typecheck"]["outputs"]
+    assert (
+        ui_proj["targets"]["test"]["command"]
+        == "mise exec -- pnpm --filter platform-ui run test"
+    )
 
     charts_proj = json.loads((ROOT / "charts/project.json").read_text())
     assert {
@@ -547,9 +587,14 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     assert {
         "{workspaceRoot}/Makefile",
         "{workspaceRoot}/prek.toml",
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/pnpm-workspace.yaml",
+        "{workspaceRoot}/pnpm-lock.yaml",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/.nxignore",
         "{workspaceRoot}/.graphifyignore",
+        "{workspaceRoot}/.gitignore",
+        "{workspaceRoot}/.dockerignore",
         "{workspaceRoot}/trivy.yaml",
         "{workspaceRoot}/.trivyignore.yaml",
         "{workspaceRoot}/.gitleaks.toml",
@@ -557,7 +602,45 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
         "{workspaceRoot}/.checkov.yaml",
         "{workspaceRoot}/images/**/*",
         "{workspaceRoot}/.github/workflows/**/*",
+        "{workspaceRoot}/.schemas/**/*",
     } <= set(repo_tests_proj["targets"]["test"]["inputs"])
+
+    if (ROOT / "hack/ai/mcp.json").is_file():
+        mcp_cfg = json.loads((ROOT / "hack/ai/mcp.json").read_text())
+        assert mcp_cfg["mcpServers"]["nx-mcp"] == {
+            "type": "stdio",
+            "command": "mise",
+            "args": [
+                "exec",
+                "--",
+                "pnpm",
+                "exec",
+                "nx-mcp",
+                ".",
+                "--no-minimal",
+                "--disableTelemetry",
+            ],
+        }
+    if (ROOT / "hack/ai/claude-settings.json").is_file():
+        claude_settings = json.loads(
+            (ROOT / "hack/ai/claude-settings.json").read_text()
+        )
+        session_hooks = claude_settings["hooks"]["SessionStart"][0]["hooks"]
+        assert session_hooks == [
+            {
+                "type": "command",
+                "command": 'bash "${CLAUDE_PROJECT_DIR}/tools/scripts/fetch-graphify-brain.sh"',
+                "timeout": 30,
+            }
+        ]
+        pre_tool_hooks = {
+            entry["matcher"]: entry["hooks"][0]["command"]
+            for entry in claude_settings["hooks"]["PreToolUse"]
+        }
+        assert pre_tool_hooks == {
+            "Bash|Grep": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard search",
+            "Read|Glob": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard read",
+        }
 
 
 def test_graphify_ignore_makefile_and_workflow_security() -> None:
@@ -568,6 +651,8 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
     }
     assert {
         "hack/**",
+        ".claude/**",
+        ".mcp.json",
         ".env*",
         ".secrets.baseline",
         ".cache/**",
@@ -580,14 +665,15 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
         "apps/ui/.next/**",
     } <= graphify_ignore
 
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert pyproject["dependency-groups"]["graphify"] == ["graphifyy[sql]==0.9.92"]
+
     makefile = (ROOT / "Makefile").read_text()
-    assert "graphify:" in makefile
-    assert 'uvx --from "graphifyy==0.9.92" graphify extract . --code-only' in makefile
     assert (
-        'uvx --from "graphifyy==0.9.92" graphify cluster-only . --no-viz --no-label'
-        in makefile
+        "GRAPHIFY := $(RUN) uv run --locked --only-group graphify graphify" in makefile
     )
-    assert "GRAPHIFY_BACKEND=none" in makefile
+    assert "GRAPHIFY_BACKEND ?= none" in makefile
+    assert "graphify:" in makefile
 
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/graphify-brain-refresh.yaml").read_text()
@@ -659,3 +745,469 @@ def test_monorepo_documentation_scopes_and_roadmap_paths() -> None:
         assert (
             re.search(r"agent-director/(core|ui|sandbox-exec|charts)", roadmap) is None
         )
+
+
+def _write_graphify_bundle(
+    bundle_path: Path,
+    *,
+    graph: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+    extra_member_name: str | None = None,
+) -> None:
+    members: dict[str, bytes] = {
+        "graph.json": json.dumps(
+            {"nodes": [{"id": "n1"}], "links": []} if graph is None else graph
+        ).encode(),
+        "metadata.json": json.dumps(
+            {
+                "source_sha": "deadbeef",
+                "graphify_version": "0.9.92",
+                "generated_at": "2026-10-19T00:00:00Z",
+            }
+            if metadata is None
+            else metadata
+        ).encode(),
+    }
+    if extra_member_name is not None:
+        members[extra_member_name] = b"untrusted"
+    with tarfile.open(bundle_path, "w:gz") as archive:
+        for name, payload in members.items():
+            info = tarfile.TarInfo(name=name)
+            info.size = len(payload)
+            archive.addfile(info, io.BytesIO(payload))
+
+
+def _run_fetch_graphify_brain(
+    project_dir: Path, bundle_source: Path | None
+) -> subprocess.CompletedProcess[str]:
+    bin_dir = project_dir.parent / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    gh_stub = bin_dir / "gh"
+    if bundle_source is None:
+        gh_stub.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
+    else:
+        gh_stub.write_text(
+            "#!/usr/bin/env bash\n"
+            "set -euo pipefail\n"
+            'out=""\n'
+            "while [[ $# -gt 0 ]]; do\n"
+            '  if [[ "$1" == "--output" ]]; then out="$2"; shift 2; else shift; fi\n'
+            "done\n"
+            f'cp "{bundle_source}" "$out"\n',
+            encoding="utf-8",
+        )
+    gh_stub.chmod(0o755)
+    env = os.environ.copy()
+    env["GRAPHIFY_PROJECT_DIR"] = str(project_dir)
+    env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    return subprocess.run(
+        ["bash", str(ROOT / "tools/scripts/fetch-graphify-brain.sh")],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("case", "should_hydrate"),
+    [
+        ("valid_exact_version", True),
+        ("valid_newer_version", True),
+        ("null_version", False),
+        ("literal_null_string_version", False),
+        ("older_version", False),
+        ("invalid_graph_schema", False),
+        ("path_traversal_member", False),
+        ("download_failure", False),
+    ],
+)
+def test_fetch_graphify_brain_hook_hydrates_valid_bundle_and_fails_open_on_invalid(
+    tmp_path: Path, case: str, should_hydrate: bool
+) -> None:
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    existing = project_dir / "graphify-out"
+    existing.mkdir()
+    (existing / "sentinel.txt").write_text("preserve-me", encoding="utf-8")
+
+    bundle_path: Path | None = tmp_path / "source-bundle.tar.gz"
+    if case == "valid_exact_version":
+        assert bundle_path is not None
+        _write_graphify_bundle(bundle_path)
+    elif case == "valid_newer_version":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            metadata={
+                "source_sha": "deadbeef",
+                "graphify_version": "0.10.0",
+                "generated_at": "2026-10-19T00:00:00Z",
+            },
+        )
+    elif case == "null_version":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            metadata={
+                "source_sha": "deadbeef",
+                "graphify_version": None,
+                "generated_at": "2026-10-19T00:00:00Z",
+            },
+        )
+    elif case == "literal_null_string_version":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            metadata={
+                "source_sha": "deadbeef",
+                "graphify_version": "null",
+                "generated_at": "2026-10-19T00:00:00Z",
+            },
+        )
+    elif case == "older_version":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            metadata={
+                "source_sha": "deadbeef",
+                "graphify_version": "0.9.91",
+                "generated_at": "2026-10-19T00:00:00Z",
+            },
+        )
+    elif case == "invalid_graph_schema":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            graph={"nodes": "not-an-array", "links": []},
+        )
+    elif case == "path_traversal_member":
+        assert bundle_path is not None
+        _write_graphify_bundle(
+            bundle_path,
+            extra_member_name="../escaped.txt",
+        )
+    elif case == "download_failure":
+        bundle_path = None
+
+    result = _run_fetch_graphify_brain(project_dir, bundle_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    staging_root = project_dir / ".cache/graphify-brain"
+    assert not staging_root.exists() or list(staging_root.iterdir()) == []
+    assert not (project_dir / "escaped.txt").exists()
+
+    if should_hydrate:
+        assert (existing / "graph.json").is_file()
+        assert (existing / "metadata.json").is_file()
+        assert not (existing / "sentinel.txt").exists()
+    else:
+        assert (existing / "sentinel.txt").read_text(encoding="utf-8") == "preserve-me"
+
+
+def test_ui_msw_server_and_handlers_match_dashboard_and_unified_api_contracts() -> None:
+    result = subprocess.run(
+        ["mise", "exec", "--", "pnpm", "--filter", "platform-ui", "run", "test"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+FAKE_SCAN_MISE = r"""#!/bin/bash
+set -euo pipefail
+[[ "$1" == exec && "$2" == -- ]] || exit 90
+shift 2
+printf '%s\n' "$*" >> "$FAKE_SCAN_LOG"
+cmd="$1"
+shift
+case "$cmd" in
+  jq)
+    exec "$REAL_JQ" "$@"
+    ;;
+  uv)
+    exec "$REAL_PYTHON" "$FAKE_REPO_ROOT/tools/scripts/images.py" --format tsv
+    ;;
+  docker)
+    exit 0
+    ;;
+  trivy)
+    subcmd="$1"
+    shift
+    if [[ "$subcmd" == image ]]; then
+      if [[ " $* " == *" --download-db-only "* ]]; then
+        mkdir -p .cache/trivy/db
+        : > .cache/trivy/db/trivy.db
+        exit 0
+      fi
+      out=""
+      while [[ $# -gt 0 ]]; do
+        if [[ "$1" == "--output" ]]; then
+          out="$2"
+          shift 2
+        else
+          shift
+        fi
+      done
+      cp "$FAKE_TRIVY_REPORT" "$out"
+      exit 0
+    elif [[ "$subcmd" == convert ]]; then
+      exit_code=0
+      severities=""
+      report_file=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --exit-code) exit_code="$2"; shift 2 ;;
+          --severity) severities="$2"; shift 2 ;;
+          --config|--scanners|--format) shift 2 ;;
+          *) report_file="$1"; shift ;;
+        esac
+      done
+      if [[ "$exit_code" != "0" ]]; then
+        if "$REAL_JQ" -e --arg sev "$severities" '
+          ($sev | split(",")) as $allowed
+          | [(.Results // [])[] | ((.Vulnerabilities // [])[], (.Secrets // [])[]) | select(.Severity as $s | $allowed | index($s))]
+          | length > 0
+        ' "$report_file" >/dev/null; then
+          exit "$exit_code"
+        fi
+      fi
+      exit 0
+    fi
+    exit 91
+    ;;
+  *)
+    exit 92
+    ;;
+esac
+"""
+
+
+def _write_fake_scan_mise(directory: Path) -> Path:
+    script = directory / "fake-mise"
+    script.write_text(FAKE_SCAN_MISE, encoding="utf-8")
+    script.chmod(0o755)
+    return script
+
+
+@pytest.mark.parametrize(
+    ("results", "expected_ok"),
+    [
+        (
+            [
+                {
+                    "Target": "debian",
+                    "Class": "os-pkgs",
+                    "Vulnerabilities": [
+                        {"VulnerabilityID": "CVE-1", "Severity": "HIGH"}
+                    ],
+                }
+            ],
+            True,
+        ),
+        (
+            [
+                {
+                    "Target": "debian",
+                    "Class": "os-pkgs",
+                    "Vulnerabilities": [
+                        {"VulnerabilityID": "CVE-2", "Severity": "CRITICAL"}
+                    ],
+                }
+            ],
+            False,
+        ),
+        (
+            [
+                {
+                    "Target": "Python",
+                    "Class": "lang-pkgs",
+                    "Vulnerabilities": [
+                        {"VulnerabilityID": "CVE-3", "Severity": "HIGH"}
+                    ],
+                }
+            ],
+            False,
+        ),
+    ],
+)
+def test_makefile_scan_image_splits_os_and_library_severity_gates(
+    tmp_path: Path, results: list[dict[str, Any]], expected_ok: bool
+) -> None:
+    shutil.copy2(ROOT / "Makefile", tmp_path / "Makefile")
+    shutil.copy2(ROOT / "trivy.yaml", tmp_path / "trivy.yaml")
+    (tmp_path / "tools/scripts").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(
+        ROOT / "tools/scripts/scan-images.sh",
+        tmp_path / "tools/scripts/scan-images.sh",
+    )
+    fake_mise = _write_fake_scan_mise(tmp_path)
+    report_path = tmp_path / "fixture-report.json"
+    report_path.write_text(json.dumps({"Results": results}), encoding="utf-8")
+    log_path = tmp_path / "scan.log"
+    env = {
+        **os.environ,
+        "FAKE_SCAN_LOG": str(log_path),
+        "FAKE_TRIVY_REPORT": str(report_path),
+        "FAKE_REPO_ROOT": str(tmp_path),
+        "REAL_JQ": _tool_binary("jq"),
+        "REAL_PYTHON": sys.executable,
+    }
+    missing = subprocess.run(
+        ["make", "-C", str(tmp_path), f"MISE={fake_mise}", "scan-image"],
+        env={k: v for k, v in env.items() if k != "IMAGE_REF"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert missing.returncode != 0
+    assert "ERROR: Set IMAGE_REF=<image:tag>" in missing.stderr
+
+    proc = subprocess.run(
+        [
+            "make",
+            "-C",
+            str(tmp_path),
+            f"MISE={fake_mise}",
+            "scan-image",
+            "IMAGE_REF=local-scan/test:latest",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if expected_ok:
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+    else:
+        assert proc.returncode != 0, proc.stdout + proc.stderr
+    assert list((tmp_path / ".cache/trivy/reports").glob("*.json")) == []
+
+
+def test_makefile_scan_local_affected_selection_and_ci_sequential_wait(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    origin = tmp_path / "origin.git"
+    repo.mkdir()
+    subprocess.run(
+        ["git", "init", "--bare", str(origin)], check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+
+    shutil.copy2(ROOT / "Makefile", repo / "Makefile")
+    shutil.copy2(ROOT / "trivy.yaml", repo / "trivy.yaml")
+    (repo / "tools/scripts").mkdir(parents=True)
+    shutil.copy2(ROOT / "tools/scripts/images.py", repo / "tools/scripts/images.py")
+    shutil.copy2(
+        ROOT / "tools/scripts/scan-images.sh", repo / "tools/scripts/scan-images.sh"
+    )
+    for name in ("unified-api", "platform-worker", "sandbox", "frontend"):
+        img_dir = repo / "images" / name
+        img_dir.mkdir(parents=True)
+        (img_dir / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
+    for rel in (
+        "apps/core/pyproject.toml",
+        "apps/sandbox-exec/pyproject.toml",
+        "apps/ui/package.json",
+    ):
+        p = repo / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("# initial\n", encoding="utf-8")
+
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "init"], cwd=repo, check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "remote", "add", "origin", str(origin)], cwd=repo, check=True
+    )
+    subprocess.run(
+        ["git", "push", "-u", "origin", "main"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    fake_mise = _write_fake_scan_mise(tmp_path)
+    report_path = tmp_path / "clean-report.json"
+    report_path.write_text(json.dumps({"Results": []}), encoding="utf-8")
+    log_path = tmp_path / "scan.log"
+    env = {
+        **os.environ,
+        "FAKE_SCAN_LOG": str(log_path),
+        "FAKE_TRIVY_REPORT": str(report_path),
+        "FAKE_REPO_ROOT": str(repo),
+        "REAL_JQ": _tool_binary("jq"),
+        "REAL_PYTHON": sys.executable,
+        "CI": "true",
+    }
+
+    clean = subprocess.run(
+        ["make", "-C", str(repo), f"MISE={fake_mise}", "scan-local"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert clean.returncode == 0, clean.stdout + clean.stderr
+    assert "No image or runtime dependency files modified" in clean.stdout
+
+    subprocess.run(
+        ["git", "checkout", "-b", "feature"], cwd=repo, check=True, capture_output=True
+    )
+    (repo / "apps/sandbox-exec/pyproject.toml").write_text(
+        "# changed\n", encoding="utf-8"
+    )
+    subprocess.run(
+        ["git", "add", "apps/sandbox-exec/pyproject.toml"], cwd=repo, check=True
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "change sandbox pyproject"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "push", "-u", "origin", "feature"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    (repo / "apps/ui/package.json").write_text("# dirty ui\n", encoding="utf-8")
+
+    affected = subprocess.run(
+        ["make", "-C", str(repo), f"MISE={fake_mise}", "scan-local"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert affected.returncode == 0, affected.stdout + affected.stderr
+    for expected_image in ("unified-api", "platform-worker", "sandbox", "frontend"):
+        assert f"PASS {expected_image}" in affected.stdout
+
+    unknown = subprocess.run(
+        [
+            "make",
+            "-C",
+            str(repo),
+            f"MISE={fake_mise}",
+            "scan-local",
+            "IMAGE=does-not-exist",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert unknown.returncode == 2
+    assert "ERROR: Unknown image selection: does-not-exist" in unknown.stderr

@@ -1,6 +1,6 @@
 {
   "name": "repo-tests",
-  "$schema": "../apps/ui/node_modules/nx/schemas/project-schema.json",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "tests",
   "implicitDependencies": ["core", "ui", "sandbox-exec", "charts", "scripts"],
@@ -21,9 +21,14 @@
         "{workspaceRoot}/conftest.py",
         "{workspaceRoot}/Makefile",
         "{workspaceRoot}/prek.toml",
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/pnpm-workspace.yaml",
+        "{workspaceRoot}/pnpm-lock.yaml",
         "{workspaceRoot}/nx.json",
         "{workspaceRoot}/.nxignore",
         "{workspaceRoot}/.graphifyignore",
+        "{workspaceRoot}/.gitignore",
+        "{workspaceRoot}/.dockerignore",
         "{workspaceRoot}/trivy.yaml",
         "{workspaceRoot}/.trivyignore.yaml",
         "{workspaceRoot}/.gitleaks.toml",
@@ -35,7 +40,8 @@
         "{workspaceRoot}/CONTRIBUTING.md",
         "{workspaceRoot}/architecture.md",
         "{workspaceRoot}/images/**/*",
-        "{workspaceRoot}/.github/workflows/**/*"
+        "{workspaceRoot}/.github/workflows/**/*",
+        "{workspaceRoot}/.schemas/**/*"
       ]
     }
   }

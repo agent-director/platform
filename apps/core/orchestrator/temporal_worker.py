@@ -141,7 +141,7 @@ async def serve_health(
 ) -> None:
     try:
         request_line = await asyncio.wait_for(
-            reader.readline(), timeout=int(HEALTH_TIMEOUT_SECONDS)
+            reader.readline(), timeout=HEALTH_TIMEOUT_SECONDS
         )
         parts = request_line.decode("ascii", errors="replace").strip().split()
         if len(parts) != 3 or parts[0] != "GET":

@@ -2,12 +2,14 @@
   "name": "platform-ui",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "biome check src",
-    "typecheck": "next typegen && tsc --noEmit"
+    "lint": "biome check --config-path biome.json src",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --test src/mocks/handlers.test.ts"
   },
   "dependencies": {
     "lucide-react": "1.52.0",
@@ -22,8 +24,6 @@
     "@types/react-dom": "19.3.0",
     "autoprefixer": "10.6.1",
     "msw": "3.0.3",
-    "nx": "23.3.0",
-    "nx-mcp": "0.25.0",
     "postcss": "8.5.29",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2"

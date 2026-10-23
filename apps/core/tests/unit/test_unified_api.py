@@ -80,9 +80,43 @@ def test_auth_with_dev_env(client: TestClient, monkeypatch: pytest.MonkeyPatch) 
 def test_internal_service_requires_token(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("INTERNAL_TOKEN", "unit-test-token")
     headers = {"Tailscale-User-Login": "orchestrator@internal"}
+    assert (
+        client.get(
+            "/api/workflows/wf_123/state",
+            headers={**headers, "Authorization": "Bearer unit-test-token"},
+        ).status_code
+        == 401
+    )
+
+    monkeypatch.setenv("INTERNAL_TOKEN", "   ")
+    assert (
+        client.get(
+            "/api/workflows/wf_123/state",
+            headers={**headers, "Authorization": "Bearer    "},
+        ).status_code
+        == 401
+    )
+
+    monkeypatch.setenv("INTERNAL_TOKEN", "unit-test-token")
     assert client.get("/api/workflows/wf_123/state", headers=headers).status_code == 401
+    assert (
+        client.get(
+            "/api/workflows/wf_123/state",
+            headers={**headers, "Authorization": "Bearer wrong-token"},
+        ).status_code
+        == 401
+    )
+    assert (
+        client.get(
+            "/api/workflows/wf_123/state",
+            headers=[
+                (b"tailscale-user-login", b"orchestrator@internal"),
+                (b"authorization", b"Bearer \xe9"),
+            ],
+        ).status_code
+        == 401
+    )
     headers["Authorization"] = "Bearer unit-test-token"
     assert client.get("/api/workflows/wf_123/state", headers=headers).status_code == 200
 
@@ -329,11 +363,12 @@ def test_settings_read_nondefault_paths(tmp_path: Path) -> None:
     assert settings.litellm_config_path == tmp_path / "models.yaml"
     assert settings.admin_allowlist_path == tmp_path / "admins.yaml"
     assert settings.allowed_origins == ("https://ui.example:4443",)
-    assert settings.github_config_path == "apps/core/unified_api/litellm_config.yaml"
+    assert settings.github_config_path == "charts/platform/files/litellm_config.yaml"
     assert (
         Settings(litellm_url="http://custom-backend.example:4911").github_config_path
-        == "apps/core/unified_api/litellm_config.yaml"
+        == "charts/platform/files/litellm_config.yaml"
     )
+    assert (Path(__file__).parents[4] / settings.github_config_path).is_file()
 
 
 def test_create_app_settings_dependency_injection(

@@ -21,7 +21,7 @@ The `unified_api` package (`apps/core/unified_api/` in the `agent-director-core`
 | `ADMIN_ALLOWLIST_PATH` | Default `/etc/unified-api/allowlist.yaml`; YAML `admins` list |
 | `ALLOWED_ORIGINS` | Comma-separated explicit HTTP(S) origins; local frontend origins by default |
 | `INTERNAL_SERVICE_USER`, `INTERNAL_TOKEN` | Internal identity and its required bearer token outside `ENV=dev` |
-| `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_CONFIG_PATH` | Config-update credentials/destination; default repo-relative path `apps/core/unified_api/litellm_config.yaml` |
+| `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_CONFIG_PATH` | Config-update credentials/destination; default repo-relative path `charts/platform/files/litellm_config.yaml` |
 
 Helm owns in-cluster names, namespace and ports and injects endpoints. Local execution uses the host endpoints from `.env.example`, for example `mise exec -- uv run --locked uvicorn unified_api.main:app --host 127.0.0.1` after setting `LITELLM_URL`. Unit tests live in `apps/core/tests/unit/test_unified_api.py` and run via `make pytest-unit` or `mise exec -- uv run --locked pytest apps/core/tests/unit/test_unified_api.py`.
 

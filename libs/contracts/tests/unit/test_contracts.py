@@ -1,7 +1,13 @@
 import pytest
 from pydantic import ValidationError
 
-from contracts import HealthResponse, HydrateRequest, HydrateResponse
+from contracts import (
+    ConfigUpdateRequest,
+    ConfigUpdateResponse,
+    HealthResponse,
+    HydrateRequest,
+    HydrateResponse,
+)
 
 
 def test_health_response_defaults_and_round_trip() -> None:
@@ -114,4 +120,21 @@ def test_hydrate_response_round_trip_and_schema() -> None:
                 "checkout_path": "/workspace/ws-123",
                 "extra": "forbidden",
             }
+        )
+
+
+def test_config_update_request_and_response_contracts() -> None:
+    req = ConfigUpdateRequest(config_yaml="model_list: []\n")
+    assert ConfigUpdateRequest.model_validate_json(req.model_dump_json()) == req
+    with pytest.raises(ValidationError):
+        ConfigUpdateRequest.model_validate({"config_yaml": "model_list: []", "x": 1})
+
+    resp = ConfigUpdateResponse(url="https://github.com/agent-director/platform/pull/1")
+    assert resp.status == "pr_created"
+    assert ConfigUpdateResponse.model_validate_json(resp.model_dump_json()) == resp
+    with pytest.raises(ValidationError):
+        ConfigUpdateResponse(url="")
+    with pytest.raises(ValidationError):
+        ConfigUpdateResponse.model_validate(
+            {"status": "other", "url": "https://example.com/pr/1"}
         )

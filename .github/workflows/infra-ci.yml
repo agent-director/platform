@@ -30,7 +30,7 @@ jobs:
             .cache/helm
             .cache/trivy
             charts/platform/charts
-          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'apps/ui/pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
+          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
           restore-keys: |
             project-cache-${{ runner.os }}-
 
@@ -77,7 +77,7 @@ jobs:
             .cache/helm
             .cache/trivy
             charts/platform/charts
-          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'apps/ui/pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
+          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
           restore-keys: |
             project-cache-${{ runner.os }}-
 

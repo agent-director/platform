@@ -24,7 +24,7 @@ class Settings(BaseModel):
     internal_token: str | None = None
     github_token: str | None = None
     github_repo: str = "agent-director/platform"
-    github_config_path: str = "apps/core/unified_api/litellm_config.yaml"
+    github_config_path: str = "charts/platform/files/litellm_config.yaml"
 
     @field_validator("litellm_url")
     @classmethod
@@ -118,6 +118,6 @@ class Settings(BaseModel):
             github_token=env.get("GITHUB_TOKEN"),
             github_repo=env.get("GITHUB_REPO", "agent-director/platform"),
             github_config_path=env.get(
-                "GITHUB_CONFIG_PATH", "apps/core/unified_api/litellm_config.yaml"
+                "GITHUB_CONFIG_PATH", "charts/platform/files/litellm_config.yaml"
             ),
         )

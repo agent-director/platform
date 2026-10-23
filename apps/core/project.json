@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "$schema": "../ui/node_modules/nx/schemas/project-schema.json",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "sourceRoot": "apps/core",
   "implicitDependencies": ["contracts"],
@@ -8,6 +8,9 @@
   "targets": {
     "lint": {
       "command": "mise exec -- ruff check apps/core"
+    },
+    "typecheck": {
+      "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml apps/core"
     },
     "test": {
       "command": "mise exec -- uv run --locked --no-sync pytest apps/core/tests/unit --basetemp=.cache/pytest/tmp-core"
