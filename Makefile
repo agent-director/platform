@@ -44,7 +44,6 @@ setup:
 	$(RUN) uv sync --locked --all-packages
 	$(RUN) pnpm install --frozen-lockfile
 	$(MAKE) check-helm-deps
-	@if [[ -x hack/ai/install.sh ]]; then ./hack/ai/install.sh; fi
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:

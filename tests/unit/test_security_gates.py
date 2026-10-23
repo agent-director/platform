@@ -605,43 +605,6 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
         "{workspaceRoot}/.schemas/**/*",
     } <= set(repo_tests_proj["targets"]["test"]["inputs"])
 
-    if (ROOT / "hack/ai/mcp.json").is_file():
-        mcp_cfg = json.loads((ROOT / "hack/ai/mcp.json").read_text())
-        assert mcp_cfg["mcpServers"]["nx-mcp"] == {
-            "type": "stdio",
-            "command": "mise",
-            "args": [
-                "exec",
-                "--",
-                "pnpm",
-                "exec",
-                "nx-mcp",
-                ".",
-                "--no-minimal",
-                "--disableTelemetry",
-            ],
-        }
-    if (ROOT / "hack/ai/claude-settings.json").is_file():
-        claude_settings = json.loads(
-            (ROOT / "hack/ai/claude-settings.json").read_text()
-        )
-        session_hooks = claude_settings["hooks"]["SessionStart"][0]["hooks"]
-        assert session_hooks == [
-            {
-                "type": "command",
-                "command": 'bash "${CLAUDE_PROJECT_DIR}/tools/scripts/fetch-graphify-brain.sh"',
-                "timeout": 30,
-            }
-        ]
-        pre_tool_hooks = {
-            entry["matcher"]: entry["hooks"][0]["command"]
-            for entry in claude_settings["hooks"]["PreToolUse"]
-        }
-        assert pre_tool_hooks == {
-            "Bash|Grep": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard search",
-            "Read|Glob": "command -v graphify >/dev/null 2>&1 || exit 0; graphify hook-guard read",
-        }
-
 
 def test_graphify_ignore_makefile_and_workflow_security() -> None:
     graphify_ignore = {
@@ -693,29 +656,7 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
     assert checkout_step["with"]["persist-credentials"] is False
 
 
-def test_hack_shadow_repository_gitignore_and_scratch_cleanup() -> None:
-    hack_dir = ROOT / "hack"
-    if not hack_dir.is_dir():
-        pytest.skip("hack/ shadow context is not present in this checkout")
-    hack_gitignore = hack_dir / ".gitignore"
-    assert hack_gitignore.is_file()
-    ignored_entries = {
-        line.strip()
-        for line in hack_gitignore.read_text().splitlines()
-        if line.strip() and not line.strip().startswith("#")
-    }
-    assert {
-        "worktrees/",
-        "repos/",
-        "extracted-repos/",
-        "*.bak*",
-        "*.log",
-        ".DS_Store",
-    } <= ignored_entries
-    assert not (hack_dir / "findings.json").exists()
-
-
-def test_monorepo_documentation_scopes_and_roadmap_paths() -> None:
+def test_monorepo_documentation_scopes_and_paths() -> None:
     contributing = (ROOT / "CONTRIBUTING.md").read_text()
     for scope in (
         "workspace",
@@ -738,13 +679,6 @@ def test_monorepo_documentation_scopes_and_roadmap_paths() -> None:
         "tools/scripts",
     ):
         assert module_path in readme
-
-    roadmap_path = ROOT / "hack/plans/ROADMAP.md"
-    if roadmap_path.is_file():
-        roadmap = roadmap_path.read_text()
-        assert (
-            re.search(r"agent-director/(core|ui|sandbox-exec|charts)", roadmap) is None
-        )
 
 
 def _write_graphify_bundle(
