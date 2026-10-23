@@ -30,6 +30,7 @@ python.compile = false
 locked = true
 
 [env]
+UV_NO_CONFIG = "1"
 UV_PYTHON_DOWNLOADS = "never"
 UV_PROJECT_ENVIRONMENT = "{{ config_root }}/.venv"
 UV_CACHE_DIR = "{{ config_root }}/.cache/uv"

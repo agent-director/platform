@@ -42,6 +42,26 @@ graphify = [
     { name = "graphifyy", extra = ["sql"] },
 ]
 
+[package.metadata]
+requires-dist = [
+    { name = "agent-director-contracts", editable = "libs/contracts" },
+    { name = "agent-director-core", editable = "apps/core" },
+    { name = "agent-director-sandbox-exec", editable = "apps/sandbox-exec" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "cryptography" },
+    { name = "kubernetes" },
+    { name = "pyrefly", specifier = "==1.3.2" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-timeout", specifier = "==2.4.0" },
+    { name = "pytest-xdist", specifier = "==3.8.0" },
+    { name = "types-pyyaml" },
+]
+graphify = [{ name = "graphifyy", extras = ["sql"], specifier = "==0.9.92" }]
+
 [[package]]
 name = "agent-director-contracts"
 version = "0.1.0"
@@ -49,6 +69,9 @@ source = { editable = "libs/contracts" }
 dependencies = [
     { name = "pydantic" },
 ]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
 
 [[package]]
 name = "agent-director-core"
@@ -70,6 +93,23 @@ dependencies = [
     { name = "watchdog" },
 ]
 
+[package.metadata]
+requires-dist = [
+    { name = "agent-director-contracts", editable = "libs/contracts" },
+    { name = "cachetools", specifier = "==7.2.1" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "litellm" },
+    { name = "mcp" },
+    { name = "orjson" },
+    { name = "psycopg", extras = ["binary"] },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "temporalio" },
+    { name = "uvicorn" },
+    { name = "watchdog" },
+]
+
 [[package]]
 name = "agent-director-sandbox-exec"
 version = "0.1.0"
@@ -78,6 +118,13 @@ dependencies = [
     { name = "agent-director-contracts" },
     { name = "pydantic" },
     { name = "robyn" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agent-director-contracts", editable = "libs/contracts" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "robyn", specifier = "==0.88.0" },
 ]
 
 [[package]]
