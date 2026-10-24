@@ -5,6 +5,9 @@ name: Infra CI & Security
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+  # Pushes to main only seed the Nx task cache that pull requests restore.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -34,6 +37,14 @@ jobs:
           restore-keys: |
             project-cache-${{ runner.os }}-
 
+      - name: Cache Nx task results
+        uses: actions/cache@v6.1.0
+        with:
+          path: .cache/nx
+          key: nx-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            nx-cache-${{ runner.os }}-
+
       - name: Set up project dependencies
         run: make setup
 
@@ -42,18 +53,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh extension install github/gh-actions-lock --pin v0.1.6
 
-      - name: Run commit gates
+      - name: Run Nx gates (lint, format, typecheck, test, build)
+        run: make nx-ci
+
+      - name: Run remaining commit gates
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make lint
-
-      - name: Build frontend
-        run: make build-frontend
+        run: make lint-residual
 
       - name: Run infrastructure security gate
         run: make scan-iac
 
   kind-integration:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: scan-and-lint
     environment: e2e-tests

@@ -9,6 +9,9 @@
     "lint": {
       "command": "mise exec -- ruff check apps/core"
     },
+    "format-check": {
+      "command": "mise exec -- ruff format --check apps/core"
+    },
     "typecheck": {
       "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml apps/core"
     },

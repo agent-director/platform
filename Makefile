@@ -5,6 +5,12 @@ SHELL := /bin/bash
 MISE := mise
 RUN := $(MISE) exec --
 NX := $(RUN) pnpm exec nx
+NX_PARALLEL ?= 3
+NX_CI_TARGETS := lint,format-check,typecheck,test,build
+NX_PYTEST_PROJECTS := core,sandbox-exec,contracts,repo-tests
+# Prek hooks whose checks are owned by cached Nx targets; `lint-residual` skips them in CI.
+# Keep in sync with project.json targets (tests/unit/test_security_gates.py enforces parity).
+NX_OWNED_HOOKS := ruff ruff-format biome typecheck pytest helm-lint kubeconform kube-linter checkov
 GRAPHIFY := $(RUN) uv run --locked --only-group graphify graphify
 GRAPHIFY_BACKEND ?= none
 # renovate: datasource=pypi depName=checkov
@@ -27,7 +33,7 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix nx-graph nx-affected graphify graphify-fetch
+.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
@@ -47,23 +53,31 @@ setup:
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:
-	$(RUN) uv run --locked --no-sync pyrefly check --config pyproject.toml
-	$(RUN) pnpm run typecheck
+	$(NX) run-many -t typecheck --parallel=$(NX_PARALLEL)
 
 build-frontend:
-	$(RUN) pnpm run build
+	$(NX) run ui:build
 
 lint:
 	$(RUN) prek run --all-files
 
+# Commit gates Nx does not own (whitespace/EOF/syntax, secrets, actionlint, hadolint, helm deps, actions lock).
+lint-residual:
+	$(RUN) prek run --all-files $(addprefix --skip ,$(NX_OWNED_HOOKS))
+
 format:
 	$(RUN) prek run ruff-format --all-files
 
-test: pytest-unit
-	$(RUN) pnpm run test
+test:
+	$(NX) run-many -t test --parallel=$(NX_PARALLEL)
 
+# Cached through Nx unless PYTEST_ARGS selects an ad-hoc run.
 pytest-unit:
+ifeq ($(strip $(PYTEST_ARGS)),)
+	$(NX) run-many -t test -p $(NX_PYTEST_PROJECTS) --parallel=$(NX_PARALLEL)
+else
 	$(RUN) uv run --locked --no-sync pytest $(PYTEST_ARGS)
+endif
 
 image-matrix:
 	@$(RUN) uv run --no-project tools/scripts/images.py --format matrix
@@ -72,7 +86,13 @@ nx-graph:
 	$(NX) graph --print
 
 nx-affected:
-	$(NX) affected -t lint,typecheck,test,build --parallel=3
+	$(NX) affected -t $(NX_CI_TARGETS) --parallel=$(NX_PARALLEL)
+
+# Every Nx-owned gate, exact-input cached (the CI path).
+nx-ci:
+	$(NX) run-many -t $(NX_CI_TARGETS) --parallel=$(NX_PARALLEL)
+
+ci: nx-ci lint-residual
 
 graphify:
 	@if [[ "$(GRAPHIFY_BACKEND)" != "none" ]]; then \

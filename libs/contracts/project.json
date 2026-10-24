@@ -8,6 +8,9 @@
     "lint": {
       "command": "mise exec -- ruff check libs/contracts"
     },
+    "format-check": {
+      "command": "mise exec -- ruff format --check libs/contracts"
+    },
     "typecheck": {
       "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml libs/contracts"
     },

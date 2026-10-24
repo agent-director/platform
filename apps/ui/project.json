@@ -11,21 +11,17 @@
     },
     "typecheck": {
       "command": "mise exec -- pnpm --filter platform-ui run typecheck",
+      "inputs": ["default", "^default", "nodeWorkspace"],
       "outputs": ["{projectRoot}/.next/types/**"]
     },
     "test": {
       "command": "mise exec -- pnpm --filter platform-ui run test",
-      "inputs": [
-        "default",
-        "^default",
-        "{workspaceRoot}/package.json",
-        "{workspaceRoot}/pnpm-workspace.yaml",
-        "{workspaceRoot}/pnpm-lock.yaml"
-      ]
+      "inputs": ["default", "^default", "nodeWorkspace"]
     },
     "build": {
       "command": "mise exec -- pnpm --filter platform-ui run build",
       "dependsOn": ["typecheck"],
+      "inputs": ["production", "^production", "nodeWorkspace"],
       "outputs": [
         "{projectRoot}/.next/**",
         "!{projectRoot}/.next/cache/**"

@@ -82,7 +82,9 @@ Use `mise exec --` (or `make` targets) so commands have the same selected tools,
 - Setup all workspaces and hooks: `make setup`
 - Run scripts: `mise exec -- uv run --no-project tools/scripts/images.py --format matrix`
 - Validate: `make typecheck`, `make lint`, `make test`, `make pytest-unit`, `make nx-affected`, `make scan-iac`, `make scan-secrets`
-- Format only: `make format` (pinned Prek formatting hook)
+- CI parity: `make ci` (`make nx-ci` then `make lint-residual`)
+- Format only: `make format` (pinned Prek formatting hook); `ruff format --check` runs as the Nx `format-check` target
+- Nx owns `lint`, `format-check`, `typecheck`, `test` and `build` as exact-input cached tasks. `make typecheck`, `make test`, `make pytest-unit` (without `PYTEST_ARGS`), `make build-frontend`, `make nx-ci` and `make nx-affected` run through Nx; pass `--skip-nx-cache` to `nx` to force a fresh run. Prek still owns the fixers and the gates Nx does not cover; CI runs `make lint-residual`, which skips the hooks (`NX_OWNED_HOOKS` in the `Makefile`) that Nx already runs.
 - Code intelligence: `make graphify` (or `make graphify-fetch`)
 
 `prek.toml` configures 8 `pre-commit-hooks` (`trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`) and 16 `local` hooks (`actions-lock`, `check-helm-deps`, `ruff`, `ruff-format`, `biome`, `gitleaks`, `actionlint`, `hadolint`, `checkov`, `kube-linter`, `typecheck`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`) — 24 configured hooks total (22 on the default `pre-commit` stage and 2, `trivy-fs` and `trivy-ci-parity`, on the `pre-push`/`manual` stage) across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `check-helm-deps`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`, `actionlint`, `hadolint`, `typecheck`, `gitleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`).

@@ -14,7 +14,15 @@
       "{workspaceRoot}/pyproject.toml",
       "{workspaceRoot}/uv.lock",
       "{workspaceRoot}/mise.toml",
+      "{workspaceRoot}/mise.lock",
       "{workspaceRoot}/libs/contracts/**/*"
+    ],
+    "nodeWorkspace": [
+      "{workspaceRoot}/package.json",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/mise.toml",
+      "{workspaceRoot}/mise.lock"
     ]
   },
   "targetDefaults": {
@@ -23,7 +31,17 @@
       "inputs": [
         "default",
         "{workspaceRoot}/pyproject.toml",
-        "{workspaceRoot}/mise.toml"
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock"
+      ]
+    },
+    "format-check": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "{workspaceRoot}/pyproject.toml",
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock"
       ]
     },
     "typecheck": {

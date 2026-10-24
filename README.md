@@ -35,11 +35,13 @@ make pytest-unit
 make lint
 make nx-graph
 make nx-affected
+make nx-ci
+make ci
 make graphify
 make graphify-fetch
 ```
 
-`make format` invokes the pinned Prek formatter only. `prek.toml` defines 8 `pre-commit-hooks` and 16 `local` hooks (24 configured hooks total: 22 on the default `pre-commit` stage and 2 on the `pre-push`/`manual` stage); `make lint` runs all 22 default-stage hooks in parallel priority tiers (`0` and `1`), and its formatting/fixer hooks may modify files. `make nx-graph` prints the Nx project graph JSON, `make nx-affected` runs affected `lint,typecheck,test,build` targets across the 7 workspace projects, `make graphify` extracts and labels the repository graph into `graphify-out/` (respecting `.graphifyignore`), and `make graphify-fetch` hydrates `graphify-out/` from the `graph-latest` release bundle. Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
+`make format` invokes the pinned Prek formatter only. `prek.toml` defines 8 `pre-commit-hooks` and 16 `local` hooks (24 configured hooks total: 22 on the default `pre-commit` stage and 2 on the `pre-push`/`manual` stage); `make lint` runs all 22 default-stage hooks in parallel priority tiers (`0` and `1`), and its formatting/fixer hooks may modify files. `make nx-graph` prints the Nx project graph JSON, `make nx-affected` runs affected `lint,format-check,typecheck,test,build` targets across the 7 workspace projects, `make nx-ci` runs every one of those targets with exact-input caching (the CI path; `make typecheck`, `make test`, `make pytest-unit` and `make build-frontend` also run through Nx), `make lint-residual` runs the Prek hooks Nx does not own, `make ci` runs both, `make graphify` extracts and labels the repository graph into `graphify-out/` (respecting `.graphifyignore`), and `make graphify-fetch` hydrates `graphify-out/` from the `graph-latest` release bundle. Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
 
 For direct commands, use `mise exec --` so tool selection and cache settings match Make and CI:
 

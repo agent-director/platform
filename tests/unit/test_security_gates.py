@@ -606,6 +606,100 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
     } <= set(repo_tests_proj["targets"]["test"]["inputs"])
 
 
+def test_ci_nx_gates_own_every_skipped_prek_hook() -> None:
+    makefile = (ROOT / "Makefile").read_text()
+
+    def make_var(name: str) -> list[str]:
+        match = re.search(rf"^{name} :?= (.+)$", makefile, re.MULTILINE)
+        assert match is not None, name
+        return match.group(1).replace(",", " ").split()
+
+    owned = make_var("NX_OWNED_HOOKS")
+    prek_hooks = {
+        hook["id"]: hook
+        for repo in tomllib.loads((ROOT / "prek.toml").read_text())["repos"]
+        for hook in repo["hooks"]
+    }
+    assert set(owned) <= set(prek_hooks)
+
+    project_paths = {
+        "contracts": "libs/contracts",
+        "core": "apps/core",
+        "sandbox-exec": "apps/sandbox-exec",
+        "ui": "apps/ui",
+        "charts": "charts",
+        "scripts": "tools/scripts",
+        "repo-tests": "tests",
+    }
+    targets = {
+        name: json.loads((ROOT / path / "project.json").read_text())["targets"]
+        for name, path in project_paths.items()
+    }
+
+    assert {"lint", "format-check", "typecheck", "test", "build"} <= set(
+        make_var("NX_CI_TARGETS")
+    )
+    python_projects = ("core", "sandbox-exec", "contracts", "scripts", "repo-tests")
+    for name in python_projects:
+        assert "ruff check" in targets[name]["lint"]["command"], name
+        assert "ruff format --check" in targets[name]["format-check"]["command"], name
+    assert {"ruff", "ruff-format"} <= set(owned)
+
+    assert prek_hooks["biome"]["entry"] == targets["ui"]["lint"]["command"]
+    assert "biome" in owned
+
+    for hook_id, target in {
+        "typecheck": "typecheck",
+        "pytest": "test",
+    }.items():
+        assert hook_id in owned
+        assert f"$(NX) run-many -t {target} " in makefile, hook_id
+    assert "$(NX) run ui:build" in makefile
+
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert set(pyproject["tool"]["pytest"]["ini_options"]["testpaths"]) == {
+        "tests/unit",
+        "apps/core/tests/unit",
+        "apps/sandbox-exec/tests/unit",
+        "libs/contracts/tests/unit",
+    }
+    assert set(make_var("NX_PYTEST_PROJECTS")) == {
+        "core",
+        "sandbox-exec",
+        "contracts",
+        "repo-tests",
+    }
+    for name in make_var("NX_PYTEST_PROJECTS"):
+        assert "test" in targets[name], name
+
+    charts_lint = targets["charts"]["lint"]["command"]
+    for hook_id in ("helm-lint", "kubeconform", "kube-linter", "checkov"):
+        assert hook_id in owned
+        make_target = prek_hooks[hook_id]["entry"].removeprefix("make ")
+        assert make_target in charts_lint, hook_id
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github/workflows/infra-ci.yml").read_text(encoding="utf-8")
+    )
+    triggers = workflow.get("on", workflow.get(True))  # YAML 1.1 parses `on` as True
+    assert triggers["push"] == {"branches": ["main"]}
+    assert "pull_request" in triggers
+    assert workflow["jobs"]["kind-integration"]["if"] == (
+        "github.event_name == 'pull_request'"
+    )
+    steps = workflow["jobs"]["scan-and-lint"]["steps"]
+    commands = [step["run"] for step in steps if "run" in step]
+    assert "make nx-ci" in commands
+    assert "make lint-residual" in commands
+    assert "make lint" not in commands
+    assert "make build-frontend" not in commands
+    nx_cache = next(
+        step for step in steps if step.get("with", {}).get("path") == ".cache/nx"
+    )
+    assert str(nx_cache["uses"]).startswith("actions/cache@")
+    assert "github.sha" in nx_cache["with"]["key"]
+
+
 def test_graphify_ignore_makefile_and_workflow_security() -> None:
     graphify_ignore = {
         line.strip()

@@ -7,7 +7,24 @@
   "tags": ["scope:repo", "type:tests"],
   "targets": {
     "lint": {
-      "command": "mise exec -- ruff check tests"
+      "command": "mise exec -- ruff check tests conftest.py",
+      "inputs": [
+        "default",
+        "{workspaceRoot}/pyproject.toml",
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock",
+        "{workspaceRoot}/conftest.py"
+      ]
+    },
+    "format-check": {
+      "command": "mise exec -- ruff format --check tests conftest.py",
+      "inputs": [
+        "default",
+        "{workspaceRoot}/pyproject.toml",
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock",
+        "{workspaceRoot}/conftest.py"
+      ]
     },
     "typecheck": {
       "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml"
