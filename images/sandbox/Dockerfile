@@ -2,7 +2,7 @@
 FROM ghcr.io/astral-sh/uv:0.12.23-trixie-slim@sha256:cb8750e12902fdaca60c1e48a796d19c02e6c2037ca801f322689fa97f0a44f2 AS robyn-wheel
 # renovate: datasource=python-version depName=python
 ARG PYTHON_VERSION=3.14.8
-# TODO(hack/TODO.md): Remove robyn-wheel stage once upstream sparckles/Robyn publishes >0.88.0 with PR #1422 cp314 aarch64 wheels.
+# TODO: Remove robyn-wheel stage once upstream sparckles/Robyn publishes >0.88.0 with PR #1422 cp314 aarch64 wheels.
 ARG ROBYN_VERSION=0.88.0
 ARG ROBYN_SHA256=3149c2c473b756f654424b00584c4563ce23c2d1595df44e0b09d30efc7c3781
 ENV UV_PYTHON_INSTALL_DIR=/opt/python

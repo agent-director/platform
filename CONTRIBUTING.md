@@ -87,7 +87,7 @@ Use `mise exec --` (or `make` targets) so commands have the same selected tools,
 
 `prek.toml` configures 8 `pre-commit-hooks` (`trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`) and 16 `local` hooks (`actions-lock`, `check-helm-deps`, `ruff`, `ruff-format`, `biome`, `gitleaks`, `actionlint`, `hadolint`, `checkov`, `kube-linter`, `typecheck`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`) — 24 configured hooks total (22 on the default `pre-commit` stage and 2, `trivy-fs` and `trivy-ci-parity`, on the `pre-push`/`manual` stage) across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `check-helm-deps`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`, `actionlint`, `hadolint`, `typecheck`, `gitleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`).
 
-Use `pnpm` from the repository root (`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`) for Nx orchestration and frontend dependencies. Local AI/editor configuration (`.claude/`, `.mcp.json`) is gitignored in the public repository and hydrated from `hack/ai/` when the private Shadow Context checkout is present. Normal setup builds Helm dependencies from committed locks.
+Use `pnpm` from the repository root (`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`) for Nx orchestration and frontend dependencies. Normal setup builds Helm dependencies from committed locks.
 
 ### Running Tests
 

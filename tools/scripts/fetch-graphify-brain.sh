@@ -3,7 +3,7 @@
 # Fails open so caller/session startup never blocks when offline or before graph-latest exists.
 set -euo pipefail
 
-PROJECT_DIR="${GRAPHIFY_PROJECT_DIR:-${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}}"
+PROJECT_DIR="${GRAPHIFY_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 REPO="${GRAPHIFY_REPO:-agent-director/platform}"
 MIN_GRAPHIFY_VERSION="${GRAPHIFY_MIN_VERSION:-0.9.92}"
 STAGING="${PROJECT_DIR}/.cache/graphify-brain/staging.$$"
