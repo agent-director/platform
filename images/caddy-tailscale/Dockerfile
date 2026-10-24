@@ -1,4 +1,4 @@
-FROM caddy:2.11.7-builder@sha256:b25f47453fa02f7e66c0828b4b1343658808b9000950b6825c4a1cb0c988f5f8 AS builder
+FROM caddy:2.11.7-builder@sha256:c2fc374fd352439d76e1777b28d97d9f6d9c1dd86116db9227460374d46097d5 AS builder
 # hadolint ignore=DL3018
 RUN apk add --no-cache mailcap && \
     mv /usr/local/go/bin/go /usr/local/go/bin/go.real && \

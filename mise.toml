@@ -3,7 +3,7 @@ min_version = "2026.10.8"
 
 [tools]
 python = "3.14.8"
-node = "26.11.1"
+node = "26.12.1"
 uv = "0.12.23"
 pnpm = "12.11.2"
 prek = "0.5.5"

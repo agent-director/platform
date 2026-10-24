@@ -47,6 +47,7 @@ cache-dir = ".cache/ruff"
 
 [tool.uv]
 cache-dir = ".cache/uv"
+override-dependencies = ["filelock>=4.2.1"]
 
 [tool.pyrefly]
 preset = "strict"
