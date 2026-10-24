@@ -1,0 +1,65 @@
+{
+  "name": "repo-tests",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "tests",
+  "implicitDependencies": ["core", "ui", "sandbox-exec", "charts", "scripts"],
+  "tags": ["scope:repo", "type:tests"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- ruff check tests conftest.py",
+      "inputs": [
+        "default",
+        "{workspaceRoot}/pyproject.toml",
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock",
+        "{workspaceRoot}/conftest.py"
+      ]
+    },
+    "format-check": {
+      "command": "mise exec -- ruff format --check tests conftest.py",
+      "inputs": [
+        "default",
+        "{workspaceRoot}/pyproject.toml",
+        "{workspaceRoot}/mise.toml",
+        "{workspaceRoot}/mise.lock",
+        "{workspaceRoot}/conftest.py"
+      ]
+    },
+    "typecheck": {
+      "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml"
+    },
+    "test": {
+      "command": "mise exec -- uv run --locked --no-sync pytest tests/unit --basetemp=.cache/pytest/tmp-repo-tests",
+      "inputs": [
+        "default",
+        "^default",
+        "pythonWorkspace",
+        "{workspaceRoot}/conftest.py",
+        "{workspaceRoot}/Makefile",
+        "{workspaceRoot}/prek.toml",
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/pnpm-workspace.yaml",
+        "{workspaceRoot}/pnpm-lock.yaml",
+        "{workspaceRoot}/nx.json",
+        "{workspaceRoot}/.nxignore",
+        "{workspaceRoot}/.graphifyignore",
+        "{workspaceRoot}/.gitignore",
+        "{workspaceRoot}/.dockerignore",
+        "{workspaceRoot}/trivy.yaml",
+        "{workspaceRoot}/.trivyignore.yaml",
+        "{workspaceRoot}/.gitleaks.toml",
+        "{workspaceRoot}/.kube-linter.yaml",
+        "{workspaceRoot}/.checkov.yaml",
+        "{workspaceRoot}/renovate.json",
+        "{workspaceRoot}/.env.example",
+        "{workspaceRoot}/README.md",
+        "{workspaceRoot}/CONTRIBUTING.md",
+        "{workspaceRoot}/architecture.md",
+        "{workspaceRoot}/images/**/*",
+        "{workspaceRoot}/.github/workflows/**/*",
+        "{workspaceRoot}/.schemas/**/*"
+      ]
+    }
+  }
+}

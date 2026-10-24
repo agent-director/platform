@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives import serialization
 
 Manifest = dict[str, Any]
 EMPTY_ITEMS: tuple[object, ...] = ()
-EMPTY_MAP: Mapping[str, object] = {}
 RELEASE = "raven"
 NAMESPACE = "lab-two"
 
@@ -25,22 +24,12 @@ NAMESPACE = "lab-two"
 def render(
     chart: Path,
     settings: Mapping[str, str | int | bool] | None = None,
-    *,
-    values_yaml: str | None = None,
-    upgrade: bool = False,
-    release: str = RELEASE,
 ) -> list[Manifest]:
-    command = ["helm", "template", release, str(chart), "--namespace", NAMESPACE]
-    if upgrade:
-        command.append("--is-upgrade")
-    if values_yaml is not None:
-        command.extend(["-f", "-"])
+    command = ["helm", "template", RELEASE, str(chart), "--namespace", NAMESPACE]
     for key, value in (settings or {}).items():
         serialized = str(value).lower() if isinstance(value, bool) else str(value)
         command.extend(["--set", f"{key}={serialized}"])
-    result = subprocess.run(
-        command, input=values_yaml, text=True, capture_output=True, check=True
-    )
+    result = subprocess.run(command, text=True, capture_output=True, check=True)
     return [document for document in yaml.safe_load_all(result.stdout) if document]
 
 

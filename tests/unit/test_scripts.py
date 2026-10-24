@@ -1,5 +1,6 @@
 """Lifecycle failure paths use fake tools only; they never touch a real cluster."""
 
+import asyncio
 import json
 import os
 import shutil
@@ -13,10 +14,12 @@ from typing import Any, TextIO, cast
 import pytest
 import yaml
 
+from tests.integration import conftest as fixtures
 from tests.integration.conftest import (
     REPO_ROOT,
     ClusterContract,
     ForwardManager,
+    OwnedForward,
     discover_workloads,
     lifecycle_values,
     parse_resources,
@@ -117,9 +120,9 @@ case "$command" in
     ;;
   uv)
     case " $* " in
-      *' scripts/images.py '*)
+      *' tools/scripts/images.py '*)
         [[ "${FAIL_STAGE:-}" != discovery ]] || exit 53
-        exec "$FAKE_PYTHON" "$FAKE_ROOT/scripts/images.py" --format tsv
+        exec "$FAKE_PYTHON" "$FAKE_ROOT/tools/scripts/images.py" --format tsv
         ;;
       *' python -c '*)
         [[ "$1" == run && ( "$2" == --locked || "$2" == --no-project ) && "$3" == python && "$4" == -c ]] || exit 94
@@ -151,10 +154,10 @@ esac
 class ScriptHarness:
     def __init__(self, directory: Path) -> None:
         self.root = directory
-        scripts = directory / "scripts"
-        scripts.mkdir()
+        scripts = directory / "tools/scripts"
+        scripts.mkdir(parents=True)
         for name in ("deploy.sh", "teardown.sh", "test-integration.sh", "images.py"):
-            shutil.copy(REPO_ROOT / "scripts" / name, scripts / name)
+            shutil.copy(REPO_ROOT / "tools/scripts" / name, scripts / name)
         bin_dir = directory / "bin"
         bin_dir.mkdir()
         (bin_dir / "mise").write_text(FAKE_MISE, encoding="utf-8")
@@ -171,13 +174,10 @@ class ScriptHarness:
         (image / "Dockerfile").write_text("FROM scratch\n", encoding="utf-8")
         jq = shutil.which("jq")
         assert jq is not None
-        uv = shutil.which("uv")
-        assert uv is not None
         self.env = {
             **os.environ,
             "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
             "FAKE_ROOT": str(directory),
-            "FAKE_UV": uv,
             "FAKE_PYTHON": sys.executable,
             "FAKE_LOG": str(directory / "commands.log"),
             "FAKE_JQ": jq,
@@ -303,7 +303,7 @@ class ScriptHarness:
 
     def run(self, name: str, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["/bin/bash", str(self.root / "scripts" / name), *arguments],
+            ["/bin/bash", str(self.root / "tools/scripts" / name), *arguments],
             cwd=self.root,
             env=self.env,
             capture_output=True,
@@ -515,7 +515,7 @@ def test_integration_signal_terminates_only_its_owned_child(
     process = subprocess.Popen(
         [
             "/bin/bash",
-            str(harness.root / "scripts" / "test-integration.sh"),
+            str(harness.root / "tools/scripts" / "test-integration.sh"),
             "owned-unit",
         ],
         cwd=harness.root,
@@ -625,8 +625,6 @@ def test_forward_signal_handler_closes_only_its_own_processes(
     manager = ForwardManager(unit_contract(), tmp_path)
     owned = FakeForwardProcess()
     unrelated = FakeForwardProcess()
-    from tests.integration.conftest import OwnedForward
-
     log = (tmp_path / "forward.log").open("w", encoding="utf-8")
     manager.forwards.append(
         OwnedForward(cast(subprocess.Popen[str], owned), log, tmp_path / "forward.log")
@@ -799,10 +797,6 @@ def test_scoped_forward_closes_only_its_child_in_shared_signal_registry(
 def test_database_readiness_deadline_covers_a_stalled_query_and_closes_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import asyncio
-
-    from tests.integration import conftest as fixtures
-
     class StalledConnection:
         closed = False
 
@@ -825,3 +819,27 @@ def test_database_readiness_deadline_covers_a_stalled_query_and_closes_connectio
     with pytest.raises(TimeoutError, match="Authenticated PostgreSQL"):
         fixtures.wait_database(endpoint, timeout=0.01)
     assert connection.closed
+
+
+def test_relocated_tools_scripts_root_and_image_matrix_discovery() -> None:
+    assert not (REPO_ROOT / "scripts").exists()
+    result = subprocess.run(
+        [
+            "mise",
+            "exec",
+            "--",
+            "uv",
+            "run",
+            "--no-project",
+            str(REPO_ROOT / "tools/scripts/images.py"),
+            "--format",
+            "matrix",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    matrix = json.loads(result.stdout)
+    assert "component" in matrix
+    assert len(matrix["component"]) == 9

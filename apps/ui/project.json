@@ -1,0 +1,31 @@
+{
+  "name": "ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ui/src",
+  "implicitDependencies": ["contracts"],
+  "tags": ["scope:ui", "type:app"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- biome check --config-path apps/ui/biome.json apps/ui/src"
+    },
+    "typecheck": {
+      "command": "mise exec -- pnpm --filter platform-ui run typecheck",
+      "inputs": ["default", "^default", "nodeWorkspace"],
+      "outputs": ["{projectRoot}/.next/types/**"]
+    },
+    "test": {
+      "command": "mise exec -- pnpm --filter platform-ui run test",
+      "inputs": ["default", "^default", "nodeWorkspace"]
+    },
+    "build": {
+      "command": "mise exec -- pnpm --filter platform-ui run build",
+      "dependsOn": ["typecheck"],
+      "inputs": ["production", "^production", "nodeWorkspace"],
+      "outputs": [
+        "{projectRoot}/.next/**",
+        "!{projectRoot}/.next/cache/**"
+      ]
+    }
+  }
+}

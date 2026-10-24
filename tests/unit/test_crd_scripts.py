@@ -12,15 +12,11 @@ import yaml
 
 ROOT = Path(__file__).absolute().parents[2]
 SPEC = importlib.util.spec_from_file_location(
-    "update_crds", ROOT / "scripts/update-crds.py"
+    "update_crds", ROOT / "tools/scripts/update-crds.py"
 )
 assert SPEC is not None and SPEC.loader is not None
 CRDS = cast(Any, importlib.util.module_from_spec(SPEC))
 SPEC.loader.exec_module(CRDS)
-
-
-def _empty_listing(_url: str) -> bytes:
-    return b"[]"
 
 
 def _crd(group: str = "acid.zalan.do", kind: str = "postgresql") -> bytes:
@@ -52,7 +48,7 @@ def _crd(group: str = "acid.zalan.do", kind: str = "postgresql") -> bytes:
 
 
 def _setup_deploy_script(root: Path, version: str = "2.0.3") -> Path:
-    script = root / "scripts/deploy.sh"
+    script = root / "tools/scripts/deploy.sh"
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text(f"POSTGRES_OPERATOR_VERSION={version}\n")
     return script
@@ -83,10 +79,6 @@ def test_to_json_schema_converts_nullable_nodes_only() -> None:
     assert converted["properties"]["itemsField"]["items"] == {
         "anyOf": [{"type": "null"}, {"type": "string"}]
     }
-
-
-def _default_postgres_crd(_url: str) -> bytes:
-    return _crd()
 
 
 @pytest.mark.parametrize("valid", [True, False])
@@ -141,7 +133,11 @@ def test_selected_update_prunes_obsolete_provider_outputs_only(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _setup_deploy_script(tmp_path, "2.0.3")
-    monkeypatch.setattr(CRDS, "read_url", _default_postgres_crd)
+
+    def read_url(_url: str) -> bytes:
+        return _crd()
+
+    monkeypatch.setattr(CRDS, "read_url", read_url)
     CRDS.update(tmp_path, "postgres")
     obsolete_schema = tmp_path / ".schemas/acid.zalan.do/postgresteam_v1.json"
     obsolete_schema.write_text("{}\n")
@@ -183,17 +179,23 @@ def test_substrate_operation_retains_dockerfile_version_and_scopes_outputs(
 
 
 def test_updater_callers_stage_selected_output_sets() -> None:
+    assert CRDS.ROOT == ROOT
     makefile = (ROOT / "Makefile").read_text()
-    assert "scripts/update-crds.py all" in makefile
+    assert "tools/scripts/update-crds.py all" in makefile
     renovate = json.loads((ROOT / "renovate.json").read_text())
     rule = next(
         r["postUpgradeTasks"]
         for r in renovate["packageRules"]
         if "agent-substrate/substrate" in r.get("matchPackageNames", [])
     )
-    assert any("scripts/update-crds.py all" in command for command in rule["commands"])
+    assert any(
+        "tools/scripts/update-crds.py all" in command for command in rule["commands"]
+    )
     assert "charts/agent-substrate/crds/*.yaml" in rule["fileFilters"]
     assert ".schemas/**/*.json" in rule["fileFilters"]
+    manager_patterns = renovate["customManagers"][0]["managerFilePatterns"]
+    assert "/^tools/scripts/.*\\.(?:sh|py)$/" in manager_patterns
+    assert not any(pattern.startswith("/^scripts/") for pattern in manager_patterns)
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/update-schemas.yml").read_text()
     )
@@ -220,7 +222,7 @@ def test_all_operation_validates_all_inputs_before_writing(
     def read_url(url: str) -> bytes:
         if "zalando/postgres-operator" in url:
             return _crd()
-        return _empty_listing(url)
+        return b"[]"
 
     monkeypatch.setattr(CRDS, "read_url", read_url)
     with pytest.raises(ValueError, match="No substrate CRDs"):

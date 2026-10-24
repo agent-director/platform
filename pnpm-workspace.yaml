@@ -1,0 +1,9 @@
+packages:
+  - apps/ui
+
+strictDepBuilds: true
+allowBuilds:
+  nx: false
+  nx-mcp: false
+  msw: false
+minimumReleaseAge: 2880

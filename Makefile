@@ -4,6 +4,15 @@ SHELL := /bin/bash
 
 MISE := mise
 RUN := $(MISE) exec --
+NX := $(RUN) pnpm exec nx
+NX_PARALLEL ?= 3
+NX_CI_TARGETS := lint,format-check,typecheck,test,build
+NX_PYTEST_PROJECTS := core,sandbox-exec,contracts,repo-tests
+# Prek hooks whose checks are owned by cached Nx targets; `lint-residual` skips them in CI.
+# Keep in sync with project.json targets (tests/unit/test_security_gates.py enforces parity).
+NX_OWNED_HOOKS := ruff ruff-format biome typecheck pytest helm-lint kubeconform kube-linter checkov
+GRAPHIFY := $(RUN) uv run --locked --only-group graphify graphify
+GRAPHIFY_BACKEND ?= none
 # renovate: datasource=pypi depName=checkov
 CHECKOV_VERSION ?= 3.3.26
 KUBECONFORM_FLAGS := -strict -summary -skip KataConfig -schema-location default -schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
@@ -24,7 +33,7 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint format test pytest-unit image-matrix
+.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
@@ -38,48 +47,85 @@ help:
 
 setup:
 	$(MISE) install --locked
-	$(RUN) uv sync --locked
-	$(RUN) pnpm --dir frontend install --frozen-lockfile
+	$(RUN) uv sync --locked --all-packages
+	$(RUN) pnpm install --frozen-lockfile
 	$(MAKE) check-helm-deps
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:
-	$(RUN) uv run --locked pyrefly check --config pyproject.toml
-	$(RUN) pnpm --dir frontend typecheck
+	$(NX) run-many -t typecheck --parallel=$(NX_PARALLEL)
 
 build-frontend:
-	$(RUN) pnpm --dir frontend build
+	$(NX) run ui:build
 
 lint:
 	$(RUN) prek run --all-files
 
+# Commit gates Nx does not own (whitespace/EOF/syntax, secrets, actionlint, hadolint, helm deps, actions lock).
+lint-residual:
+	$(RUN) prek run --all-files $(addprefix --skip ,$(NX_OWNED_HOOKS))
+
 format:
 	$(RUN) prek run ruff-format --all-files
 
-test: pytest-unit
+test:
+	$(NX) run-many -t test --parallel=$(NX_PARALLEL)
 
+# Cached through Nx unless PYTEST_ARGS selects an ad-hoc run.
 pytest-unit:
-	$(RUN) uv run --locked pytest tests/unit/ $(PYTEST_ARGS)
+ifeq ($(strip $(PYTEST_ARGS)),)
+	$(NX) run-many -t test -p $(NX_PYTEST_PROJECTS) --parallel=$(NX_PARALLEL)
+else
+	$(RUN) uv run --locked --no-sync pytest $(PYTEST_ARGS)
+endif
 
 image-matrix:
-	@$(RUN) uv run --no-project scripts/images.py --format matrix
+	@$(RUN) uv run --no-project tools/scripts/images.py --format matrix
+
+nx-graph:
+	$(NX) graph --print
+
+nx-affected:
+	$(NX) affected -t $(NX_CI_TARGETS) --parallel=$(NX_PARALLEL)
+
+# Every Nx-owned gate, exact-input cached (the CI path).
+nx-ci:
+	$(NX) run-many -t $(NX_CI_TARGETS) --parallel=$(NX_PARALLEL)
+
+ci: nx-ci lint-residual
+
+graphify:
+	@if [[ "$(GRAPHIFY_BACKEND)" != "none" ]]; then \
+	  GRAPHIFY_BACKEND="$(GRAPHIFY_BACKEND)" $(GRAPHIFY) extract . --backend "$(GRAPHIFY_BACKEND)" && \
+	  GRAPHIFY_BACKEND="$(GRAPHIFY_BACKEND)" $(GRAPHIFY) cluster-only . --no-viz --backend "$(GRAPHIFY_BACKEND)"; \
+	else \
+	  if [[ -f graphify-out/graph.json && -f graphify-out/manifest.json ]]; then \
+	    GRAPHIFY_BACKEND=none $(GRAPHIFY) update .; \
+	  else \
+	    GRAPHIFY_BACKEND=none $(GRAPHIFY) extract . --code-only; \
+	  fi && \
+	  GRAPHIFY_BACKEND=none $(GRAPHIFY) cluster-only . --no-viz --no-label; \
+	fi
+
+graphify-fetch:
+	./tools/scripts/fetch-graphify-brain.sh
 
 cluster-up:
-	./scripts/deploy.sh cluster-up
+	./tools/scripts/deploy.sh cluster-up
 
 cluster-down: teardown
 
 check-cluster:
-	./scripts/deploy.sh check-cluster
+	./tools/scripts/deploy.sh check-cluster
 
 deploy:
-	./scripts/deploy.sh deploy
+	./tools/scripts/deploy.sh deploy
 
 teardown:
-	./scripts/teardown.sh "$(CLUSTER_NAME)"
+	./tools/scripts/teardown.sh "$(CLUSTER_NAME)"
 
 test-integration:
-	./scripts/test-integration.sh "$(CLUSTER_NAME)" $(PYTEST_ARGS)
+	./tools/scripts/test-integration.sh "$(CLUSTER_NAME)" $(PYTEST_ARGS)
 
 pytest-integration: check-cluster
 	$(RUN) uv run --locked pytest tests/integration/ -n 0 $(PYTEST_ARGS)
@@ -99,7 +145,7 @@ check-helm-deps:
 	fi
 
 update-schemas:
-	$(RUN) uv run --locked scripts/update-crds.py all
+	$(RUN) uv run --locked tools/scripts/update-crds.py all
 
 lint-checkov:
 	env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
@@ -126,31 +172,13 @@ scan-secrets:
 scan-secrets-staged:
 	$(RUN) gitleaks git --pre-commit --staged --redact --config .gitleaks.toml
 
+TRIVY_IMAGE_FLAGS ?=
+
 scan-image:
-	@[[ -n "$${IMAGE_REF:-}" ]] || { printf 'ERROR: Set IMAGE_REF=<image:tag>\n' >&2; exit 1; }
-	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types library --severity HIGH,CRITICAL --exit-code 1 "$$IMAGE_REF"
-	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types os --severity HIGH --exit-code 0 "$$IMAGE_REF"
-	$(RUN) trivy image --config trivy.yaml --scanners vuln,secret \
-	  --format table --pkg-types os --severity CRITICAL --exit-code 1 "$$IMAGE_REF"
+	MISE="$(MISE)" TRIVY_IMAGE_FLAGS="$(TRIVY_IMAGE_FLAGS)" ./tools/scripts/scan-images.sh scan-image "$(IMAGE_REF)"
 
 scan-local:
-	@selection="$(if $(IMAGE),$(IMAGE),all)"; \
-	matched=0; \
-	while IFS=$$'\t' read -r name dockerfile target; do \
-	  [[ -n "$$name" ]] || continue; \
-	  component="$${dockerfile#images/}"; component="$${component%/Dockerfile}"; \
-	  if [[ "$$selection" == "all" || "$$selection" == "$$name" || "$$selection" == "$$component" || "$$selection" == "images/$$component" ]]; then \
-	    matched=1; \
-	    tag="local-scan/$$name:$$(git rev-parse --short HEAD 2>/dev/null || printf 'local')"; \
-	    target_args=(); if [[ -n "$$target" ]]; then target_args=(--target "$$target"); fi; \
-	    $(RUN) docker buildx build -f "$$dockerfile" --load $${target_args[@]+"$${target_args[@]}"} -t "$$tag" .; \
-	    $(MAKE) scan-image IMAGE_REF="$$tag"; \
-	    docker image rm "$$tag" >/dev/null 2>&1 || true; \
-	  fi; \
-	done < <($(RUN) uv run --no-project scripts/images.py --format tsv); \
-	[[ "$$matched" -eq 1 ]] || { printf 'ERROR: Unknown image selection: %s\n' "$$selection" >&2; exit 2; }
+	MISE="$(MISE)" ./tools/scripts/scan-images.sh scan-local "$(IMAGE)"
 
 actions-lock:
 	gh actions-lock --no-migrate-local-actions

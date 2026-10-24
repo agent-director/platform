@@ -5,21 +5,10 @@ description = "Agent Control Plane"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "temporalio",
-    "litellm",
-    "mcp",
-    "psycopg[binary]",
-    "fastapi",
-    "uvicorn",
-    "watchdog",
-    "httpx",
-    "orjson",
-    "pyyaml==6.0.3",
-    "cachetools==7.2.1",
+    "agent-director-core",
+    "agent-director-sandbox-exec",
+    "agent-director-contracts",
 ]
-
-[project.scripts]
-director = "director.main:main"
 
 [dependency-groups]
 dev = [
@@ -32,41 +21,65 @@ dev = [
     "types-PyYAML",
     "pytest-xdist==3.8.0",
 ]
+graphify = [
+    "graphifyy[sql]==0.9.92",
+]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests/unit"]
-norecursedirs = ["tests/integration"]
+pythonpath = [".", "apps/core", "apps/sandbox-exec", "libs/contracts", "tools"]
+testpaths = [
+    "tests/unit",
+    "apps/core/tests/unit",
+    "apps/sandbox-exec/tests/unit",
+    "libs/contracts/tests/unit",
+]
+norecursedirs = ["tests/integration", "node_modules", ".nx", "graphify-out"]
 timeout = 120
 cache_dir = ".cache/pytest"
 asyncio_default_fixture_loop_scope = "function"
-addopts = ["-n", "auto", "--dist", "worksteal", "--basetemp=.cache/pytest/tmp"]
+addopts = ["-n", "auto", "--maxprocesses=6", "--dist", "worksteal", "--basetemp=.cache/pytest/tmp"]
 
 [tool.ruff]
 cache-dir = ".cache/ruff"
 
+[tool.ruff.lint]
+extend-select = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"unified_api".msg = "Control-plane unified_api cannot be imported outside apps/core."
+"orchestrator".msg = "Control-plane orchestrator cannot be imported outside apps/core."
+"director".msg = "Control-plane director CLI cannot be imported outside apps/core."
+"sandbox_exec".msg = "Do not import in-sandbox daemon code outside apps/sandbox-exec."
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["TID251"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["contracts", "director", "orchestrator", "sandbox_exec", "scripts", "unified_api"]
+
 [tool.uv]
 cache-dir = ".cache/uv"
 override-dependencies = ["filelock>=4.2.1"]
+package = false
+
+[tool.uv.workspace]
+members = ["apps/core", "apps/sandbox-exec", "libs/contracts"]
+
+[tool.uv.sources]
+agent-director-core = { workspace = true }
+agent-director-sandbox-exec = { workspace = true }
+agent-director-contracts = { workspace = true }
 
 [tool.pyrefly]
 preset = "strict"
 permissive-ignores = false
 type-ignore-unknown-tag-behavior = "no-effect"
-project-excludes = [".cache/**", ".venv/**"]
+project-excludes = [".cache/**", ".venv/**", "node_modules/**", "apps/ui/**", "graphify-out/**"]
 python-interpreter-path = ".venv/bin/python"
-# Direct `uv run scripts/<name>.py` adds scripts/ to Python's import path.
-search-path = [".", "scripts"]
+search-path = [".", "apps/core", "apps/sandbox-exec", "libs/contracts", "tools", "tools/scripts"]
 check-unannotated-defs = true
 
 [tool.pyrefly.errors]
 # Keep import failures and stale suppressions enforcing; do not blanket-ignore modules.
 missing-import = "error"
 unused-ignore = "error"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["director", "unified_api", "orchestrator"]

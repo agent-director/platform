@@ -1,0 +1,21 @@
+{
+  "name": "contracts",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "libs/contracts/contracts",
+  "tags": ["scope:shared", "type:contracts"],
+  "targets": {
+    "lint": {
+      "command": "mise exec -- ruff check libs/contracts"
+    },
+    "format-check": {
+      "command": "mise exec -- ruff format --check libs/contracts"
+    },
+    "typecheck": {
+      "command": "mise exec -- uv run --locked --no-sync pyrefly check --config pyproject.toml libs/contracts"
+    },
+    "test": {
+      "command": "mise exec -- uv run --locked --no-sync pytest libs/contracts/tests/unit --basetemp=.cache/pytest/tmp-contracts"
+    }
+  }
+}

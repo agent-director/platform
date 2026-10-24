@@ -2,6 +2,7 @@
 # See https://prek.j178.dev for more information.
 #:schema https://www.schemastore.org/prek.json
 default_install_hook_types = ["pre-commit", "pre-push"]
+default_stages = ["pre-commit"]
 
 # Priority tiers:
 #   0 = fast whitespace/EOF/lockfile auto-fixers and ruff autofixer
@@ -29,6 +30,7 @@ hooks = [
   { id = "check-helm-deps", name = "Check Helm Deps", entry = "make check-helm-deps", language = "system", files = "^charts/", pass_filenames = false, priority = 0 },
   { id = "ruff", name = "ruff", entry = "mise exec -- ruff check --fix", language = "system", types = ["python"], priority = 0 },
   { id = "ruff-format", name = "ruff format", entry = "mise exec -- ruff format", language = "system", types = ["python"], priority = 1 },
+  { id = "biome", name = "Biome UI check", entry = "mise exec -- biome check --config-path apps/ui/biome.json apps/ui/src", language = "system", files = "^apps/ui/", pass_filenames = false, priority = 1 },
   { id = "gitleaks", name = "Detect hardcoded secrets", entry = "make scan-secrets-staged", language = "system", pass_filenames = false, always_run = true, priority = 1 },
   { id = "actionlint", name = "Lint GitHub Actions workflow files", entry = "mise exec -- actionlint", language = "system", files = "^\\.github/workflows/.*\\.ya?ml$", priority = 1 },
   { id = "hadolint", name = "Lint Dockerfiles", entry = "mise exec -- hadolint", language = "system", files = "Dockerfile", priority = 1 },

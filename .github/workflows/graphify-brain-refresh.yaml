@@ -1,0 +1,66 @@
+# This workflow is managed by gh actions-lock.
+
+name: Graphify Brain Refresh
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: graphify-brain-refresh
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  refresh-brain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.1.2
+
+      - name: Cache uv tool environment
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            .cache/uv
+          key: graphify-uv-${{ runner.os }}-${{ hashFiles('uv.lock', 'Makefile') }}
+          restore-keys: |
+            graphify-uv-${{ runner.os }}-
+
+      - name: Hydrate prior graph-latest bundle for incremental update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/scripts/fetch-graphify-brain.sh
+
+      - name: Build Graphify code intelligence bundle
+        run: |
+          make graphify
+          GRAPHIFY_VERSION="$(mise exec -- uv run --locked --only-group graphify python -I -c 'import importlib.metadata as m; print(m.version("graphifyy"))')"
+          jq -n \
+            --arg source_sha "$GITHUB_SHA" \
+            --arg graphify_version "$GRAPHIFY_VERSION" \
+            --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{source_sha: $source_sha, graphify_version: $graphify_version, generated_at: $generated_at}' \
+            > graphify-out/metadata.json
+          tar czf graphify-bundle.tar.gz -C graphify-out graph.json GRAPH_REPORT.md manifest.json metadata.json
+
+      - name: Publish graph-latest release bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view graph-latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/graph-latest" -f sha="${GITHUB_SHA}" -F force=true
+            gh release upload graph-latest graphify-bundle.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create graph-latest graphify-bundle.tar.gz --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "graphify brain (latest)" --notes "Auto-published by graphify-brain-refresh.yaml."
+          fi

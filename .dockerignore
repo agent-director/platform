@@ -1,8 +1,12 @@
 .git
 .github
+.claude
+.mcp.json
 .mise
+.nx/
 .schemas
 charts
+graphify-out/
 hack
 tests
 *.md

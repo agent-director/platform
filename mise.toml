@@ -18,6 +18,7 @@ kubectl = "1.37.1"
 jq = "1.8.2"
 kubeconform = "0.8.0"
 trivy = "0.75.0"
+biome = "2.5.15"
 
 [settings]
 lockfile = true
@@ -29,6 +30,7 @@ python.compile = false
 locked = true
 
 [env]
+UV_NO_CONFIG = "1"
 UV_PYTHON_DOWNLOADS = "never"
 UV_PROJECT_ENVIRONMENT = "{{ config_root }}/.venv"
 UV_CACHE_DIR = "{{ config_root }}/.cache/uv"
@@ -42,3 +44,7 @@ TRIVY_CACHE_DIR = "{{ config_root }}/.cache/trivy"
 pnpm_config_store_dir = "{{ config_root }}/.cache/pnpm/store"
 pnpm_config_cache_dir = "{{ config_root }}/.cache/pnpm/cache"
 pnpm_config_state_dir = "{{ config_root }}/.cache/pnpm/state"
+NX_NO_CLOUD = "true"
+NX_DAEMON = "false"
+NX_CACHE_DIRECTORY = "{{ config_root }}/.cache/nx"
+NEXT_TELEMETRY_DISABLED = "1"

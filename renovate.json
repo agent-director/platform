@@ -35,7 +35,7 @@
       ],
       "postUpgradeTasks": {
         "commands": [
-          "mise exec -- uv run --locked scripts/update-crds.py all"
+          "mise exec -- uv run --locked tools/scripts/update-crds.py all"
         ],
         "fileFilters": [
           "charts/agent-substrate/crds/*.yaml",
@@ -73,7 +73,7 @@
         "/^Makefile$/",
         "/^\\.github/workflows/.*\\.ya?ml$/",
         "/^images/.*/Dockerfile$/",
-        "/^scripts/.*\\.(?:sh|py)$/"
+        "/^tools/scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
