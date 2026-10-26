@@ -279,28 +279,14 @@ def test_values_schema_rejects_unknown_properties_and_coerced_types(
     substrate_chart = platform_chart.parent / "agent-substrate"
 
     for chart, unknown_key in (
-        (platform_chart, "unknownKey=true"),
-        (platform_chart, "unifiedApi.unknownKey=true"),
-        (platform_chart, "temporal.unknownKey=true"),
-        (substrate_chart, "unknownKey=true"),
-        (substrate_chart, "ateapi.unknownKey=true"),
+        (platform_chart, "unknownKey"),
+        (platform_chart, "unifiedApi.unknownKey"),
+        (platform_chart, "temporal.unknownKey"),
+        (substrate_chart, "unknownKey"),
+        (substrate_chart, "ateapi.unknownKey"),
     ):
         with pytest.raises(subprocess.CalledProcessError) as captured:
-            subprocess.run(
-                [
-                    "helm",
-                    "template",
-                    RELEASE,
-                    str(chart),
-                    "--namespace",
-                    NAMESPACE,
-                    "--set",
-                    unknown_key,
-                ],
-                text=True,
-                capture_output=True,
-                check=True,
-            )
+            render(chart, {unknown_key: True})
         assert "values don't meet the specifications of the schema" in (
             captured.value.stderr
         )

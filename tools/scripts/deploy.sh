@@ -381,10 +381,6 @@ json.dump({
 ' "$NAMESPACE")
 }
 
-contract_value() {
-    run jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' <<< "$CONTRACT"
-}
-
 deploy() {
     validate_helm_options
     check_cluster

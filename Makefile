@@ -60,7 +60,7 @@ build-frontend:
 lint:
 	$(RUN) prek run --all-files
 
-# Commit gates Nx does not own (whitespace/EOF/syntax, secrets, actionlint, hadolint, helm deps, actions lock).
+# Commit gates Nx does not own (whitespace/EOF/syntax, actions-lock, betterleaks, actionlint, hadolint).
 lint-residual:
 	$(RUN) prek run --all-files $(addprefix --skip ,$(NX_OWNED_HOOKS))
 
