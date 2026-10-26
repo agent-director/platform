@@ -1,21 +1,24 @@
-import asyncio
-import os
-import signal
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Protocol
-from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 from temporalio import activity, workflow
-from temporalio.client import Client
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
-from temporalio.worker import Worker
 
 from orchestrator.workflows.ci_pipeline import CIPipelineWorkflow
 from orchestrator.workflows.pm_standup import PMStandupWorkflow
+
+with workflow.unsafe.imports_passed_through():
+    import asyncio
+    import os
+    import signal
+    from urllib.parse import urlsplit
+
+    from pydantic import BaseModel, ConfigDict, Field, field_validator
+    from temporalio.client import Client
+    from temporalio.worker import Worker
 
 HEALTH_TIMEOUT_SECONDS = 3.0
 HEALTH_HEADER_LIMIT_BYTES = 4096
@@ -44,7 +47,7 @@ async def execute_block(job_input: JobInput) -> str:
         )
 
 
-@workflow.defn(sandboxed=False)
+@workflow.defn
 class AgentWorkflow:
     def __init__(self) -> None:
         self.status = "started"
