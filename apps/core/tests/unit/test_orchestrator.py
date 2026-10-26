@@ -1,13 +1,17 @@
 import asyncio
 import signal
 from collections.abc import Callable
+from datetime import timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from pydantic import ValidationError
-from temporalio.client import WorkflowFailureError
+from temporalio import workflow
+from temporalio.client import WorkflowFailureError, WorkflowHistory
+from temporalio.common import RetryPolicy
 from temporalio.testing import WorkflowEnvironment
-from temporalio.worker import Worker
+from temporalio.worker import Replayer, Worker
 from typing_extensions import override
 
 from orchestrator.temporal_worker import (
@@ -378,3 +382,48 @@ async def test_worker_main_injects_settings_and_cleans_signal_handlers(
             signal.SIGTERM,
         }
     assert not worker.is_running
+
+
+@workflow.defn(name="AgentWorkflow", sandboxed=True)
+class AlteredAgentWorkflow:
+    @workflow.run
+    async def run(self, input_data: JobInput) -> str:
+        await workflow.sleep(1)
+        return await workflow.execute_activity(
+            execute_block,
+            input_data,
+            start_to_close_timeout=timedelta(minutes=10),
+            retry_policy=RetryPolicy(non_retryable_error_types=["ValueError"]),
+        )
+
+
+def test_all_workflows_are_sandboxed() -> None:
+    for cls in (AgentWorkflow, CIPipelineWorkflow, PMStandupWorkflow):
+        assert workflow._Definition.must_from_class(cls).sandboxed is True
+
+
+@pytest.mark.asyncio
+async def test_replayer_validates_committed_workflow_histories() -> None:
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    fixture_files = sorted(fixtures_dir.glob("*_history.json"))
+    assert len(fixture_files) == 4
+    replayer = Replayer(
+        workflows=[AgentWorkflow, CIPipelineWorkflow, PMStandupWorkflow]
+    )
+    for fixture_path in fixture_files:
+        history = WorkflowHistory.from_json(
+            fixture_path.stem, fixture_path.read_text(encoding="utf-8")
+        )
+        assert len(history.events) > 0
+        await replayer.replay_workflow(history, raise_on_replay_failure=True)
+
+
+@pytest.mark.asyncio
+async def test_replayer_detects_incompatible_workflow_modification() -> None:
+    fixture_path = Path(__file__).parent / "fixtures" / "agent_workflow_ci_history.json"
+    history = WorkflowHistory.from_json(
+        fixture_path.stem, fixture_path.read_text(encoding="utf-8")
+    )
+    replayer = Replayer(workflows=[AlteredAgentWorkflow])
+    with pytest.raises(workflow.NondeterminismError):
+        await replayer.replay_workflow(history, raise_on_replay_failure=True)
