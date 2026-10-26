@@ -485,6 +485,9 @@ def test_full_deploy_installs_direct_operator_platform_and_substrate(
     assert "--version 2.0.3" in commands[operator]
     for component in ("unifiedApi", "frontend", "workers", "caddyTailscale"):
         assert f"--set {component}.image.pullPolicy=IfNotPresent" in commands[platform]
+    # The Temporal schema and namespace Jobs are not hooks, so a failed Job must
+    # fail the release instead of leaving it deployed without a namespace.
+    assert "--wait --wait-for-jobs" in commands[platform]
 
 
 def test_cluster_context_mismatch_fails_before_any_tool(harness: ScriptHarness) -> None:

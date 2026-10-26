@@ -411,7 +411,7 @@ deploy() {
     fi
 
     helm_context upgrade --install "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-        --wait --timeout "$WAIT_TIMEOUT"
+        --wait --wait-for-jobs --timeout "$WAIT_TIMEOUT"
 
     local db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret
     IFS=$'\t' read -r db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret < <(
