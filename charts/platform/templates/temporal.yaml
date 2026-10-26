@@ -366,7 +366,17 @@ spec:
           imagePullPolicy: {{ .Values.temporal.admintools.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
-            - "temporal-sql-tool --database temporal setup-schema -v 0.0 && temporal-sql-tool --database temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned"
+            - |
+              out=$(temporal-sql-tool --database temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned 2>&1) || {
+                printf '%s\n' "$out" >&2
+                case "$out" in
+                  *schema_version*)
+                    temporal-sql-tool --database temporal setup-schema -v 0.0 && \
+                    temporal-sql-tool --database temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+                    ;;
+                  *) exit 1 ;;
+                esac
+              }
           securityContext:
             runAsNonRoot: true
             readOnlyRootFilesystem: true
@@ -412,7 +422,17 @@ spec:
           imagePullPolicy: {{ .Values.temporal.admintools.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
-            - "temporal-sql-tool --database temporal_visibility setup-schema -v 0.0 && temporal-sql-tool --database temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned"
+            - |
+              out=$(temporal-sql-tool --database temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned 2>&1) || {
+                printf '%s\n' "$out" >&2
+                case "$out" in
+                  *schema_version*)
+                    temporal-sql-tool --database temporal_visibility setup-schema -v 0.0 && \
+                    temporal-sql-tool --database temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
+                    ;;
+                  *) exit 1 ;;
+                esac
+              }
           securityContext:
             runAsNonRoot: true
             readOnlyRootFilesystem: true
