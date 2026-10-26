@@ -98,7 +98,7 @@ We strictly separate our tests across co-located package unit suites (`apps/core
 
 ### Writing Temporal Activities (LLM Invocations)
 Due to the inherent non-determinism of LLMs, all LLM invocations **must** be isolated inside Temporal Activities.
-- All workflows (`AgentWorkflow`, `CIPipelineWorkflow`, `PMStandupWorkflow`) execute inside the Temporal deterministic sandbox (`sandboxed=True`), and `temporalio.worker.Replayer` validates committed history fixtures in `apps/core/tests/unit/fixtures/`.
+- All workflows (`AgentWorkflow`, `CIPipelineWorkflow`, `PMStandupWorkflow`) execute inside the Temporal deterministic sandbox (`sandboxed=True`), and `temporalio.worker.Replayer` validates committed history fixtures in `apps/core/tests/unit/fixtures/`; regenerate them with `make replay-fixtures` after an intentional workflow change.
 - `make dev-temporal` starts a host-local Temporal CLI dev server (`127.0.0.1:7233`, UI `8233`) for local interactive workflow development.
 - Never call the Gateway or LiteLLM directly from a Temporal Workflow.
 - Ensure Activities are strictly idempotent where possible, or rely on Temporal's at-least-once execution guarantees to handle failures.

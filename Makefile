@@ -33,7 +33,7 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch dev-temporal
+.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch dev-temporal replay-fixtures
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
 .PHONY: lint-helm lint-checkov lint-kubernetes lint-kube update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
@@ -112,6 +112,10 @@ graphify-fetch:
 dev-temporal:
 	@mkdir -p .cache/temporal
 	$(RUN) temporal server start-dev --ip 127.0.0.1 --port 7233 --ui-port 8233 --db-filename .cache/temporal/dev.db
+
+# Rewrites apps/core/tests/unit/fixtures/*_history.json after an intentional workflow change.
+replay-fixtures:
+	$(RUN) uv run --locked --no-sync python apps/core/tests/regenerate_replay_fixtures.py $(REPLAY_ARGS)
 
 cluster-up:
 	./tools/scripts/deploy.sh cluster-up

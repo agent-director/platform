@@ -2,7 +2,7 @@
   "events": [
     {
       "eventId": "1",
-      "eventTime": "2026-10-26T14:17:01.234Z",
+      "eventTime": "2026-01-01T00:00:01Z",
       "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
       "workflowExecutionStartedEventAttributes": {
         "workflowType": {
@@ -24,9 +24,9 @@
         "workflowExecutionTimeout": "315360000s",
         "workflowRunTimeout": "315360000s",
         "workflowTaskTimeout": "10s",
-        "originalExecutionRunId": "14c4105b-2fe2-4586-a137-0864ec40cc30",
-        "identity": "93582@wgordon-mac",
-        "firstExecutionRunId": "14c4105b-2fe2-4586-a137-0864ec40cc30",
+        "originalExecutionRunId": "00000000-0000-4000-8000-000000000001",
+        "identity": "replay-fixture",
+        "firstExecutionRunId": "00000000-0000-4000-8000-000000000001",
         "attempt": 1,
         "firstWorkflowTaskBackoff": "0s",
         "priority": {}
@@ -34,7 +34,7 @@
     },
     {
       "eventId": "2",
-      "eventTime": "2026-10-26T14:17:01.234Z",
+      "eventTime": "2026-01-01T00:00:02Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
       "workflowTaskScheduledEventAttributes": {
         "taskQueue": {
@@ -46,27 +46,27 @@
     },
     {
       "eventId": "3",
-      "eventTime": "2026-10-26T14:17:01.234Z",
+      "eventTime": "2026-01-01T00:00:03Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
       "workflowTaskStartedEventAttributes": {
         "scheduledEventId": "2",
-        "identity": "93582@wgordon-mac",
-        "historySizeBytes": "309"
+        "identity": "replay-fixture",
+        "historySizeBytes": "0"
       }
     },
     {
       "eventId": "4",
-      "eventTime": "2026-10-26T14:17:01.245Z",
+      "eventTime": "2026-01-01T00:00:04Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
       "workflowTaskCompletedEventAttributes": {
         "scheduledEventId": "2",
-        "identity": "93582@wgordon-mac",
-        "binaryChecksum": "ac9f56aed9d96ae0113fcdc72a29c1d3",
+        "identity": "replay-fixture",
+        "binaryChecksum": "00000000000000000000000000000000",
         "sdkMetadata": {
           "coreUsedFlags": [
-            3,
             1,
-            2
+            2,
+            3
           ],
           "sdkName": "temporal-python",
           "sdkVersion": "1.34.0"
@@ -76,7 +76,7 @@
     },
     {
       "eventId": "5",
-      "eventTime": "2026-10-26T14:17:01.245Z",
+      "eventTime": "2026-01-01T00:00:05Z",
       "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
       "activityTaskScheduledEventAttributes": {
         "activityId": "1",
@@ -116,17 +116,17 @@
     },
     {
       "eventId": "6",
-      "eventTime": "2026-10-26T14:17:01.245Z",
+      "eventTime": "2026-01-01T00:00:06Z",
       "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
       "activityTaskStartedEventAttributes": {
         "scheduledEventId": "5",
-        "identity": "93582@wgordon-mac",
+        "identity": "replay-fixture",
         "attempt": 1
       }
     },
     {
       "eventId": "7",
-      "eventTime": "2026-10-26T14:17:01.246Z",
+      "eventTime": "2026-01-01T00:00:07Z",
       "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
       "activityTaskCompletedEventAttributes": {
         "result": {
@@ -141,12 +141,12 @@
         },
         "scheduledEventId": "5",
         "startedEventId": "6",
-        "identity": "93582@wgordon-mac"
+        "identity": "replay-fixture"
       }
     },
     {
       "eventId": "8",
-      "eventTime": "2026-10-26T14:17:01.246Z",
+      "eventTime": "2026-01-01T00:00:08Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
       "workflowTaskScheduledEventAttributes": {
         "taskQueue": {
@@ -158,29 +158,29 @@
     },
     {
       "eventId": "9",
-      "eventTime": "2026-10-26T14:17:01.246Z",
+      "eventTime": "2026-01-01T00:00:09Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
       "workflowTaskStartedEventAttributes": {
         "scheduledEventId": "8",
-        "identity": "93582@wgordon-mac",
-        "historySizeBytes": "843"
+        "identity": "replay-fixture",
+        "historySizeBytes": "0"
       }
     },
     {
       "eventId": "10",
-      "eventTime": "2026-10-26T14:17:01.247Z",
+      "eventTime": "2026-01-01T00:00:10Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
       "workflowTaskCompletedEventAttributes": {
         "scheduledEventId": "8",
-        "identity": "93582@wgordon-mac",
-        "binaryChecksum": "ac9f56aed9d96ae0113fcdc72a29c1d3",
+        "identity": "replay-fixture",
+        "binaryChecksum": "00000000000000000000000000000000",
         "sdkMetadata": {},
         "meteringMetadata": {}
       }
     },
     {
       "eventId": "11",
-      "eventTime": "2026-10-26T14:17:01.247Z",
+      "eventTime": "2026-01-01T00:00:11Z",
       "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED",
       "workflowExecutionCompletedEventAttributes": {
         "result": {

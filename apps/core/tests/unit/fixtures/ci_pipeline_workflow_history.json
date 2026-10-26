@@ -2,7 +2,7 @@
   "events": [
     {
       "eventId": "1",
-      "eventTime": "2046-10-21T14:17:01.257Z",
+      "eventTime": "2026-01-01T00:00:01Z",
       "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
       "workflowExecutionStartedEventAttributes": {
         "workflowType": {
@@ -24,9 +24,9 @@
         "workflowExecutionTimeout": "315360000s",
         "workflowRunTimeout": "315360000s",
         "workflowTaskTimeout": "10s",
-        "originalExecutionRunId": "ff095a1a-c90b-4aa8-ae6c-b34af783c2fa",
-        "identity": "93582@wgordon-mac",
-        "firstExecutionRunId": "ff095a1a-c90b-4aa8-ae6c-b34af783c2fa",
+        "originalExecutionRunId": "00000000-0000-4000-8000-000000000001",
+        "identity": "replay-fixture",
+        "firstExecutionRunId": "00000000-0000-4000-8000-000000000001",
         "attempt": 1,
         "firstWorkflowTaskBackoff": "0s",
         "priority": {}
@@ -34,7 +34,7 @@
     },
     {
       "eventId": "2",
-      "eventTime": "2046-10-21T14:17:01.257Z",
+      "eventTime": "2026-01-01T00:00:02Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
       "workflowTaskScheduledEventAttributes": {
         "taskQueue": {
@@ -46,26 +46,26 @@
     },
     {
       "eventId": "3",
-      "eventTime": "2046-10-21T14:17:01.257Z",
+      "eventTime": "2026-01-01T00:00:03Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
       "workflowTaskStartedEventAttributes": {
         "scheduledEventId": "2",
-        "identity": "93582@wgordon-mac",
-        "historySizeBytes": "280"
+        "identity": "replay-fixture",
+        "historySizeBytes": "0"
       }
     },
     {
       "eventId": "4",
-      "eventTime": "2046-10-21T14:17:01.259Z",
+      "eventTime": "2026-01-01T00:00:04Z",
       "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
       "workflowTaskCompletedEventAttributes": {
         "scheduledEventId": "2",
-        "identity": "93582@wgordon-mac",
-        "binaryChecksum": "ac9f56aed9d96ae0113fcdc72a29c1d3",
+        "identity": "replay-fixture",
+        "binaryChecksum": "00000000000000000000000000000000",
         "sdkMetadata": {
           "coreUsedFlags": [
-            2,
             1,
+            2,
             3
           ],
           "sdkName": "temporal-python",
@@ -76,7 +76,7 @@
     },
     {
       "eventId": "5",
-      "eventTime": "2046-10-21T14:17:01.259Z",
+      "eventTime": "2026-01-01T00:00:05Z",
       "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_COMPLETED",
       "workflowExecutionCompletedEventAttributes": {
         "result": {

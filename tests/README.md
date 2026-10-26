@@ -16,6 +16,16 @@ Unit tests are organized across four workspace test roots configured in root `py
 - `libs/contracts/tests/unit/`: Shared Pydantic v2 contract schemas and round-trip JSON schema serialization (`test_contracts.py`).
 - `tests/unit/`: Cross-cutting repository contracts including static AST import boundaries, per-package `pyproject.toml` dependency hermeticity, Nx project-graph layering, and OpenAPI ↔ MSW contract alignment (`test_module_boundaries.py`), lifecycle script safety/failure cleanup (`test_scripts.py`, `test_crd_scripts.py`), Helm chart rendering/profiles, `values.schema.json` contract tests (`test_chart_contracts.py`), ingress, and OLM/substrate schemas (`test_images.py`, `test_ingress.py`, `test_olm_schemas.py`, `test_database_fixtures.py`, `test_substrate_log_safety.py`), and Checkov/Betterleaks/scanner/hook/Nx positive controls (`test_security_gates.py`).
 
+### Regenerating Replayer history fixtures
+
+`apps/core/tests/unit/fixtures/*_history.json` are recorded Temporal histories that `temporalio.worker.Replayer` replays against the current workflow code. When a workflow legitimately changes (new activities, timers, signals or ordering), replay fails with `NondeterminismError`; refresh the histories and review the diff before committing:
+
+```sh
+make replay-fixtures
+```
+
+The generator (`apps/core/tests/regenerate_replay_fixtures.py`) runs each workflow against the SDK time-skipping test server, including the `AgentWorkflow` signal-path history (`update_status`). Regenerate a single history with `make replay-fixtures REPLAY_ARGS="--only agent_workflow_signal_history.json"`. Output is normalized (worker identity, run IDs, event times and per-run server metadata), so a fixture only changes when its recorded history content changes (workflow commands, activity inputs or results, retry policies, or an SDK version bump). Add new histories to the generator and to `EXPECTED_HISTORY_FIXTURES` in `test_orchestrator.py`. Never regenerate fixtures to silence an unintended replay failure.
+
 Frontend MSW contract handlers are also exercised directly via Node's native test runner in `apps/ui/src/mocks/handlers.test.ts` (`make test` or `mise exec -- pnpm --filter platform-ui run test`).
 
 The unit suite does not create a live Kubernetes cluster or build/pull Docker images. You can also run per-project targets with isolated `--basetemp` directories via Nx (`make nx-affected` or `mise exec -- pnpm exec nx run-many -t test --parallel=3`).

@@ -1,7 +1,10 @@
 import asyncio
+import base64
+import json
+import re
 import signal
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -397,6 +400,62 @@ class AlteredAgentWorkflow:
         )
 
 
+@workflow.defn(name="AgentWorkflow", sandboxed=True)
+class AlteredSignalAgentWorkflow:
+    def __init__(self) -> None:
+        self.status = "started"
+
+    @workflow.run
+    async def run(self, job_input: JobInput) -> str:
+        result = await workflow.execute_activity(
+            execute_block,
+            job_input,
+            start_to_close_timeout=timedelta(minutes=10),
+            retry_policy=RetryPolicy(non_retryable_error_types=["ValueError"]),
+        )
+        if self.status in ["started", "processing"]:
+            self.status = result
+        return self.status
+
+    @workflow.signal
+    async def update_status(self, new_status: str) -> None:
+        await workflow.sleep(1)
+        self.status = new_status
+
+
+EXPECTED_HISTORY_FIXTURES = {
+    "agent_workflow_ci_history.json",
+    "agent_workflow_pm_history.json",
+    "agent_workflow_signal_history.json",
+    "ci_pipeline_workflow_history.json",
+    "pm_standup_workflow_history.json",
+}
+
+
+def _load_history_fixture(name: str) -> tuple[str, str]:
+    path = Path(__file__).parent / "fixtures" / name
+    return path.stem, path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("fixture", sorted(EXPECTED_HISTORY_FIXTURES))
+def test_history_fixtures_are_normalized(fixture: str) -> None:
+    """Fixtures carry no per-run or per-machine values (see regenerate_replay_fixtures)."""
+    _, text = _load_history_fixture(fixture)
+    assert not re.search(r"\d+@\S+", text), "worker pid@hostname identity"
+    assert set(re.findall(r'"identity": "([^"]*)"', text)) == {"replay-fixture"}
+    run_ids = set(
+        re.findall(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", text
+        )
+    )
+    assert run_ids
+    assert all(run_id.startswith("00000000-0000-4000-8000-") for run_id in run_ids)
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    for event in json.loads(text)["events"]:
+        expected = base + timedelta(seconds=int(event["eventId"]))
+        assert event["eventTime"] == expected.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def test_all_workflows_are_sandboxed() -> None:
     for cls in (AgentWorkflow, CIPipelineWorkflow, PMStandupWorkflow):
         assert workflow._Definition.must_from_class(cls).sandboxed is True
@@ -406,7 +465,7 @@ def test_all_workflows_are_sandboxed() -> None:
 async def test_replayer_validates_committed_workflow_histories() -> None:
     fixtures_dir = Path(__file__).parent / "fixtures"
     fixture_files = sorted(fixtures_dir.glob("*_history.json"))
-    assert len(fixture_files) == 4
+    assert {path.name for path in fixture_files} == EXPECTED_HISTORY_FIXTURES
     replayer = Replayer(
         workflows=[AgentWorkflow, CIPipelineWorkflow, PMStandupWorkflow]
     )
@@ -420,10 +479,52 @@ async def test_replayer_validates_committed_workflow_histories() -> None:
 
 @pytest.mark.asyncio
 async def test_replayer_detects_incompatible_workflow_modification() -> None:
-    fixture_path = Path(__file__).parent / "fixtures" / "agent_workflow_ci_history.json"
     history = WorkflowHistory.from_json(
-        fixture_path.stem, fixture_path.read_text(encoding="utf-8")
+        *_load_history_fixture("agent_workflow_ci_history.json")
     )
     replayer = Replayer(workflows=[AlteredAgentWorkflow])
     with pytest.raises(workflow.NondeterminismError):
         await replayer.replay_workflow(history, raise_on_replay_failure=True)
+
+
+@pytest.mark.parametrize(
+    "new_status,expected",
+    [
+        ("started", "started"),
+        ("processing", "processing"),
+        ("paused", "paused"),
+        ("waiting_on_human", "waiting_on_human"),
+        ("bogus", "started"),
+        ("", "started"),
+    ],
+)
+def test_update_status_signal_accepts_only_known_statuses(
+    new_status: str, expected: str
+) -> None:
+    instance = AgentWorkflow()
+    instance.update_status(new_status)
+    assert instance.status == expected
+
+
+def test_signal_history_fixture_exercises_update_status_handler() -> None:
+    _, text = _load_history_fixture("agent_workflow_signal_history.json")
+    events = json.loads(text)["events"]
+    signals = [
+        event["workflowExecutionSignaledEventAttributes"]["signalName"]
+        for event in events
+        if event["eventType"] == "EVENT_TYPE_WORKFLOW_EXECUTION_SIGNALED"
+    ]
+    assert signals == ["update_status"]
+    result = events[-1]["workflowExecutionCompletedEventAttributes"]["result"]
+    assert base64.b64decode(result["payloads"][0]["data"]) == b'"paused"'
+
+
+@pytest.mark.asyncio
+async def test_replayer_detects_incompatible_signal_handler_modification() -> None:
+    workflow_id, text = _load_history_fixture("agent_workflow_signal_history.json")
+    replayer = Replayer(workflows=[AlteredSignalAgentWorkflow])
+    with pytest.raises(workflow.NondeterminismError):
+        await replayer.replay_workflow(
+            WorkflowHistory.from_json(workflow_id, text),
+            raise_on_replay_failure=True,
+        )

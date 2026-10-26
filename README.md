@@ -38,6 +38,7 @@ make nx-affected
 make nx-ci
 make ci
 make dev-temporal
+make replay-fixtures
 make graphify
 make graphify-fetch
 ```
