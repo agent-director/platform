@@ -14,7 +14,7 @@ build/
 
 # Virtual environments
 venv/
-.venv/
+.venv
 
 # IDEs
 .vscode/
