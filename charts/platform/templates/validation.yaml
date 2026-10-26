@@ -1,29 +1,6 @@
-{{- if and .Values.temporal.enabled .Values.temporalDev.enabled -}}
-{{- fail "temporal.enabled and temporalDev.enabled are mutually exclusive" -}}
-{{- end -}}
-{{- if and .Values.workers.enabled (not (or .Values.temporal.enabled .Values.temporalDev.enabled)) -}}
-{{- fail "workers.enabled requires one Temporal profile" -}}
-{{- end -}}
-{{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.workers.temporalNamespace)) (gt (len .Values.workers.temporalNamespace) 46) -}}
-{{- fail "workers.temporalNamespace must be a DNS label of at most 46 characters" -}}
-{{- end -}}
-{{- range $component := list "unifiedApi" "frontend" "litellm" "rustfs" "langfuse" "temporalDev" -}}
-{{- $port := int (include "platform.port" (dict "root" $ "component" $component)) -}}
-{{- if or (lt $port 1) (gt $port 65535) -}}
-{{- fail (printf "%s.service.port must be between 1 and 65535" $component) -}}
-{{- end -}}
-{{- end -}}
-{{- range $port := list .Values.workers.health.port .Values.workers.substratePort .Values.rustfs.consolePort .Values.temporal.server.frontend.service.port -}}
-{{- if or (lt (int $port) 1) (gt (int $port) 65535) -}}
-{{- fail "Worker health/substrate, RustFS console and Temporal frontend ports must be between 1 and 65535" -}}
-{{- end -}}
-{{- end -}}
-{{- if or (not (regexMatch "^[a-z][a-z0-9_]*$" .Values.database.substrateUser)) (has .Values.database.substrateUser (list "postgres" "platform" "langfuse" "temporal" "admin")) (hasPrefix "pg_" .Values.database.substrateUser) -}}
-{{- fail "database.substrateUser must be a distinct non-system SQL role" -}}
-{{- end -}}
-{{- if or (not (regexMatch "^[a-z][a-z0-9_]*$" .Values.database.substrateDatabase)) (has .Values.database.substrateDatabase (list "postgres" "template0" "template1" "platform" "langfuse" "temporal" "temporal_visibility")) -}}
-{{- fail "database.substrateDatabase must be a distinct application database" -}}
-{{- end -}}
-{{- if ne (int .Values.database.port) 5432 -}}
-{{- fail "database.port must be 5432: the Zalando Spilo listener is not configurable through this PostgreSQL CR" -}}
-{{- end -}}
+{{- if and .Values.temporal.enabled .Values.temporalDev.enabled }}
+{{- fail "temporal.enabled and temporalDev.enabled are mutually exclusive; enable only one Temporal runtime profile" }}
+{{- end }}
+{{- if and .Values.workers.enabled (not (or .Values.temporal.enabled .Values.temporalDev.enabled)) }}
+{{- fail "workers.enabled requires one Temporal profile: set temporal.enabled=true or temporalDev.enabled=true" }}
+{{- end }}

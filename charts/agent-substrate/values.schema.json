@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "global",
+    "ateapi",
+    "atecontroller",
+    "database",
+    "rustfs",
+    "tls",
+    "platformNamespace",
+    "workloadNamespace"
+  ],
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "apiServerCIDRs", "apiServerPorts", "tls"],
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tag"],
+          "properties": {
+            "tag": { "type": "string", "minLength": 1 }
+          }
+        },
+        "apiServerCIDRs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "apiServerPorts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["useOcpServingCert"],
+          "properties": {
+            "useOcpServingCert": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "ateapi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicaCount",
+        "service",
+        "image",
+        "resources",
+        "nodeSelector",
+        "tolerations",
+        "affinity"
+      ],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["port"],
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "pullPolicy"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limits", "requests"],
+          "properties": {
+            "limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cpu", "memory"],
+              "properties": {
+                "cpu": { "type": "string", "minLength": 1 },
+                "memory": { "type": "string", "minLength": 1 }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cpu", "memory"],
+              "properties": {
+                "cpu": { "type": "string", "minLength": 1 },
+                "memory": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "affinity": { "type": "object" }
+      }
+    },
+    "atecontroller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replicaCount",
+        "image",
+        "resources",
+        "nodeSelector",
+        "tolerations",
+        "affinity"
+      ],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "pullPolicy"],
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": { "type": "string", "minLength": 1 },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"]
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["limits", "requests"],
+          "properties": {
+            "limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cpu", "memory"],
+              "properties": {
+                "cpu": { "type": "string", "minLength": 1 },
+                "memory": { "type": "string", "minLength": 1 }
+              }
+            },
+            "requests": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["cpu", "memory"],
+              "properties": {
+                "cpu": { "type": "string", "minLength": 1 },
+                "memory": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "tolerations": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "affinity": { "type": "object" }
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host",
+        "port",
+        "user",
+        "name",
+        "credentialSecret",
+        "trustConfigMap",
+        "trustKey"
+      ],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "user": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "credentialSecret": { "type": "string" },
+        "trustConfigMap": { "type": "string", "minLength": 1 },
+        "trustKey": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rustfs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["secretName", "host", "port"],
+      "properties": {
+        "secretName": { "type": "string", "minLength": 1 },
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["secretName", "existingBundleSecret"],
+      "properties": {
+        "secretName": { "type": "string" },
+        "existingBundleSecret": { "type": "string" }
+      }
+    },
+    "platformNamespace": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    },
+    "workloadNamespace": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 63,
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+    }
+  }
+}

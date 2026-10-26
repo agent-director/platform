@@ -4,14 +4,6 @@
 {{- if and .Values.global.tls.useOcpServingCert (not .Values.tls.existingBundleSecret) -}}
 {{- fail "OpenShift serving-cert mode requires tls.existingBundleSecret with preassembled bundle.pem, ca.crt, auth.yaml and empty.json; a two-key serving Secret is insufficient" -}}
 {{- end -}}
-{{- if not .Values.global.apiServerPorts -}}
-{{- fail "global.apiServerPorts must list at least one allowed API-server listener port" -}}
-{{- end -}}
-{{- range $port := concat (list .Values.ateapi.service.port .Values.database.port .Values.rustfs.port) .Values.global.apiServerPorts -}}
-{{- if or (lt (int $port) 1) (gt (int $port) 65535) -}}
-{{- fail "Substrate listener, backing-service and API-server ports must be between 1 and 65535" -}}
-{{- end -}}
-{{- end -}}
 {{- if .Values.tls.existingBundleSecret -}}
 {{- $bundle := lookup "v1" "Secret" .Release.Namespace .Values.tls.existingBundleSecret -}}
 {{- if $bundle -}}

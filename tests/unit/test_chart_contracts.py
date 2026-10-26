@@ -198,32 +198,177 @@ def test_full_temporal_uses_v1_sql_datastores_without_hooks(chart_dir: str) -> N
 
 
 @pytest.mark.parametrize(
-    "settings,error",
+    "settings,expected_fragments",
     [
-        ({"temporal.enabled": True, "temporalDev.enabled": True}, "mutually exclusive"),
+        (
+            {"temporal.enabled": True, "temporalDev.enabled": True},
+            ("mutually exclusive",),
+        ),
         (
             {
                 "temporal.enabled": False,
                 "temporalDev.enabled": False,
                 "workers.enabled": True,
             },
-            "requires one Temporal profile",
+            ("requires one Temporal profile",),
         ),
-        ({"frontend.service.port": 70000}, "between 1 and 65535"),
-        ({"workers.health.port": 0}, "between 1 and 65535"),
-        ({"workers.health.port": 70000}, "between 1 and 65535"),
-        ({"temporal.server.frontend.service.port": 70000}, "between 1 and 65535"),
-        ({"database.port": 5544}, "Spilo listener"),
-        ({"database.substrateUser": "postgres"}, "distinct non-system SQL role"),
-        ({"database.substrateDatabase": "postgres"}, "distinct application database"),
+        (
+            {"frontend.service.port": 70000},
+            (
+                "values don't meet the specifications of the schema",
+                "/frontend/service/port",
+            ),
+        ),
+        (
+            {"workers.health.port": 0},
+            (
+                "values don't meet the specifications of the schema",
+                "/workers/health/port",
+            ),
+        ),
+        (
+            {"workers.health.port": 70000},
+            (
+                "values don't meet the specifications of the schema",
+                "/workers/health/port",
+            ),
+        ),
+        (
+            {"temporal.server.frontend.service.port": 70000},
+            (
+                "values don't meet the specifications of the schema",
+                "/temporal/server/frontend/service/port",
+            ),
+        ),
+        (
+            {"database.port": 5544},
+            (
+                "values don't meet the specifications of the schema",
+                "/database/port",
+            ),
+        ),
+        (
+            {"database.substrateUser": "postgres"},
+            (
+                "values don't meet the specifications of the schema",
+                "/database/substrateUser",
+            ),
+        ),
+        (
+            {"database.substrateDatabase": "postgres"},
+            (
+                "values don't meet the specifications of the schema",
+                "/database/substrateDatabase",
+            ),
+        ),
     ],
 )
 def test_invalid_profiles_fail(
-    chart_dir: str, settings: dict[str, Any], error: str
+    chart_dir: str, settings: dict[str, Any], expected_fragments: tuple[str, ...]
 ) -> None:
     with pytest.raises(subprocess.CalledProcessError) as captured:
         render(Path(chart_dir), settings)
-    assert error in captured.value.stderr
+    for fragment in expected_fragments:
+        assert fragment in captured.value.stderr
+
+
+def test_values_schema_rejects_unknown_properties_and_coerced_types(
+    chart_dir: str,
+) -> None:
+    platform_chart = Path(chart_dir)
+    substrate_chart = platform_chart.parent / "agent-substrate"
+
+    for chart, unknown_key in (
+        (platform_chart, "unknownKey=true"),
+        (platform_chart, "unifiedApi.unknownKey=true"),
+        (platform_chart, "temporal.unknownKey=true"),
+        (substrate_chart, "unknownKey=true"),
+        (substrate_chart, "ateapi.unknownKey=true"),
+    ):
+        with pytest.raises(subprocess.CalledProcessError) as captured:
+            subprocess.run(
+                [
+                    "helm",
+                    "template",
+                    RELEASE,
+                    str(chart),
+                    "--namespace",
+                    NAMESPACE,
+                    "--set",
+                    unknown_key,
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+        assert "values don't meet the specifications of the schema" in (
+            captured.value.stderr
+        )
+        assert "additional properties 'unknownKey' not allowed" in (
+            captured.value.stderr
+        )
+
+    for chart, flag_val, expected_type_err in (
+        (platform_chart, "frontend.service.port=3000", "got string, want integer"),
+        (platform_chart, "unifiedApi.enabled=true", "got string, want boolean"),
+        (substrate_chart, "ateapi.service.port=50051", "got string, want integer"),
+    ):
+        with pytest.raises(subprocess.CalledProcessError) as captured:
+            subprocess.run(
+                [
+                    "helm",
+                    "template",
+                    RELEASE,
+                    str(chart),
+                    "--namespace",
+                    NAMESPACE,
+                    "--set-string",
+                    flag_val,
+                ],
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+        assert "values don't meet the specifications of the schema" in (
+            captured.value.stderr
+        )
+        assert expected_type_err in captured.value.stderr
+
+    for settings, pointer in (
+        ({"ateapi.service.port": 0}, "/ateapi/service/port"),
+        ({"database.port": 70000}, "/database/port"),
+        ({"rustfs.port": 0}, "/rustfs/port"),
+    ):
+        with pytest.raises(subprocess.CalledProcessError) as captured:
+            render(substrate_chart, settings)
+        assert "values don't meet the specifications of the schema" in (
+            captured.value.stderr
+        )
+        assert pointer in captured.value.stderr
+
+    with pytest.raises(subprocess.CalledProcessError) as captured:
+        subprocess.run(
+            [
+                "helm",
+                "template",
+                RELEASE,
+                str(substrate_chart),
+                "--namespace",
+                "ate-system",
+            ],
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+    assert "must NOT be deployed into the 'ate-system' namespace" in (
+        captured.value.stderr
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as captured:
+        render(substrate_chart, {"global.tls.useOcpServingCert": True})
+    assert "OpenShift serving-cert mode requires tls.existingBundleSecret" in (
+        captured.value.stderr
+    )
 
 
 def test_substrate_service_tls_database_and_policy_alignment(chart_dir: str) -> None:
