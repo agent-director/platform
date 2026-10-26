@@ -18,5 +18,5 @@ FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /etc/mime.types /etc/mime.types
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
-USER 1000:1000
+USER 10001:10001
 CMD ["/usr/bin/caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

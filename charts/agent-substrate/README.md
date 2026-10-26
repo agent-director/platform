@@ -19,7 +19,7 @@ and `atecontroller` when chart-managed TLS material changes, and `ateapi` passes
 
 ## Database and network boundaries
 
-`database.host`, `port`, `name`, `user`, `credentialSecret`, `trustConfigMap`
+`charts/agent-substrate/values.schema.json` strictly validates all chart inputs, types, port bounds, and DNS labels before rendering. `database.host`, `port`, `name`, `user`, `credentialSecret`, `trustConfigMap`
 and `trustKey` are explicit inputs. Defaults use the `agent_substrate` role and
 database. Connections verify the server against `/etc/db-trust/ca.crt` with
 `sslmode=verify-full` and pass `--postgres-read-write-connection-string`,

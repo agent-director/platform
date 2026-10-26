@@ -33,14 +33,12 @@ KUBE_REQUEST_TIMEOUT=${KUBE_REQUEST_TIMEOUT:-15s}
 SQL_PROBE_TIMEOUT=${SQL_PROBE_TIMEOUT:-15}
 
 PRIVATE_VALUES_FILE=
-TEMPORAL_VALUES_FILE=
 SUBSTRATE_VALUES_FILE=
 KIND_VERIFY_CONFIG=
 cleanup_private_values() {
     local status=$?
     trap - EXIT INT TERM
     if [[ -n "$PRIVATE_VALUES_FILE" ]]; then rm -f "$PRIVATE_VALUES_FILE"; fi
-    if [[ -n "$TEMPORAL_VALUES_FILE" ]]; then rm -f "$TEMPORAL_VALUES_FILE"; fi
     if [[ -n "$SUBSTRATE_VALUES_FILE" ]]; then rm -f "$SUBSTRATE_VALUES_FILE"; fi
     if [[ -n "$KIND_VERIFY_CONFIG" ]]; then rm -f "$KIND_VERIFY_CONFIG"; fi
     exit "$status"
@@ -305,6 +303,12 @@ build_platform_options() {
     if [[ -n "$CLUSTER_NAME" || "$PROFILE" == kind ]]; then
         platform_args+=(-f charts/platform/values-kind.yaml)
     fi
+    if [[ -n "$CLUSTER_NAME" ]]; then
+        platform_args+=(--set unifiedApi.image.pullPolicy=IfNotPresent \
+            --set frontend.image.pullPolicy=IfNotPresent \
+            --set workers.image.pullPolicy=IfNotPresent \
+            --set caddyTailscale.image.pullPolicy=IfNotPresent)
+    fi
     if [[ -n "${DEPLOY_VALUES:-}" ]]; then platform_args+=(-f "$DEPLOY_VALUES"); fi
     mkdir -p "$ROOT/.cache/deploy"
     PRIVATE_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/private-values.XXXXXXXX")
@@ -375,62 +379,6 @@ json.dump({
     "temporalTaskQueue": worker_env["TEMPORAL_TASK_QUEUE"],
 }, sys.stdout)
 ' "$NAMESPACE")
-    if [[ "$PROFILE" == full ]]; then
-        TEMPORAL_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/temporal-values.XXXXXXXX")
-        local fullname_prefix="$RELEASE_NAME-temporal"
-        if [[ "$RELEASE_NAME" == *temporal* ]]; then fullname_prefix="$RELEASE_NAME"; fi
-        fullname_prefix=${fullname_prefix:0:53}
-        fullname_prefix=${fullname_prefix%-}
-        local sa_prefix="$RELEASE_NAME-platform"
-        if [[ "$RELEASE_NAME" == *platform* ]]; then sa_prefix="$RELEASE_NAME"; fi
-        local schema_sa="${sa_prefix:0:47}"
-        schema_sa="${schema_sa%-}-temporal-schema"
-        run jq -n --argjson c "$CONTRACT" --arg fullname "$fullname_prefix" --arg sa "$schema_sa" '{
-            temporal: {
-                fullnameOverride: $fullname,
-                serviceAccount: {create: false, name: $sa},
-                schema: {useHelmHooks: false, serviceAccount: {create: false, name: $sa}},
-                server: {
-                    additionalVolumes: [
-                        {name: "db-trust", configMap: {name: $c.databaseTrustConfigMap, items: [{key: $c.databaseTrustKey, path: "ca.crt"}]}},
-                        {name: "scratch", emptyDir: {sizeLimit: "1Gi"}},
-                        {name: "server-runtime-config", emptyDir: {sizeLimit: "128Mi"}}
-                    ],
-                    additionalVolumeMounts: [
-                        {name: "db-trust", mountPath: "/etc/db-trust", readOnly: true},
-                        {name: "scratch", mountPath: "/tmp"},
-                        {name: "server-runtime-config", mountPath: "/etc/temporal/config"}
-                    ],
-                    config: {
-                        namespaces: {create: true, useHelmHooks: false, namespace: [{name: $c.temporalNamespace, retention: "3d"}]},
-                        persistence: {
-                            defaultStore: "default",
-                            visibilityStore: "visibility",
-                            datastores: {
-                                default: {sql: {pluginName: "postgres12", databaseName: "temporal", createDatabase: false, manageSchema: true, connectAddr: ($c.databaseDNS + ":5432"), user: "temporal", existingSecret: $c.temporalCredentialSecret, secretKey: "password", tls: {enabled: true, caFile: "/etc/db-trust/ca.crt", enableHostVerification: true, serverName: $c.databaseDNS}}},
-                                visibility: {sql: {pluginName: "postgres12", databaseName: "temporal_visibility", createDatabase: false, manageSchema: true, connectAddr: ($c.databaseDNS + ":5432"), user: "temporal", existingSecret: $c.temporalCredentialSecret, secretKey: "password", tls: {enabled: true, caFile: "/etc/db-trust/ca.crt", enableHostVerification: true, serverName: $c.databaseDNS}}}
-                            }
-                        }
-                    }
-                },
-                admintools: {
-                    additionalVolumes: [
-                        {name: "db-trust", configMap: {name: $c.databaseTrustConfigMap, items: [{key: $c.databaseTrustKey, path: "ca.crt"}]}},
-                        {name: "scratch", emptyDir: {sizeLimit: "1Gi"}}
-                    ],
-                    additionalVolumeMounts: [
-                        {name: "db-trust", mountPath: "/etc/db-trust", readOnly: true},
-                        {name: "scratch", mountPath: "/tmp"}
-                    ]
-                }
-            }
-        }' > "$TEMPORAL_VALUES_FILE"
-        platform_args+=(-f "$TEMPORAL_VALUES_FILE")
-    fi
-}
-
-contract_value() {
-    run jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' <<< "$CONTRACT"
 }
 
 deploy() {
@@ -440,10 +388,6 @@ deploy() {
     local platform_args=() substrate_args=()
     build_substrate_options
     build_platform_options
-    if [[ ! -f charts/platform/charts/temporal-1.7.0.tgz ]]; then
-        run helm repo add temporal https://go.temporal.io/helm-charts --force-update
-        run helm dependency build charts/platform --skip-refresh
-    fi
     resolve_platform_contract
 
     helm_context upgrade --install "$PROVIDER_RELEASE_NAME" postgres-operator \
@@ -458,8 +402,7 @@ deploy() {
     kube create namespace "$NAMESPACE" --dry-run=client -o json | kube apply -f -
     if run jq -e '.GH_PAT | length > 0' > /dev/null <<< "$APPLICATION_SETTINGS"; then
         run jq --arg namespace "$NAMESPACE" \
-            'if (.GH_USER | length) == 0 then error("GH_USER is required with GH_PAT") else {apiVersion:"v1",kind:"Secret",metadata:{name:"ghcr-secret",namespace:$namespace},type:"kubernetes.io/dockerconfigjson",data:{".dockerconfigjson":({auths:{"ghcr.io":{username:.GH_USER,password:.GH_PAT,auth:((.GH_USER+":"+.GH_PAT)|@base64)}}}|tojson|@base64)}} end' \
-            <<< "$APPLICATION_SETTINGS" | kube apply -f -
+            'if (.GH_USER | length) == 0 then error("GH_USER is required with GH_PAT") else {apiVersion:"v1",kind:"Secret",metadata:{name:"ghcr-secret",namespace:$namespace},type:"kubernetes.io/dockerconfigjson",data:{".dockerconfigjson":({auths:{"ghcr.io":{username:.GH_USER,password:.GH_PAT,auth:((.GH_USER+":"+.GH_PAT)|@base64)}}}|tojson|@base64)}} end' <<< "$APPLICATION_SETTINGS" | kube apply -f - # betterleaks:allow
     fi
     if run jq -e '.TAILSCALE_AUTH_KEY | length > 0' > /dev/null <<< "$APPLICATION_SETTINGS"; then
         run jq --arg namespace "$NAMESPACE" \
@@ -468,7 +411,7 @@ deploy() {
     fi
 
     helm_context upgrade --install "$RELEASE_NAME" charts/platform "${platform_args[@]}" \
-        --wait --timeout "$WAIT_TIMEOUT"
+        --wait --wait-for-jobs --timeout "$WAIT_TIMEOUT"
 
     local db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret
     IFS=$'\t' read -r db_service db_port db_cred_secret db_name sub_cred_secret sub_db_name temp_cred_secret temp_db_name temp_vis_db trust trust_key rustfs_secret < <(

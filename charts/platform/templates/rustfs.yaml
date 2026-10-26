@@ -20,9 +20,9 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -47,6 +47,8 @@ spec:
               value: ":{{ .Values.rustfs.consolePort }}"
             - name: RUSTFS_CONSOLE_ENABLE
               value: "false"
+            - name: RUSTFS_OBS_LOG_DIRECTORY
+              value: ""
             - name: RUSTFS_VOLUMES
               value: /data
             - name: RUSTFS_ACCESS_KEY

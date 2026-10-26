@@ -16,7 +16,6 @@ from unified_api.settings import Settings
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTROL_PLANE_MODULES = {"unified_api", "orchestrator", "director"}
 SANDBOX_MODULES = {"sandbox_exec"}
-WORKSPACE_MODULES = CONTROL_PLANE_MODULES | SANDBOX_MODULES | {"contracts"}
 
 
 def _imported_top_level_modules(py_file: Path) -> set[str]:

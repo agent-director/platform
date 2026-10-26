@@ -77,7 +77,7 @@ case "$command" in
       *' get secret '*)
         if [[ -n "${FAKE_MISSING_SECRET:-}" && "$args" == *" $FAKE_MISSING_SECRET "* ]]; then
           printf '%s' '{"data":{}}'
-        else printf '%s' '{"data":{"username":"cGxhdGZvcm1fdGVzdA==","password":"c3ludGhldGljLXRlc3QtdmFsdWU="},"metadata":{"name":"credential"}}'; fi # gitleaks:allow
+        else printf '%s' '{"data":{"username":"cGxhdGZvcm1fdGVzdA==","password":"c3ludGhldGljLXRlc3QtdmFsdWU="},"metadata":{"name":"credential"}}'; fi # betterleaks:allow
         ;;
       *' get deployments '*) printf '%s' '{"items":[{"metadata":{"name":"controller-unit"}}]}' ;;
       *' get pods '*) printf '%s' '{"items":[{"metadata":{"name":"db-unit"},"status":{"phase":"Running"}}]}' ;;
@@ -101,7 +101,6 @@ case "$command" in
     ;;
   helm)
     case "$1" in
-      repo|dependency) [[ "${FAIL_STAGE:-}" != dependencies ]] || exit 49 ;;
       template)
         if [[ "$3" == charts/agent-substrate ]]; then
           if [[ -n "${FAKE_HELM:-}" ]]; then exec "$FAKE_HELM" "$@"; fi
@@ -162,9 +161,7 @@ class ScriptHarness:
         bin_dir.mkdir()
         (bin_dir / "mise").write_text(FAKE_MISE, encoding="utf-8")
         (bin_dir / "mise").chmod(0o755)
-        chart_dir = directory / "charts/platform/charts"
-        chart_dir.mkdir(parents=True)
-        (chart_dir / "temporal-1.7.0.tgz").write_bytes(b"stub")
+        (directory / "charts").mkdir(parents=True, exist_ok=True)
         shutil.copy(
             REPO_ROOT / "charts/postgres-operator-values.yaml",
             directory / "charts/postgres-operator-values.yaml",
@@ -486,6 +483,11 @@ def test_full_deploy_installs_direct_operator_platform_and_substrate(
         in commands[operator]
     )
     assert "--version 2.0.3" in commands[operator]
+    for component in ("unifiedApi", "frontend", "workers", "caddyTailscale"):
+        assert f"--set {component}.image.pullPolicy=IfNotPresent" in commands[platform]
+    # The Temporal schema and namespace Jobs are not hooks, so a failed Job must
+    # fail the release instead of leaving it deployed without a namespace.
+    assert "--wait --wait-for-jobs" in commands[platform]
 
 
 def test_cluster_context_mismatch_fails_before_any_tool(harness: ScriptHarness) -> None:

@@ -1,5 +1,5 @@
-{{- if .Values.caddyTailscale.enabled }}
-{{- if .Values.frontend.enabled }}
+{{ if .Values.frontend.enabled -}}
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -8,7 +8,8 @@ spec:
   podSelector:
     matchLabels:
       {{- include "platform.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
-  policyTypes: [Ingress]
+  policyTypes: [Ingress, Egress]
+  {{- if .Values.caddyTailscale.enabled }}
   ingress:
     - from:
         - podSelector:
@@ -17,8 +18,13 @@ spec:
       ports:
         - protocol: TCP
           port: {{ include "platform.port" (dict "root" . "component" "frontend") }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress: []
+{{ end -}}
+{{ if .Values.caddyTailscale.enabled -}}
 ---
-{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -68,8 +74,8 @@ spec:
           port: {{ include "platform.port" (dict "root" $ "component" $component) }}
     {{- end }}
     {{- end }}
-{{- end }}
-{{- if .Values.unifiedApi.enabled }}
+{{ end -}}
+{{ if .Values.unifiedApi.enabled -}}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -79,7 +85,7 @@ spec:
   podSelector:
     matchLabels:
       {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 6 }}
-  policyTypes: [Ingress]
+  policyTypes: [Ingress, Egress]
   {{- if or .Values.caddyTailscale.enabled .Values.workers.enabled }}
   ingress:
     - from:
@@ -99,4 +105,260 @@ spec:
   {{- else }}
   ingress: []
   {{- end }}
-{{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.litellm.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "litellm") }}
+    {{- end }}
+    {{- if .Values.langfuse.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
+    {{- end }}
+    {{- if or .Values.temporalDev.enabled .Values.temporal.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- if .Values.temporalDev.enabled }}
+              {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 14 }}
+              {{- else }}
+              {{- include "platform.temporalLabels" (dict "root" . "component" "frontend") | nindent 14 }}
+              {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.temporalPort" . }}
+    {{- end }}
+    - to:
+        - podSelector:
+            matchLabels:
+              cluster-name: {{ include "platform.databaseName" . | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+{{ end -}}
+{{ if .Values.litellm.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "litellm-netpol") }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  {{- if or .Values.unifiedApi.enabled .Values.workers.enabled }}
+  ingress:
+    - from:
+        {{- if .Values.unifiedApi.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.workers.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "litellm") }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- if .Values.langfuse.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
+    {{- end }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports:
+        - protocol: TCP
+          port: 443
+{{ end -}}
+{{ if .Values.langfuse.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "langfuse-netpol") }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" . "component" "langfuse") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  {{- if or .Values.litellm.enabled .Values.workers.enabled .Values.unifiedApi.enabled }}
+  ingress:
+    - from:
+        {{- if .Values.litellm.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "litellm") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.workers.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.unifiedApi.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "langfuse") }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              cluster-name: {{ include "platform.databaseName" . | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
+{{ end -}}
+{{ if .Values.temporalDev.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "temporal-dev-netpol") }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  {{- if or .Values.workers.enabled .Values.unifiedApi.enabled }}
+  ingress:
+    - from:
+        {{- if .Values.workers.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.unifiedApi.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.port" (dict "root" . "component" "temporalDev") }}
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress: []
+{{ end -}}
+{{ if .Values.temporal.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "platform.resourceName" (dict "root" . "component" "temporal-netpol") }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "platform.temporalSelectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "platform.temporalSelectorLabels" . | nindent 14 }}
+      ports:
+        {{- include "platform.temporalPeerPorts" . | trim | nindent 8 }}
+    {{- if or .Values.workers.enabled .Values.unifiedApi.enabled }}
+    - from:
+        {{- if .Values.workers.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "workers") | nindent 14 }}
+        {{- end }}
+        {{- if .Values.unifiedApi.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "platform.selectorLabels" (dict "root" . "component" "unified-api") | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ include "platform.temporalPort" . }}
+    {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              cluster-name: {{ include "platform.databaseName" . | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.database.port }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "platform.temporalSelectorLabels" . | nindent 14 }}
+      ports:
+        {{- include "platform.temporalPeerPorts" . | trim | nindent 8 }}
+{{ end -}}

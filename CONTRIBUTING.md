@@ -87,9 +87,9 @@ Use `mise exec --` (or `make` targets) so commands have the same selected tools,
 - Nx owns `lint`, `format-check`, `typecheck`, `test` and `build` as exact-input cached tasks. `make typecheck`, `make test`, `make pytest-unit` (without `PYTEST_ARGS`), `make build-frontend`, `make nx-ci` and `make nx-affected` run through Nx; pass `--skip-nx-cache` to `nx` to force a fresh run. Prek still owns the fixers and the gates Nx does not cover; CI runs `make lint-residual`, which skips the hooks (`NX_OWNED_HOOKS` in the `Makefile`) that Nx already runs.
 - Code intelligence: `make graphify` (or `make graphify-fetch`)
 
-`prek.toml` configures 8 `pre-commit-hooks` (`trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`) and 16 `local` hooks (`actions-lock`, `check-helm-deps`, `ruff`, `ruff-format`, `biome`, `gitleaks`, `actionlint`, `hadolint`, `checkov`, `kube-linter`, `typecheck`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`) — 24 configured hooks total (22 on the default `pre-commit` stage and 2, `trivy-fs` and `trivy-ci-parity`, on the `pre-push`/`manual` stage) across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `check-helm-deps`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`, `actionlint`, `hadolint`, `typecheck`, `gitleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`).
+`prek.toml` configures 8 `pre-commit-hooks` (`trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`) and 15 `local` hooks (`actions-lock`, `ruff`, `ruff-format`, `biome`, `betterleaks`, `actionlint`, `hadolint`, `checkov`, `kube-linter`, `typecheck`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`) — 23 configured hooks total (21 on the default `pre-commit` stage and 2, `trivy-fs` and `trivy-ci-parity`, on the `pre-push`/`manual` stage) across parallel priority tiers (`0`: `trailing-whitespace`, `end-of-file-fixer`, `actions-lock`, `ruff`; `1`: `ruff-format`, `biome`, `check-yaml`, `check-json`, `check-toml`, `check-added-large-files`, `check-merge-conflict`, `detect-private-key`, `actionlint`, `hadolint`, `typecheck`, `betterleaks`, `checkov`, `kube-linter`, `helm-lint`, `kubeconform`, `trivy-fs`, `trivy-ci-parity`, `pytest`).
 
-Use `pnpm` from the repository root (`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`) for Nx orchestration and frontend dependencies. Normal setup builds Helm dependencies from committed locks.
+Use `pnpm` from the repository root (`package.json`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`) for Nx orchestration and frontend dependencies.
 
 ### Running Tests
 
@@ -98,6 +98,8 @@ We strictly separate our tests across co-located package unit suites (`apps/core
 
 ### Writing Temporal Activities (LLM Invocations)
 Due to the inherent non-determinism of LLMs, all LLM invocations **must** be isolated inside Temporal Activities.
+- All workflows (`AgentWorkflow`, `CIPipelineWorkflow`, `PMStandupWorkflow`) execute inside the Temporal deterministic sandbox (`sandboxed=True`), and `temporalio.worker.Replayer` validates committed history fixtures in `apps/core/tests/unit/fixtures/`; regenerate them with `make replay-fixtures` after an intentional workflow change.
+- `make dev-temporal` starts a host-local Temporal CLI dev server (`127.0.0.1:7233`, UI `8233`) for local interactive workflow development.
 - Never call the Gateway or LiteLLM directly from a Temporal Workflow.
 - Ensure Activities are strictly idempotent where possible, or rely on Temporal's at-least-once execution guarantees to handle failures.
 - Pass necessary state via LangGraph checkpoint serialization.

@@ -37,11 +37,13 @@ make nx-graph
 make nx-affected
 make nx-ci
 make ci
+make dev-temporal
+make replay-fixtures
 make graphify
 make graphify-fetch
 ```
 
-`make format` invokes the pinned Prek formatter only. `prek.toml` defines 8 `pre-commit-hooks` and 16 `local` hooks (24 configured hooks total: 22 on the default `pre-commit` stage and 2 on the `pre-push`/`manual` stage); `make lint` runs all 22 default-stage hooks in parallel priority tiers (`0` and `1`), and its formatting/fixer hooks may modify files. `make nx-graph` prints the Nx project graph JSON, `make nx-affected` runs affected `lint,format-check,typecheck,test,build` targets across the 7 workspace projects, `make nx-ci` runs every one of those targets with exact-input caching (the CI path; `make typecheck`, `make test`, `make pytest-unit` and `make build-frontend` also run through Nx), `make lint-residual` runs the Prek hooks Nx does not own, `make ci` runs both, `make graphify` extracts and labels the repository graph into `graphify-out/` (respecting `.graphifyignore`), and `make graphify-fetch` hydrates `graphify-out/` from the `graph-latest` release bundle. Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
+`make format` invokes the pinned Prek formatter only. `prek.toml` defines 8 `pre-commit-hooks` and 15 `local` hooks (23 configured hooks total: 21 on the default `pre-commit` stage and 2 on the `pre-push`/`manual` stage); `make lint` runs all 21 default-stage hooks in parallel priority tiers (`0` and `1`), and its formatting/fixer hooks may modify files. `make nx-graph` prints the Nx project graph JSON, `make nx-affected` runs affected `lint,format-check,typecheck,test,build` targets across the 7 workspace projects, `make nx-ci` runs every one of those targets with exact-input caching (the CI path; `make typecheck`, `make test`, `make pytest-unit` and `make build-frontend` also run through Nx), `make lint-residual` runs the Prek hooks Nx does not own, `make ci` runs both, `make graphify` extracts and labels the repository graph into `graphify-out/` (respecting `.graphifyignore`), and `make graphify-fetch` hydrates `graphify-out/` from the `graph-latest` release bundle. Setup installs pre-commit and pre-push hooks locally, and skips hook installation when `CI=true`.
 
 For direct commands, use `mise exec --` so tool selection and cache settings match Make and CI:
 
@@ -73,4 +75,4 @@ See [tests/README.md](tests/README.md) and [charts/platform/README.md](charts/pl
 
 Project-local tool caches, Nx task cache (`.cache/nx`), and cluster state live under `.cache/`; `.venv`, `apps/ui/.next`, and gitignored `graphify-out/` remain separate. Tracked `.schemas/` and CRDs are versioned validation inputs.
 
-Security gates include Gitleaks secret detection (`make scan-secrets`), Trivy misconfiguration and vulnerability scanning (`make scan-iac` and `make scan-local`), KubeLinter (`make lint-kubernetes`), Kubeconform schema validation (`make check-schema`), and Checkov (`make lint-checkov`). The `charts/platform` Checkov exclusion is intentionally retained for its separately planned compliance work.
+Security gates include Betterleaks secret detection (`make scan-secrets`), Trivy misconfiguration and vulnerability scanning (`make scan-iac` and `make scan-local`), KubeLinter (`make lint-kubernetes`), Kubeconform schema validation (`make check-schema`), and Checkov (`make lint-checkov`). Both charts enforce strict `values.schema.json` input contracts, and Checkov evaluates `charts/platform` (default and `values-kind.yaml` profiles) and `charts/agent-substrate` with zero `skip-path` exclusions.

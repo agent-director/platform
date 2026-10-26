@@ -12,12 +12,9 @@ dist/
 build/
 .env
 
-# Helm dependencies
-charts/*/charts/*.tgz
-
 # Virtual environments
 venv/
-.venv/
+.venv
 
 # IDEs
 .vscode/

@@ -211,10 +211,15 @@ def test_tailscale_disabled(chart_dir: str) -> None:
     for kind, suffix in (
         ("Deployment", "caddy-tailscale"),
         ("ConfigMap", "caddy-config"),
-        ("NetworkPolicy", "frontend-ingress"),
         ("NetworkPolicy", "tailscale-egress"),
     ):
         assert find_manifest(rendered, kind, f"{RELEASE_NAME}-{suffix}") is None
+    frontend_ingress = find_manifest(
+        rendered, "NetworkPolicy", f"{RELEASE_NAME}-frontend-ingress"
+    )
+    assert frontend_ingress is not None
+    assert frontend_ingress["spec"]["ingress"] == []
+    assert frontend_ingress["spec"]["egress"] == []
 
 
 @pytest.mark.parametrize("component,port", [("frontend", 3000), ("unifiedApi", 8000)])

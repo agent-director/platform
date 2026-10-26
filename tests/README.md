@@ -11,10 +11,20 @@ make pytest-unit
 ```
 
 Unit tests are organized across four workspace test roots configured in root `pyproject.toml` (`testpaths`) and inherit git-hook sanitization (`_GIT_HOOK_VARS`) and `ROBYN_CLI=true` from root `conftest.py`:
-- `apps/core/tests/unit/`: Unified API (`test_unified_api.py`), Temporal worker/workflows (`test_orchestrator.py`), and `director` CLI (`test_cli.py`).
+- `apps/core/tests/unit/`: Unified API (`test_unified_api.py`), Temporal worker/workflows (`test_orchestrator.py`) and `temporalio.worker.Replayer` determinism history fixtures (`apps/core/tests/unit/fixtures/`), and `director` CLI (`test_cli.py`).
 - `apps/sandbox-exec/tests/unit/`: Robyn in-sandbox execution daemon and constant-time Bearer token auth boundary (`test_daemon.py`).
 - `libs/contracts/tests/unit/`: Shared Pydantic v2 contract schemas and round-trip JSON schema serialization (`test_contracts.py`).
-- `tests/unit/`: Cross-cutting repository contracts including static AST import boundaries, per-package `pyproject.toml` dependency hermeticity, Nx project-graph layering, and OpenAPI ↔ MSW contract alignment (`test_module_boundaries.py`), lifecycle script safety/failure cleanup (`test_scripts.py`, `test_crd_scripts.py`), Helm chart rendering/profiles, ingress, and OLM/substrate schemas (`test_chart_contracts.py`, `test_images.py`, `test_ingress.py`, `test_olm_schemas.py`, `test_database_fixtures.py`, `test_substrate_log_safety.py`), and scanner/hook/Nx positive controls (`test_security_gates.py`).
+- `tests/unit/`: Cross-cutting repository contracts including static AST import boundaries, per-package `pyproject.toml` dependency hermeticity, Nx project-graph layering, and OpenAPI ↔ MSW contract alignment (`test_module_boundaries.py`), lifecycle script safety/failure cleanup (`test_scripts.py`, `test_crd_scripts.py`), Helm chart rendering/profiles, `values.schema.json` contract tests (`test_chart_contracts.py`), ingress, and OLM/substrate schemas (`test_images.py`, `test_ingress.py`, `test_olm_schemas.py`, `test_database_fixtures.py`, `test_substrate_log_safety.py`), and Checkov/Betterleaks/scanner/hook/Nx positive controls (`test_security_gates.py`).
+
+### Regenerating Replayer history fixtures
+
+`apps/core/tests/unit/fixtures/*_history.json` are recorded Temporal histories that `temporalio.worker.Replayer` replays against the current workflow code. When a workflow legitimately changes (new activities, timers, signals or ordering), replay fails with `NondeterminismError`; refresh the histories and review the diff before committing:
+
+```sh
+make replay-fixtures
+```
+
+The generator (`apps/core/tests/regenerate_replay_fixtures.py`) runs each workflow against the SDK time-skipping test server, including the `AgentWorkflow` signal-path history (`update_status`). Regenerate a single history with `make replay-fixtures REPLAY_ARGS="--only agent_workflow_signal_history.json"`. Output is normalized (worker identity, run IDs, event times and per-run server metadata), so a fixture only changes when its recorded history content changes (workflow commands, activity inputs or results, retry policies, or an SDK version bump). Add new histories to the generator and to `EXPECTED_HISTORY_FIXTURES` in `test_orchestrator.py`. Never regenerate fixtures to silence an unintended replay failure.
 
 Frontend MSW contract handlers are also exercised directly via Node's native test runner in `apps/ui/src/mocks/handlers.test.ts` (`make test` or `mise exec -- pnpm --filter platform-ui run test`).
 
@@ -44,4 +54,4 @@ Coverage includes authenticated database queries, real Temporal SDK execution ag
 - `make format`: pinned Prek formatting only.
 - `make lint`: all pre-commit hooks running in two parallel priority tiers (`0` autofixers/materializers, `1` formatters, linters, and parallel unit tests).
 - `make lint-kubernetes`, `make check-schema`, `make lint-checkov`: rendered profile validation against KubeLinter, Kubeconform (`.schemas/`), and Checkov.
-- `make scan-secrets`, `make scan-iac`, `make scan-local`: Gitleaks (`git` mode) and Trivy IaC/image enforcement.
+- `make scan-secrets`, `make scan-iac`, `make scan-local`: Betterleaks (`git` mode) and Trivy IaC/image enforcement.

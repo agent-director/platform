@@ -32,13 +32,14 @@ rustfs:
 secrets:
   langfuseNextauthSecret: "secret"
   langfuseSalt: "salt"
-  litellmMasterKey: "sk-local-dummy-key" # pragma: allowlist secret
+  litellmMasterKey: "sk-local-dummy-key"
 
 caddyTailscale:
   enabled: true
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
     tag: local
+    pullPolicy: Always
   hostname: ""
   tailnet: ""
   ephemeral: false
@@ -111,7 +112,7 @@ unifiedApi:
   image:
     repository: ghcr.io/agent-director/unified-api
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   githubRepo: YOUR_ORG/YOUR_CONFIG_REPO
   service:
     port: 8000
@@ -121,7 +122,7 @@ frontend:
   image:
     repository: ghcr.io/agent-director/frontend
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     port: 3000
 workers:
@@ -130,7 +131,7 @@ workers:
   image:
     repository: ghcr.io/agent-director/platform-worker
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   temporalNamespace: default
   taskQueue: agent-task-queue
   health:
@@ -168,15 +169,17 @@ temporalDev:
       cpu: 1000m
       memory: 1Gi
 
-# Temporal chart 1.7.0 uses v1 datastore keys and non-hook Jobs for single-pass convergence.
+# First-party Temporal server and non-hook schema/namespace Jobs.
 temporal:
   enabled: true
-  fullnameOverride: "platform-temporal"
-  serviceAccount:
-    create: false
-    name: platform-temporal-schema
+  fullnameOverride: ""
+  nameOverride: ""
   server:
     replicaCount: 1
+    image:
+      repository: temporalio/server
+      tag: "1.32.0@sha256:c3e752127759616bb1615e0f9ba0e21635aeb5fdeb922de4f371c350955f46ae"
+      pullPolicy: IfNotPresent
     resources:
       requests:
         cpu: 100m
@@ -184,131 +187,25 @@ temporal:
       limits:
         cpu: 1000m
         memory: 1Gi
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
-      seccompProfile:
-        type: RuntimeDefault
-    additionalVolumes:
-      - name: db-trust
-        configMap:
-          name: platform-db-trust
-          items:
-            - key: ca.crt
-              path: ca.crt
-      - name: scratch
-        emptyDir:
-          sizeLimit: 1Gi
-      - name: server-runtime-config
-        emptyDir:
-          sizeLimit: 128Mi
-    additionalVolumeMounts:
-      - name: db-trust
-        mountPath: /etc/db-trust
-        readOnly: true
-      - name: scratch
-        mountPath: /tmp
-      - name: server-runtime-config
-        mountPath: /etc/temporal/config
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
     frontend:
       service:
         port: 7233
-      containerSecurityContext: &temporalContainerSecurity
-        runAsNonRoot: true
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: [ALL]
-    history:
-      containerSecurityContext: *temporalContainerSecurity
-    matching:
-      containerSecurityContext: *temporalContainerSecurity
-    worker:
-      containerSecurityContext: *temporalContainerSecurity
-      # The internal Temporal worker has membership, not a workflow RPC listener.
-      readinessProbe:
-        tcpSocket:
-          port: membership
-      livenessProbe:
-        tcpSocket:
-          port: membership
     config:
       namespaces:
         create: true
-        useHelmHooks: false
-        namespace:
-          - name: "default"
-            retention: 3d
+        retention: 3d
       persistence:
-        defaultStore: default
-        visibilityStore: visibility
         numHistoryShards: 512
-        datastores:
-          default:
-            sql:
-              pluginName: postgres12
-              databaseName: temporal
-              connectAddr: "platform-db.platform.svc.cluster.local:5432"
-              connectProtocol: tcp
-              user: temporal
-              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
-              secretKey: password
-              createDatabase: false
-              manageSchema: true
-              tls:
-                enabled: true
-                caFile: /etc/db-trust/ca.crt
-                enableHostVerification: true
-                serverName: "platform-db.platform.svc.cluster.local"
-          visibility:
-            sql:
-              pluginName: postgres12
-              databaseName: temporal_visibility
-              connectAddr: "platform-db.platform.svc.cluster.local:5432"
-              connectProtocol: tcp
-              user: temporal
-              existingSecret: "temporal.platform-db.credentials.postgresql.acid.zalan.do"
-              secretKey: password
-              createDatabase: false
-              manageSchema: true
-              tls:
-                enabled: true
-                caFile: /etc/db-trust/ca.crt
-                enableHostVerification: true
-                serverName: "platform-db.platform.svc.cluster.local"
   admintools:
-    enabled: false
     image:
       repository: temporalio/admin-tools
       tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
-    additionalVolumes:
-      - name: db-trust
-        configMap:
-          name: platform-db-trust
-          items:
-            - key: ca.crt
-              path: ca.crt
-      - name: scratch
-        emptyDir:
-          sizeLimit: 1Gi
-    additionalVolumeMounts:
-      - name: db-trust
-        mountPath: /etc/db-trust
-        readOnly: true
-      - name: scratch
-        mountPath: /tmp
-  web:
-    enabled: false
+      pullPolicy: IfNotPresent
   schema:
-    useHelmHooks: false
-    serviceAccount:
-      create: false
-      name: platform-temporal-schema
-    jobAnnotations:
-      ignore-check.kube-linter.io/no-readiness-probe: "Schema/namespace setup are finite lifecycle Jobs; successful exit, not serving readiness, gates rollout."
-      ignore-check.kube-linter.io/no-liveness-probe: "Schema/namespace setup use bounded retries and the Helm timeout; container liveness probes are not meaningful for their completion markers."
     backoffLimit: 100
     activeDeadlineSeconds: 600
     resources:
@@ -318,27 +215,10 @@ temporal:
       limits:
         cpu: 500m
         memory: 512Mi
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
-      seccompProfile:
-        type: RuntimeDefault
-    containerSecurityContext: *temporalContainerSecurity
-  test:
-    podAnnotations:
-      ignore-check.kube-linter.io/no-readiness-probe: "Upstream Helm test is a one-shot CLI health command, not a serving workload."
-      ignore-check.kube-linter.io/no-liveness-probe: "Upstream Helm test terminates with its health result; liveness is not applicable."
-      ignore-check.kube-linter.io/run-as-non-root: "Pinned admin-tools 1.32.0 image declares USER temporal (UID 1000); upstream test template exposes no securityContext value."
-      ignore-check.kube-linter.io/no-read-only-root-fs: "Upstream one-shot test template exposes no securityContext override; server/schema/dev workloads explicitly require read-only roots."
-    resources:
-      requests:
-        cpu: 100m
-        memory: 64Mi
-      limits:
-        cpu: 200m
-        memory: 128Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
 
 sandboxedContainers:
   enabled: true

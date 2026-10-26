@@ -13,7 +13,6 @@ def chart_dir(tmp_path_factory: pytest.TempPathFactory) -> str:
     charts_dir = directory / "charts"
     shutil.copytree(REPO_ROOT / "charts", charts_dir)
     chart_path = charts_dir / "platform"
-    assert (chart_path / "charts/temporal-1.7.0.tgz").is_file(), (
-        "Run `make check-helm-deps` or `make setup` to materialize chart dependencies."
-    )
+    assert not (chart_path / "charts").exists()
+    assert (chart_path / "templates/temporal.yaml").is_file()
     return str(chart_path)

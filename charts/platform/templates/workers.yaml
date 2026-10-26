@@ -22,9 +22,9 @@ spec:
       {{- end }}
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -110,14 +110,12 @@ spec:
               {{- if .Values.temporalDev.enabled }}
               {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 14 }}
               {{- else }}
-              app.kubernetes.io/name: {{ include "platform.temporalName" . | quote }}
-              app.kubernetes.io/instance: {{ .Release.Name }}
-              app.kubernetes.io/component: frontend
+              {{- include "platform.temporalLabels" (dict "root" . "component" "frontend") | nindent 14 }}
               {{- end }}
       ports:
         - protocol: TCP
           port: {{ include "platform.temporalPort" . }}
-    {{- range $component := list "unifiedApi" "litellm" }}
+    {{- range $component := list "unifiedApi" "litellm" "langfuse" }}
     - to:
         - podSelector:
             matchLabels:

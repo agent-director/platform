@@ -51,7 +51,7 @@ database:
   trustKey: ca.crt
 
 rustfs:
-  secretName: "platform-rustfs-auth" # pragma: allowlist secret
+  secretName: "platform-rustfs-auth"
   host: "platform-rustfs"
   port: 9000
 

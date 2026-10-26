@@ -46,8 +46,8 @@ def _tool_binary(tool: str) -> str:
 
 
 @pytest.fixture(scope="session")
-def gitleaks_binary() -> str:
-    return _tool_binary("gitleaks")
+def betterleaks_binary() -> str:
+    return _tool_binary("betterleaks")
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +63,7 @@ def _scan_git(
         "git",
         "--redact",
         "--config",
-        str(ROOT / ".gitleaks.toml"),
+        str(ROOT / ".betterleaks.toml"),
         "--report-format",
         "json",
         "--report-path",
@@ -90,58 +90,137 @@ def _scan_git(
     [
         "source.txt",
         "charts/component/key.txt",
+        ".secrets.baseline",
         ".secrets.baseline.backup",
         "source/.secrets.baseline",
     ],
 )
-def test_gitleaks_inherited_rules_detect_first_party_and_baseline_lookalikes(
-    tmp_path: Path, filename: str, gitleaks_binary: str
+def test_betterleaks_inherited_rules_detect_first_party_and_baseline_lookalikes(
+    tmp_path: Path, filename: str, betterleaks_binary: str
 ) -> None:
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     path = tmp_path / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("token = " + _synthetic_token() + "\n")
     subprocess.run(["git", "add", filename], cwd=tmp_path, check=True)
-    result, findings = _scan_git(tmp_path, gitleaks_binary, staged=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
     assert result.returncode == 1, result.stdout + result.stderr
     assert any(
         finding["RuleID"] == "github-pat" and finding["File"].endswith(filename)
         for finding in findings
     )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "commit",
+            "-m",
+            "leak",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_CONFIG_SYSTEM": "/dev/null",
+        },
+    )
+    committed_result, committed_findings = _scan_git(
+        tmp_path, betterleaks_binary, staged=False
+    )
+    assert committed_result.returncode == 1, (
+        committed_result.stdout + committed_result.stderr
+    )
+    assert any(
+        finding["RuleID"] == "github-pat" and finding["File"].endswith(filename)
+        for finding in committed_findings
+    )
 
 
-def test_gitleaks_git_mode_ignores_untracked_and_gitignored_files(
-    tmp_path: Path, gitleaks_binary: str
+def test_betterleaks_git_mode_ignores_untracked_and_gitignored_files(
+    tmp_path: Path, betterleaks_binary: str
 ) -> None:
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     (tmp_path / ".gitignore").write_text(".cache/\n.venv/\nnode_modules/\n")
-    (tmp_path / ".secrets.baseline").write_text("token = " + _synthetic_token() + "\n")
     for untracked in (".cache/test.env", ".venv/config.txt", "untracked.txt"):
         p = tmp_path / untracked
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("token = " + _synthetic_token() + "\n")
-    subprocess.run(
-        ["git", "add", ".gitignore", ".secrets.baseline"], cwd=tmp_path, check=True
-    )
-    result, findings = _scan_git(tmp_path, gitleaks_binary, staged=True)
+    subprocess.run(["git", "add", ".gitignore"], cwd=tmp_path, check=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert findings == []
     (tmp_path / "first-party.txt").write_text("token = " + _synthetic_token() + "\n")
     subprocess.run(["git", "add", "first-party.txt"], cwd=tmp_path, check=True)
-    result, findings = _scan_git(tmp_path, gitleaks_binary, staged=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
     assert result.returncode == 1, result.stdout + result.stderr
     assert any(finding["File"].endswith("first-party.txt") for finding in findings)
 
 
+def test_betterleaks_inline_allow_marker_suppresses_only_the_marked_line(
+    tmp_path: Path, betterleaks_binary: str
+) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    line = "token = " + _synthetic_token()
+    (tmp_path / "marked.txt").write_text(line + "  # betterleaks:allow\n")
+    subprocess.run(["git", "add", "marked.txt"], cwd=tmp_path, check=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert findings == []
+    (tmp_path / "unmarked.txt").write_text(line + "\n")
+    subprocess.run(["git", "add", "unmarked.txt"], cwd=tmp_path, check=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert {finding["File"] for finding in findings} == {"unmarked.txt"}
+
+
 def test_scanner_policy_preserves_complementary_enforcement() -> None:
-    gitleaks = tomllib.loads((ROOT / ".gitleaks.toml").read_text())
-    assert gitleaks["extend"]["useDefault"] is True
-    assert not gitleaks["extend"].get("disabledRules")
-    assert len(gitleaks["allowlists"]) == 1
-    baseline_regex = gitleaks["allowlists"][0]["paths"][0]
-    assert re.fullmatch(baseline_regex, ".secrets.baseline")
-    assert not re.search(baseline_regex, ".secrets.baseline.backup")
-    assert not re.search(baseline_regex, "source/.secrets.baseline")
+    assert (ROOT / ".betterleaks.toml").is_file()
+    assert not (ROOT / ".gitleaks.toml").exists()
+    assert not (ROOT / ".secrets.baseline").exists()
+    betterleaks = tomllib.loads((ROOT / ".betterleaks.toml").read_text())
+    assert betterleaks["extend"]["useDefault"] is True
+    assert not betterleaks["extend"].get("disabledRules")
+    assert len(betterleaks["allowlists"]) == 1
+    allowlist = betterleaks["allowlists"][0]
+    assert set(allowlist) - {"description"} == {"commits"}
+    assert "paths" not in allowlist
+    assert "regexes" not in allowlist
+    assert sorted(allowlist["commits"]) == sorted(
+        {
+            "8990d700b7310bd9fd5666b846ee2ca2eeafee88",
+            "587339a494b92ad2bcb4240a88013c533144c8a5",
+            "611d282f947d493ea8f908c27367a9046dabcd2b",
+            "589c09e5db866f1b40806ce78c6efc2068063325",
+            "482b5eaa0479370fa5729ea8eafdd071a5cde7c4",
+        }
+    )
+
+    mise_tools = tomllib.loads((ROOT / "mise.toml").read_text())["tools"]
+    assert mise_tools["betterleaks"] == "1.9.0"
+    assert mise_tools["github:temporalio/cli"] == "1.9.1"
+    assert "gitleaks" not in mise_tools
+    dev_temporal = subprocess.run(
+        ["make", "-n", "dev-temporal"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "temporal server start-dev" in dev_temporal
+    assert "--ip 127.0.0.1" in dev_temporal
+    assert "--port 7233" in dev_temporal
+    assert "--ui-port 8233" in dev_temporal
+    assert "--db-filename .cache/temporal/dev.db" in dev_temporal
+    assert "0.0.0.0" not in dev_temporal
 
     kube_linter = yaml.safe_load((ROOT / ".kube-linter.yaml").read_text())["checks"]
     assert kube_linter["addAllBuiltIn"] is True
@@ -180,6 +259,15 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
         "apps/ui/.next",
     } <= skip_dirs
     assert not any(str(entry).startswith("frontend/") for entry in skip_dirs)
+
+    checkov = yaml.safe_load((ROOT / ".checkov.yaml").read_text())
+    assert "skip-path" not in checkov
+    assert set(checkov["skip-check"]) == {
+        "CKV_K8S_14",
+        "CKV_K8S_21",
+        "CKV_K8S_35",
+        "CKV_K8S_43",
+    }
 
 
 def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
@@ -357,7 +445,7 @@ def _trivy_scan(
     directory: Path,
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, Any]]:
     executable = _tool_binary("trivy")
-    shutil.copy2(ROOT / ".trivyignore.yaml", directory / ".trivyignore.yaml")
+    assert not (ROOT / ".trivyignore.yaml").exists()
     command = [
         executable,
         "fs",
@@ -466,6 +554,121 @@ def test_trivy_platform_workloads_scanned(tmp_path: Path) -> None:
     assert _trivy_failures(report) == {(target, "KSV-0017")}
 
 
+def _makefile_var(name: str) -> str:
+    match = re.search(
+        rf"^{re.escape(name)}\s*[:?]?=\s*(\S+)\s*$",
+        (ROOT / "Makefile").read_text(),
+        re.MULTILINE,
+    )
+    assert match is not None, name
+    return match.group(1)
+
+
+def _run_checkov_helm(
+    directory: Path, *extra_args: str
+) -> tuple[subprocess.CompletedProcess[str], list[dict[str, Any]]]:
+    proxy_vars = {
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+    }
+    env = {k: v for k, v in os.environ.items() if k not in proxy_vars}
+    result = subprocess.run(
+        [
+            "mise",
+            "exec",
+            "--",
+            "uvx",
+            f"checkov@{_makefile_var('CHECKOV_VERSION')}",
+            "--framework",
+            "helm",
+            "--config-file",
+            ".checkov.yaml",
+            "--quiet",
+            "--compact",
+            "-o",
+            "json",
+            *extra_args,
+        ],
+        cwd=directory,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.stdout.strip(), result.stderr
+    payload = json.loads(result.stdout)
+    reports = payload if isinstance(payload, list) else [payload]
+    return result, reports
+
+
+def test_checkov_helm_charts_clean_and_violation_positive_control(
+    tmp_path: Path,
+) -> None:
+    shutil.copy2(ROOT / ".checkov.yaml", tmp_path / ".checkov.yaml")
+    _copy_chart(tmp_path, "platform")
+    _copy_chart(tmp_path, "agent-substrate")
+
+    for args in (
+        ("-d", "charts"),
+        ("-d", "charts/platform", "--var-file", "charts/platform/values-kind.yaml"),
+    ):
+        result, reports = _run_checkov_helm(tmp_path, *args)
+        assert result.returncode == 0, result.stdout + result.stderr
+        passed = sum(report["summary"]["passed"] for report in reports)
+        failed = sum(report["summary"]["failed"] for report in reports)
+        parsing_errors = sum(report["summary"]["parsing_errors"] for report in reports)
+        assert passed > 0
+        assert failed == 0
+        assert parsing_errors == 0
+
+    frontend_tpl = tmp_path / "charts/platform/templates/frontend.yaml"
+    original = frontend_tpl.read_text()
+    assert "runAsUser: 65532" in original
+    frontend_tpl.write_text(original.replace("runAsUser: 65532", "runAsUser: 1000", 1))
+    violating_result, violating_reports = _run_checkov_helm(
+        tmp_path, "-d", "charts/platform"
+    )
+    assert violating_result.returncode != 0, (
+        violating_result.stdout + violating_result.stderr
+    )
+    failed_check_ids = {
+        check["check_id"]
+        for report in violating_reports
+        for check in report.get("results", {}).get("failed_checks", ())
+    }
+    assert "CKV_K8S_40" in failed_check_ids
+
+
+def test_github_workflows_pin_all_uses_to_full_commit_shas() -> None:
+    workflows_dir = ROOT / ".github/workflows"
+    workflow_files = sorted(
+        [*workflows_dir.glob("*.yml"), *workflows_dir.glob("*.yaml")]
+    )
+    assert workflow_files
+    sha_pin_re = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+    for wf_path in workflow_files:
+        doc = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        assert "permissions" in doc, f"Missing top-level permissions in {wf_path.name}"
+        assert doc["permissions"] != "write-all", wf_path.name
+        assert isinstance(doc["permissions"], dict), wf_path.name
+        for job_name, job in (doc.get("jobs") or {}).items():
+            if "permissions" in job:
+                assert job["permissions"] != "write-all", f"{wf_path.name}:{job_name}"
+                assert isinstance(job["permissions"], dict), (
+                    f"{wf_path.name}:{job_name}"
+                )
+            for step in job.get("steps") or ():
+                if "uses" in step:
+                    uses = str(step["uses"])
+                    assert sha_pin_re.fullmatch(uses), (
+                        f"Unpinned action {uses!r} in {wf_path.name}:{job_name}"
+                    )
+
+
 def test_hook_installation_and_parallel_priority_tiers() -> None:
     config = tomllib.loads((ROOT / "prek.toml").read_text())
     assert set(config["default_install_hook_types"]) == {"pre-commit", "pre-push"}
@@ -475,8 +678,7 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     assert hooks["end-of-file-fixer"]["priority"] == 0
     assert hooks["actions-lock"]["priority"] == 0
     assert hooks["actions-lock"]["entry"] == "make actions-lock"
-    assert hooks["check-helm-deps"]["priority"] == 0
-    assert hooks["check-helm-deps"]["entry"] == "make check-helm-deps"
+    assert "check-helm-deps" not in hooks
     assert hooks["ruff"]["priority"] == 0
     assert hooks["ruff"]["entry"] == "mise exec -- ruff check --fix"
     assert hooks["ruff-format"]["priority"] == 1
@@ -489,10 +691,10 @@ def test_hook_installation_and_parallel_priority_tiers() -> None:
     assert hooks["actionlint"]["entry"] == "mise exec -- actionlint"
     assert hooks["hadolint"]["entry"] == "mise exec -- hadolint"
     assert hooks["typecheck"]["entry"] == "make typecheck"
-    assert hooks["gitleaks"]["entry"] == "make scan-secrets-staged"
+    assert hooks["betterleaks"]["entry"] == "make scan-secrets-staged"
     assert hooks["pytest"]["entry"] == "make pytest-unit"
     for name in [
-        "gitleaks",
+        "betterleaks",
         "checkov",
         "kube-linter",
         "helm-lint",
@@ -532,8 +734,8 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
         ".cache/",
         ".venv/",
         "graphify-out/",
-        "charts/*/charts/",
     } <= nxignore
+    assert "charts/*/charts/" not in nxignore
     assert ".schemas/" not in nxignore
 
     biome_cfg = json.loads((ROOT / "apps/ui/biome.json").read_text())
@@ -596,14 +798,17 @@ def test_nx_workspace_biome_and_project_graph_descriptors() -> None:
         "{workspaceRoot}/.gitignore",
         "{workspaceRoot}/.dockerignore",
         "{workspaceRoot}/trivy.yaml",
-        "{workspaceRoot}/.trivyignore.yaml",
-        "{workspaceRoot}/.gitleaks.toml",
+        "{workspaceRoot}/.betterleaks.toml",
         "{workspaceRoot}/.kube-linter.yaml",
         "{workspaceRoot}/.checkov.yaml",
         "{workspaceRoot}/images/**/*",
         "{workspaceRoot}/.github/workflows/**/*",
         "{workspaceRoot}/.schemas/**/*",
     } <= set(repo_tests_proj["targets"]["test"]["inputs"])
+    assert (
+        "{workspaceRoot}/.trivyignore.yaml"
+        not in repo_tests_proj["targets"]["test"]["inputs"]
+    )
 
 
 def test_ci_nx_gates_own_every_skipped_prek_hook() -> None:
@@ -711,16 +916,16 @@ def test_graphify_ignore_makefile_and_workflow_security() -> None:
         ".claude/**",
         ".mcp.json",
         ".env*",
-        ".secrets.baseline",
         ".cache/**",
         ".venv/**",
         "**/node_modules/**",
         ".nx/**",
         "graphify-out/**",
-        "charts/*/charts/**",
         ".schemas/**",
         "apps/ui/.next/**",
     } <= graphify_ignore
+    assert ".secrets.baseline" not in graphify_ignore
+    assert "charts/*/charts/**" not in graphify_ignore
 
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     assert pyproject["dependency-groups"]["graphify"] == ["graphifyy[sql]==0.9.92"]

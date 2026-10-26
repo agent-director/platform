@@ -18,13 +18,13 @@ jobs:
   scan-and-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up mise
-        uses: jdx/mise-action@v5.1.2
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
 
       - name: Cache project dependencies and tool caches
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .cache/uv
@@ -32,13 +32,12 @@ jobs:
             .cache/prek
             .cache/helm
             .cache/trivy
-            charts/platform/charts
-          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
+          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml') }}
           restore-keys: |
             project-cache-${{ runner.os }}-
 
       - name: Cache Nx task results
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/nx
           key: nx-cache-${{ runner.os }}-${{ github.sha }}
@@ -74,13 +73,13 @@ jobs:
       GH_USER: ${{ github.actor }}
       GH_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up mise
-        uses: jdx/mise-action@v5.1.2
+        uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
 
       - name: Cache project dependencies and tool caches
-        uses: actions/cache@v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             .cache/uv
@@ -88,8 +87,7 @@ jobs:
             .cache/prek
             .cache/helm
             .cache/trivy
-            charts/platform/charts
-          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml', 'charts/platform/Chart.lock') }}
+          key: project-cache-${{ runner.os }}-${{ hashFiles('uv.lock', 'pnpm-lock.yaml', 'prek.toml') }}
           restore-keys: |
             project-cache-${{ runner.os }}-
 
