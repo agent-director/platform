@@ -22,12 +22,10 @@ biome = "2.5.15"
 
 [settings]
 lockfile = true
+locked = true
 lockfile_platforms = ["linux-arm64", "linux-x64", "macos-arm64", "macos-x64"]
 python.uv_venv_auto = "source"
 python.compile = false
-
-[tool_config]
-locked = true
 
 [env]
 UV_NO_CONFIG = "1"
