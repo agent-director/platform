@@ -303,6 +303,12 @@ build_platform_options() {
     if [[ -n "$CLUSTER_NAME" || "$PROFILE" == kind ]]; then
         platform_args+=(-f charts/platform/values-kind.yaml)
     fi
+    if [[ -n "$CLUSTER_NAME" ]]; then
+        platform_args+=(--set unifiedApi.image.pullPolicy=IfNotPresent \
+            --set frontend.image.pullPolicy=IfNotPresent \
+            --set workers.image.pullPolicy=IfNotPresent \
+            --set caddyTailscale.image.pullPolicy=IfNotPresent)
+    fi
     if [[ -n "${DEPLOY_VALUES:-}" ]]; then platform_args+=(-f "$DEPLOY_VALUES"); fi
     mkdir -p "$ROOT/.cache/deploy"
     PRIVATE_VALUES_FILE=$(umask 077; mktemp "$ROOT/.cache/deploy/private-values.XXXXXXXX")

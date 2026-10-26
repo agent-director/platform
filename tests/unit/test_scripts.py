@@ -483,6 +483,8 @@ def test_full_deploy_installs_direct_operator_platform_and_substrate(
         in commands[operator]
     )
     assert "--version 2.0.3" in commands[operator]
+    for component in ("unifiedApi", "frontend", "workers", "caddyTailscale"):
+        assert f"--set {component}.image.pullPolicy=IfNotPresent" in commands[platform]
 
 
 def test_cluster_context_mismatch_fails_before_any_tool(harness: ScriptHarness) -> None:

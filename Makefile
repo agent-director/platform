@@ -147,6 +147,8 @@ update-schemas:
 lint-checkov:
 	env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
 	  $(RUN) uvx "checkov@$(CHECKOV_VERSION)" --framework helm -d charts --config-file .checkov.yaml --quiet --compact
+	env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+	  $(RUN) uvx "checkov@$(CHECKOV_VERSION)" --framework helm -d charts/platform --var-file charts/platform/values-kind.yaml --config-file .checkov.yaml --quiet --compact
 
 lint-kube: lint-kubernetes
 

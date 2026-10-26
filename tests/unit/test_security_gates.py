@@ -223,6 +223,15 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
     } <= skip_dirs
     assert not any(str(entry).startswith("frontend/") for entry in skip_dirs)
 
+    checkov = yaml.safe_load((ROOT / ".checkov.yaml").read_text())
+    assert "skip-path" not in checkov
+    assert set(checkov["skip-check"]) == {
+        "CKV_K8S_14",
+        "CKV_K8S_21",
+        "CKV_K8S_35",
+        "CKV_K8S_43",
+    }
+
 
 def test_ui_workspace_and_ignore_files_enforce_relocated_paths() -> None:
     pnpm_ws = yaml.safe_load((ROOT / "pnpm-workspace.yaml").read_text())
@@ -506,6 +515,111 @@ def test_trivy_platform_workloads_scanned(tmp_path: Path) -> None:
         for item in report["Results"]
     )
     assert _trivy_failures(report) == {(target, "KSV-0017")}
+
+
+def _run_checkov_helm(
+    directory: Path, *extra_args: str
+) -> tuple[subprocess.CompletedProcess[str], list[dict[str, Any]]]:
+    proxy_vars = {
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+    }
+    env = {k: v for k, v in os.environ.items() if k not in proxy_vars}
+    result = subprocess.run(
+        [
+            "mise",
+            "exec",
+            "--",
+            "uvx",
+            "checkov@3.3.26",
+            "--framework",
+            "helm",
+            "--config-file",
+            ".checkov.yaml",
+            "--quiet",
+            "--compact",
+            "-o",
+            "json",
+            *extra_args,
+        ],
+        cwd=directory,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.stdout.strip(), result.stderr
+    payload = json.loads(result.stdout)
+    reports = payload if isinstance(payload, list) else [payload]
+    return result, reports
+
+
+def test_checkov_helm_charts_clean_and_violation_positive_control(
+    tmp_path: Path,
+) -> None:
+    shutil.copy2(ROOT / ".checkov.yaml", tmp_path / ".checkov.yaml")
+    _copy_chart(tmp_path, "platform")
+    _copy_chart(tmp_path, "agent-substrate")
+
+    for args in (
+        ("-d", "charts"),
+        ("-d", "charts/platform", "--var-file", "charts/platform/values-kind.yaml"),
+    ):
+        result, reports = _run_checkov_helm(tmp_path, *args)
+        assert result.returncode == 0, result.stdout + result.stderr
+        passed = sum(report["summary"]["passed"] for report in reports)
+        failed = sum(report["summary"]["failed"] for report in reports)
+        parsing_errors = sum(report["summary"]["parsing_errors"] for report in reports)
+        assert passed > 0
+        assert failed == 0
+        assert parsing_errors == 0
+
+    frontend_tpl = tmp_path / "charts/platform/templates/frontend.yaml"
+    original = frontend_tpl.read_text()
+    assert "runAsUser: 65532" in original
+    frontend_tpl.write_text(original.replace("runAsUser: 65532", "runAsUser: 1000", 1))
+    violating_result, violating_reports = _run_checkov_helm(
+        tmp_path, "-d", "charts/platform"
+    )
+    assert violating_result.returncode != 0, (
+        violating_result.stdout + violating_result.stderr
+    )
+    failed_check_ids = {
+        check["check_id"]
+        for report in violating_reports
+        for check in report.get("results", {}).get("failed_checks", ())
+    }
+    assert "CKV_K8S_40" in failed_check_ids
+
+
+def test_github_workflows_pin_all_uses_to_full_commit_shas() -> None:
+    workflows_dir = ROOT / ".github/workflows"
+    workflow_files = sorted(
+        [*workflows_dir.glob("*.yml"), *workflows_dir.glob("*.yaml")]
+    )
+    assert workflow_files
+    sha_pin_re = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+    for wf_path in workflow_files:
+        doc = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
+        assert "permissions" in doc, f"Missing top-level permissions in {wf_path.name}"
+        assert doc["permissions"] != "write-all", wf_path.name
+        assert isinstance(doc["permissions"], dict), wf_path.name
+        for job_name, job in (doc.get("jobs") or {}).items():
+            if "permissions" in job:
+                assert job["permissions"] != "write-all", f"{wf_path.name}:{job_name}"
+                assert isinstance(job["permissions"], dict), (
+                    f"{wf_path.name}:{job_name}"
+                )
+            for step in job.get("steps") or ():
+                if "uses" in step:
+                    uses = str(step["uses"])
+                    assert sha_pin_re.fullmatch(uses), (
+                        f"Unpinned action {uses!r} in {wf_path.name}:{job_name}"
+                    )
 
 
 def test_hook_installation_and_parallel_priority_tiers() -> None:

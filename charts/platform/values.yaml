@@ -39,6 +39,7 @@ caddyTailscale:
   image:
     repository: ghcr.io/agent-director/caddy-tailscale
     tag: local
+    pullPolicy: Always
   hostname: ""
   tailnet: ""
   ephemeral: false
@@ -111,7 +112,7 @@ unifiedApi:
   image:
     repository: ghcr.io/agent-director/unified-api
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   githubRepo: YOUR_ORG/YOUR_CONFIG_REPO
   service:
     port: 8000
@@ -121,7 +122,7 @@ frontend:
   image:
     repository: ghcr.io/agent-director/frontend
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     port: 3000
 workers:
@@ -130,7 +131,7 @@ workers:
   image:
     repository: ghcr.io/agent-director/platform-worker
     tag: local
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   temporalNamespace: default
   taskQueue: agent-task-queue
   health:
