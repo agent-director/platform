@@ -27,12 +27,12 @@ Shared image discovery (`tools/scripts/images.py`) identifies exported Docker ta
 
 This change preserves the current chart layout. The upstream Zalando `postgres-operator` (`2.0.3`) is installed directly from its Helm repository using `charts/postgres-operator-values.yaml`. The platform chart owns PostgreSQL/RustFS, application workloads, Langfuse, and the selected Temporal profile. Planned infrastructure extraction is not performed here.
 
-Provider versions, packaged CRDs and cached validation schemas must agree (`make update-schemas`). Normal setup/CI materializes committed locks; dependency updates are deliberate maintenance operations, not automatic setup side effects.
+Provider versions, packaged CRDs and cached validation schemas must agree (`make update-schemas`). Dependency updates are deliberate maintenance operations, not automatic setup side effects.
 
 Both `PROFILE=kind` and `PROFILE=full` converge in a single Helm pass:
 
 1. Install the upstream `postgres-operator` release and wait for the `postgresqls.acid.zalan.do` CRD.
-2. Install `charts/platform` (`temporal.enabled: true`, `workers.enabled: true`, and `langfuse.enabled: true` by default in `values.yaml`, with non-hook schema/namespace Jobs via `useHelmHooks: false`; or `temporalDev.enabled: true` in `values-kind.yaml`).
+2. Install `charts/platform` (`temporal.enabled: true`, `workers.enabled: true`, and `langfuse.enabled: true` by default in `values.yaml`, with first-party non-hook schema/namespace Jobs in `charts/platform/templates/temporal.yaml`; or `temporalDev.enabled: true` in `values-kind.yaml`).
 3. Verify required credentials, trust material, authenticated SQL readiness, and platform Deployment rollouts.
 4. Copy scoped database/RustFS secrets and CA trust into `agent-substrate` and install `charts/agent-substrate`.
 
@@ -40,9 +40,9 @@ Production deployment or data migration is not implied by local validation.
 
 ## Temporal execution profiles
 
-- SDK time-skipping tests exercise workflow logic without kind.
+- SDK time-skipping tests and `temporalio.worker.Replayer` history replay verification (`apps/core/tests/unit/fixtures/`) exercise workflow logic and determinism without kind, and `make dev-temporal` runs a host-local Temporal CLI dev server (`127.0.0.1:7233`, UI `8233`).
 - The kind profile runs a pinned Temporal CLI dev server as a Kubernetes Deployment/Service with scratch storage, health checks and restricted peers.
-- The full profile uses the locked upstream Temporal chart and PostgreSQL persistence.
+- The full profile uses first-party Temporal templates (`charts/platform/templates/temporal.yaml`) with `temporalio/server:1.32.0` (`passwordCommand` Secret-backed credential loading), non-hook `temporalio/admin-tools:1.32.0` schema/namespace Jobs, and PostgreSQL persistence, replacing the upstream Temporal subchart.
 
 The CLI dev server is not production-safe and does not establish authentication, persistence or full-server behavior. Rendering the full profile likewise does not prove it deploys successfully; runtime validation must be reported separately.
 
@@ -58,6 +58,6 @@ The unused standalone filesystem-worker prototype and Tailscale Serve JSON are r
 
 Unit tests cover Python logic, local tooling/script contracts, Helm profiles and native scanner positive controls without a live Kubernetes cluster. Integration tests separately prove backing-service access and runtime wiring through owned loopback forwards. They must fail on failed discovery rather than reduce coverage silently.
 
-Complementary gates do not substitute for one another. KubeLinter enables all built-in checks (`addAllBuiltIn: true`) with an explicit opt-out list in `.kube-linter.yaml`. Gitleaks runs in `git` mode (`--pre-commit --staged` for pre-commit and `--log-opts="HEAD"` for branch history). Trivy enforces vulnerability, misconfiguration, and secret scanning via `trivy.yaml`. The deferred `charts/platform` Checkov exclusion is preserved and disclosed.
+Complementary gates do not substitute for one another. KubeLinter enables all built-in checks (`addAllBuiltIn: true`) with an explicit opt-out list in `.kube-linter.yaml`. Betterleaks (`.betterleaks.toml`) runs in `git` mode (`--pre-commit --staged` for pre-commit and `--log-opts="HEAD"` for branch history). Trivy enforces vulnerability, misconfiguration, and secret scanning via `trivy.yaml`. Checkov scans both `charts/platform` (default and `values-kind.yaml` profiles) and `charts/agent-substrate` with zero `skip-path` exclusions, and `values.schema.json` validates chart inputs before rendering.
 
 Local teardown deletes only an explicitly named, verified owned kind cluster. It is not an application uninstall, production purge or operator-removal process.

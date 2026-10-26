@@ -4,7 +4,7 @@ This chart retains the current release ownership: PostgreSQL, RustFS, applicatio
 workloads and the Temporal dependency live in the **same platform release**. The
 Zalando `postgres-operator` is installed directly as a standalone release from
 its upstream Helm repository (`charts/postgres-operator-values.yaml`).
-The explicitly deferred Checkov exclusion for `charts/platform` remains unchanged.
+`charts/platform/values.schema.json` strictly validates all chart inputs before rendering, and Checkov scans both default and `values-kind.yaml` profiles with zero `skip-path` exclusions.
 
 ## Profiles and installation
 
@@ -13,8 +13,9 @@ make cluster-up
 make deploy PROFILE=kind
 ```
 
-`PROFILE=full` (the chart's default in `values.yaml`) selects the pinned Temporal
-`1.7.0` server chart with non-hook schema and namespace setup Jobs (`useHelmHooks: false`)
+`PROFILE=full` (the chart's default in `values.yaml`) deploys first-party
+`charts/platform/templates/temporal.yaml` templates (`temporalio/server:1.32.0` with
+`passwordCommand` and non-hook `temporalio/admin-tools:1.32.0` schema/namespace Jobs)
 so single-pass Helm convergence succeeds alongside the `postgresql` CR.
 `PROFILE=kind` (`values-kind.yaml`) switches to the lightweight in-cluster Temporal
 CLI development server (`temporalDev.enabled: true`, `temporal.enabled: false`) while
