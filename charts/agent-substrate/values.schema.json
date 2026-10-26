@@ -1,5 +1,39 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "resourceQuantities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "memory": { "type": "string", "minLength": 1 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/resourceQuantities" },
+        "limits": { "$ref": "#/definitions/resourceQuantities" }
+      }
+    },
+    "imageTagOptional": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -35,7 +69,7 @@
         "apiServerPorts": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          "items": { "$ref": "#/definitions/port" }
         },
         "tls": {
           "type": "object",
@@ -66,47 +100,11 @@
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
-        "resources": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["limits", "requests"],
-          "properties": {
-            "limits": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            },
-            "requests": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageTagOptional" },
+        "resources": { "$ref": "#/definitions/resources" },
         "nodeSelector": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -131,44 +129,8 @@
       ],
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 1 },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
-        "resources": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["limits", "requests"],
-          "properties": {
-            "limits": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            },
-            "requests": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageTagOptional" },
+        "resources": { "$ref": "#/definitions/resources" },
         "nodeSelector": {
           "type": "object",
           "additionalProperties": { "type": "string" }
@@ -194,7 +156,7 @@
       ],
       "properties": {
         "host": { "type": "string", "minLength": 1 },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "port": { "$ref": "#/definitions/port" },
         "user": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "credentialSecret": { "type": "string" },
@@ -209,7 +171,7 @@
       "properties": {
         "secretName": { "type": "string", "minLength": 1 },
         "host": { "type": "string", "minLength": 1 },
-        "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "port": { "$ref": "#/definitions/port" }
       }
     },
     "tls": {

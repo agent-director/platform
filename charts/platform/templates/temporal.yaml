@@ -1,19 +1,17 @@
 {{- if .Values.temporal.enabled }}
-{{- $temporalName := include "platform.temporalName" . -}}
 {{- $temporalFullname := include "platform.temporalFullname" . -}}
 {{- $temporalService := include "platform.temporalService" . -}}
 {{- $temporalPort := include "platform.temporalPort" . | int -}}
 {{- $dbDNS := include "platform.databaseDNS" . -}}
 {{- $dbPort := .Values.database.port | int -}}
 {{- $dbCredSecret := include "platform.databaseCredential" (dict "root" . "user" "temporal") -}}
-{{- $dbTrust := include "platform.databaseTrust" . -}}
-{{- $dbCAKey := include "platform.databaseCAKey" . -}}
 {{- $serviceAccount := include "platform.temporalSchemaServiceAccount" . -}}
-{{- $roles := list
-  (dict "name" "frontend" "rpcPort" $temporalPort "httpPort" 7243 "membershipPort" 6933 "probePort" "rpc")
-  (dict "name" "history" "rpcPort" 7234 "httpPort" 0 "membershipPort" 6934 "probePort" "rpc")
-  (dict "name" "matching" "rpcPort" 7235 "httpPort" 0 "membershipPort" 6935 "probePort" "rpc")
-  (dict "name" "worker" "rpcPort" 0 "httpPort" 0 "membershipPort" 6939 "probePort" "membership")
+{{- $roles := include "platform.temporalRoles" . | fromJsonArray -}}
+{{- $frontend := first $roles -}}
+{{- $metricsPort := 9090 -}}
+{{- $schemaStores := list
+  (dict "name" "setup-default-store" "database" "temporal" "dir" "temporal")
+  (dict "name" "setup-visibility-store" "database" "temporal_visibility" "dir" "visibility")
 -}}
 apiVersion: v1
 kind: ConfigMap
@@ -21,9 +19,7 @@ metadata:
   name: {{ $temporalFullname }}-config
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: server
+    {{- include "platform.temporalLabels" (dict "root" . "component" "server") | nindent 4 }}
 data:
   config_template.yaml: |
     # enable-template
@@ -77,28 +73,20 @@ data:
       metrics:
         prometheus:
           timerType: histogram
-          listenAddress: "0.0.0.0:9090"
+          listenAddress: "0.0.0.0:{{ $metricsPort }}"
     services:
-      frontend:
+{{- range $role := $roles }}
+      {{ $role.name }}:
         rpc:
-          grpcPort: {{ $temporalPort }}
-          membershipPort: 6933
+{{- if gt (int $role.rpcPort) 0 }}
+          grpcPort: {{ int $role.rpcPort }}
+{{- end }}
+          membershipPort: {{ int $role.membershipPort }}
           bindOnIP: "0.0.0.0"
-          httpPort: 7243
-      matching:
-        rpc:
-          grpcPort: 7235
-          membershipPort: 6935
-          bindOnIP: "0.0.0.0"
-      history:
-        rpc:
-          grpcPort: 7234
-          membershipPort: 6934
-          bindOnIP: "0.0.0.0"
-      worker:
-        rpc:
-          membershipPort: 6939
-          bindOnIP: "0.0.0.0"
+{{- if gt (int $role.httpPort) 0 }}
+          httpPort: {{ int $role.httpPort }}
+{{- end }}
+{{- end }}
     clusterMetadata:
       enableGlobalNamespace: false
       failoverVersionIncrement: 10
@@ -110,7 +98,7 @@ data:
           initialFailoverVersion: 1
           rpcName: "temporal-frontend"
           rpcAddress: "{{ $temporalService }}:{{ $temporalPort }}"
-          httpAddress: "{{ $temporalService }}:7243"
+          httpAddress: "{{ $temporalService }}:{{ int $frontend.httpPort }}"
     dcRedirectionPolicy:
       policy: noop
     archival:
@@ -130,9 +118,7 @@ metadata:
   name: {{ $temporalFullname }}-dynamic-config
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: server
+    {{- include "platform.temporalLabels" (dict "root" . "component" "server") | nindent 4 }}
 data:
   dynamic_config.yaml: "{}\n"
 ---
@@ -142,22 +128,18 @@ metadata:
   name: {{ $temporalService }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: frontend
+    {{- include "platform.temporalLabels" (dict "root" . "component" "frontend") | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: frontend
+    {{- include "platform.temporalLabels" (dict "root" . "component" "frontend") | nindent 4 }}
   ports:
     - name: grpc-rpc
       port: {{ $temporalPort }}
       targetPort: rpc
       protocol: TCP
     - name: http
-      port: 7243
+      port: {{ int $frontend.httpPort }}
       targetPort: http
       protocol: TCP
 {{ range $role := $roles -}}
@@ -168,30 +150,26 @@ metadata:
   name: {{ $temporalFullname }}-{{ $role.name }}-headless
   namespace: {{ $.Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ $.Release.Name }}
-    app.kubernetes.io/component: {{ $role.name }}
+    {{- include "platform.temporalLabels" (dict "root" $ "component" $role.name) | nindent 4 }}
 spec:
   type: ClusterIP
   clusterIP: None
   publishNotReadyAddresses: true
   selector:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ $.Release.Name }}
-    app.kubernetes.io/component: {{ $role.name }}
+    {{- include "platform.temporalLabels" (dict "root" $ "component" $role.name) | nindent 4 }}
   ports:
 {{- if gt (int $role.rpcPort) 0 }}
     - name: grpc-rpc
-      port: {{ $role.rpcPort }}
+      port: {{ int $role.rpcPort }}
       targetPort: rpc
       protocol: TCP
 {{- end }}
     - name: membership
-      port: {{ $role.membershipPort }}
+      port: {{ int $role.membershipPort }}
       targetPort: membership
       protocol: TCP
     - name: metrics
-      port: 9090
+      port: {{ $metricsPort }}
       targetPort: metrics
       protocol: TCP
 ---
@@ -201,68 +179,60 @@ metadata:
   name: {{ $temporalFullname }}-{{ $role.name }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ $.Release.Name }}
-    app.kubernetes.io/component: {{ $role.name }}
+    {{- include "platform.temporalLabels" (dict "root" $ "component" $role.name) | nindent 4 }}
 spec:
   replicas: {{ $.Values.temporal.server.replicaCount }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ $temporalName }}
-      app.kubernetes.io/instance: {{ $.Release.Name }}
-      app.kubernetes.io/component: {{ $role.name }}
+      {{- include "platform.temporalLabels" (dict "root" $ "component" $role.name) | nindent 6 }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $temporalName }}
-        app.kubernetes.io/instance: {{ $.Release.Name }}
-        app.kubernetes.io/component: {{ $role.name }}
+        {{- include "platform.temporalLabels" (dict "root" $ "component" $role.name) | nindent 8 }}
+      {{- with $.Values.temporal.server.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       automountServiceAccountToken: false
       serviceAccountName: {{ $serviceAccount }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
+        {{- include "platform.temporalPodSecurityContext" $ | nindent 8 }}
+      {{- with include "platform.temporalScheduling" $.Values.temporal.server | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       containers:
         - name: temporal-{{ $role.name }}
           image: "{{ $.Values.temporal.server.image.repository }}:{{ $.Values.temporal.server.image.tag }}"
           imagePullPolicy: {{ $.Values.temporal.server.image.pullPolicy }}
           securityContext:
-            runAsNonRoot: true
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+            {{- include "platform.temporalContainerSecurityContext" $ | nindent 12 }}
           resources:
             {{- toYaml $.Values.temporal.server.resources | nindent 12 }}
           ports:
 {{- if gt (int $role.rpcPort) 0 }}
             - name: rpc
-              containerPort: {{ $role.rpcPort }}
+              containerPort: {{ int $role.rpcPort }}
               protocol: TCP
 {{- end }}
 {{- if gt (int $role.httpPort) 0 }}
             - name: http
-              containerPort: {{ $role.httpPort }}
+              containerPort: {{ int $role.httpPort }}
               protocol: TCP
 {{- end }}
             - name: membership
-              containerPort: {{ $role.membershipPort }}
+              containerPort: {{ int $role.membershipPort }}
               protocol: TCP
             - name: metrics
-              containerPort: 9090
+              containerPort: {{ $metricsPort }}
               protocol: TCP
           readinessProbe:
             tcpSocket:
-              port: {{ $role.probePort }}
+              port: {{ $role.probePortName }}
             initialDelaySeconds: 15
           livenessProbe:
             tcpSocket:
-              port: {{ $role.probePort }}
+              port: {{ $role.probePortName }}
             initialDelaySeconds: 150
           env:
             - name: POD_IP
@@ -270,12 +240,8 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: status.podIP
-            - name: SERVICES
-              value: {{ $role.name | quote }}
             - name: TEMPORAL_SERVICES
               value: {{ $role.name | quote }}
-            - name: TEMPORAL_BROADCAST_ADDRESS
-              value: $(POD_IP)
             - name: TEMPORAL_SERVER_CONFIG_FILE_PATH
               value: /etc/temporal/config/config_template.yaml
             - name: HOME
@@ -316,15 +282,7 @@ spec:
         - name: dynamic-config
           configMap:
             name: {{ $temporalFullname }}-dynamic-config
-        - name: db-trust
-          configMap:
-            name: {{ $dbTrust }}
-            items:
-              - key: {{ $dbCAKey }}
-                path: ca.crt
-        - name: scratch
-          emptyDir:
-            sizeLimit: 1Gi
+        {{- include "platform.temporalDbTrustVolumes" $ | nindent 8 }}
 {{ end -}}
 ---
 apiVersion: batch/v1
@@ -333,12 +291,9 @@ metadata:
   name: {{ $temporalFullname }}-schema-{{ .Release.Revision }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: database
+    {{- include "platform.temporalLabels" (dict "root" . "component" "database") | nindent 4 }}
   annotations:
-    ignore-check.kube-linter.io/no-readiness-probe: "Schema/namespace setup are finite lifecycle Jobs; successful exit, not serving readiness, gates rollout."
-    ignore-check.kube-linter.io/no-liveness-probe: "Schema/namespace setup use bounded retries and the Helm timeout; container liveness probes are not meaningful for their completion markers."
+    {{- include "platform.temporalJobAnnotations" . | nindent 4 }}
 spec:
   ttlSecondsAfterFinished: 86400
   backoffLimit: {{ .Values.temporal.schema.backoffLimit }}
@@ -346,45 +301,47 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $temporalName }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: database
+        {{- include "platform.temporalLabels" (dict "root" . "component" "database") | nindent 8 }}
+      {{- with .Values.temporal.schema.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       restartPolicy: OnFailure
       automountServiceAccountToken: false
       serviceAccountName: {{ $serviceAccount }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
+        {{- include "platform.temporalPodSecurityContext" . | nindent 8 }}
+      {{- with include "platform.temporalScheduling" .Values.temporal.schema | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       initContainers:
-        - name: setup-default-store
-          image: "{{ .Values.temporal.admintools.image.repository }}:{{ .Values.temporal.admintools.image.tag }}"
-          imagePullPolicy: {{ .Values.temporal.admintools.image.pullPolicy }}
+{{- range $store := $schemaStores }}
+        - name: {{ $store.name }}
+          image: "{{ $.Values.temporal.admintools.image.repository }}:{{ $.Values.temporal.admintools.image.tag }}"
+          imagePullPolicy: {{ $.Values.temporal.admintools.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:
             - |
-              out=$(temporal-sql-tool --database temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned 2>&1) || {
+              # setup-schema treats a failed version read as 0.0 and overwrites the stored
+              # version, so it only runs when the schema_version table or its version row
+              # is missing (a fresh or interrupted first install).
+              if out=$(temporal-sql-tool --database {{ $store.database }} update-schema -d /etc/temporal/schema/postgresql/v12/{{ $store.dir }}/versioned 2>&1); then
+                printf '%s\n' "$out"
+              else
                 printf '%s\n' "$out" >&2
                 case "$out" in
-                  *schema_version*)
-                    temporal-sql-tool --database temporal setup-schema -v 0.0 && \
-                    temporal-sql-tool --database temporal update-schema -d /etc/temporal/schema/postgresql/v12/temporal/versioned
+                  *schema_version*|*"no rows in result set"*)
+                    temporal-sql-tool --database {{ $store.database }} setup-schema -v 0.0 && \
+                    temporal-sql-tool --database {{ $store.database }} update-schema -d /etc/temporal/schema/postgresql/v12/{{ $store.dir }}/versioned
                     ;;
                   *) exit 1 ;;
                 esac
-              }
+              fi
           securityContext:
-            runAsNonRoot: true
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+            {{- include "platform.temporalContainerSecurityContext" $ | nindent 12 }}
           resources:
-            {{- toYaml .Values.temporal.schema.resources | nindent 12 }}
+            {{- toYaml $.Values.temporal.schema.resources | nindent 12 }}
           env:
             - name: SQL_PLUGIN
               value: postgres12
@@ -417,73 +374,14 @@ spec:
               readOnly: true
             - name: scratch
               mountPath: /tmp
-        - name: setup-visibility-store
-          image: "{{ .Values.temporal.admintools.image.repository }}:{{ .Values.temporal.admintools.image.tag }}"
-          imagePullPolicy: {{ .Values.temporal.admintools.image.pullPolicy }}
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              out=$(temporal-sql-tool --database temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned 2>&1) || {
-                printf '%s\n' "$out" >&2
-                case "$out" in
-                  *schema_version*)
-                    temporal-sql-tool --database temporal_visibility setup-schema -v 0.0 && \
-                    temporal-sql-tool --database temporal_visibility update-schema -d /etc/temporal/schema/postgresql/v12/visibility/versioned
-                    ;;
-                  *) exit 1 ;;
-                esac
-              }
-          securityContext:
-            runAsNonRoot: true
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
-          resources:
-            {{- toYaml .Values.temporal.schema.resources | nindent 12 }}
-          env:
-            - name: SQL_PLUGIN
-              value: postgres12
-            - name: SQL_HOST
-              value: {{ $dbDNS | quote }}
-            - name: SQL_PORT
-              value: {{ $dbPort | quote }}
-            - name: SQL_USER
-              value: temporal
-            - name: SQL_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $dbCredSecret }}
-                  key: password
-            - name: SQL_TLS
-              value: "true"
-            - name: SQL_TLS_CA_FILE
-              value: /etc/db-trust/ca.crt
-            - name: SQL_TLS_DISABLE_HOST_VERIFICATION
-              value: "false"
-            - name: SQL_TLS_SERVER_NAME
-              value: {{ $dbDNS | quote }}
-            - name: HOME
-              value: /tmp
-            - name: USER
-              value: temporal
-          volumeMounts:
-            - name: db-trust
-              mountPath: /etc/db-trust
-              readOnly: true
-            - name: scratch
-              mountPath: /tmp
+{{- end }}
       containers:
         - name: done
           image: "{{ .Values.temporal.admintools.image.repository }}:{{ .Values.temporal.admintools.image.tag }}"
           imagePullPolicy: {{ .Values.temporal.admintools.image.pullPolicy }}
           command: ["temporal-sql-tool", "--version"]
           securityContext:
-            runAsNonRoot: true
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+            {{- include "platform.temporalContainerSecurityContext" . | nindent 12 }}
           resources:
             {{- toYaml .Values.temporal.schema.resources | nindent 12 }}
           env:
@@ -498,15 +396,7 @@ spec:
             - name: scratch
               mountPath: /tmp
       volumes:
-        - name: db-trust
-          configMap:
-            name: {{ $dbTrust }}
-            items:
-              - key: {{ $dbCAKey }}
-                path: ca.crt
-        - name: scratch
-          emptyDir:
-            sizeLimit: 1Gi
+        {{- include "platform.temporalDbTrustVolumes" . | nindent 8 }}
 {{ if .Values.temporal.server.config.namespaces.create -}}
 ---
 apiVersion: batch/v1
@@ -515,12 +405,9 @@ metadata:
   name: {{ $temporalFullname }}-namespace-{{ .Release.Revision }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ $temporalName }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: database
+    {{- include "platform.temporalLabels" (dict "root" . "component" "database") | nindent 4 }}
   annotations:
-    ignore-check.kube-linter.io/no-readiness-probe: "Schema/namespace setup are finite lifecycle Jobs; successful exit, not serving readiness, gates rollout."
-    ignore-check.kube-linter.io/no-liveness-probe: "Schema/namespace setup use bounded retries and the Helm timeout; container liveness probes are not meaningful for their completion markers."
+    {{- include "platform.temporalJobAnnotations" . | nindent 4 }}
 spec:
   ttlSecondsAfterFinished: 86400
   backoffLimit: {{ .Values.temporal.schema.backoffLimit }}
@@ -528,20 +415,20 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $temporalName }}
-        app.kubernetes.io/instance: {{ .Release.Name }}
-        app.kubernetes.io/component: database
+        {{- include "platform.temporalLabels" (dict "root" . "component" "database") | nindent 8 }}
+      {{- with .Values.temporal.schema.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       restartPolicy: OnFailure
       automountServiceAccountToken: false
       serviceAccountName: {{ $serviceAccount }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
+        {{- include "platform.temporalPodSecurityContext" . | nindent 8 }}
+      {{- with include "platform.temporalScheduling" .Values.temporal.schema | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       containers:
         - name: create-namespaces
           image: "{{ .Values.temporal.admintools.image.repository }}:{{ .Values.temporal.admintools.image.tag }}"
@@ -551,11 +438,7 @@ spec:
             - >-
               temporal operator cluster health && (temporal operator namespace describe --namespace {{ .Values.workers.temporalNamespace | quote }} || temporal operator namespace create --namespace {{ .Values.workers.temporalNamespace | quote }} --retention {{ .Values.temporal.server.config.namespaces.retention | quote }})
           securityContext:
-            runAsNonRoot: true
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
+            {{- include "platform.temporalContainerSecurityContext" . | nindent 12 }}
           resources:
             {{- toYaml .Values.temporal.schema.resources | nindent 12 }}
           env:
@@ -572,14 +455,6 @@ spec:
             - name: scratch
               mountPath: /tmp
       volumes:
-        - name: db-trust
-          configMap:
-            name: {{ $dbTrust }}
-            items:
-              - key: {{ $dbCAKey }}
-                path: ca.crt
-        - name: scratch
-          emptyDir:
-            sizeLimit: 1Gi
+        {{- include "platform.temporalDbTrustVolumes" . | nindent 8 }}
 {{ end -}}
 {{ end -}}

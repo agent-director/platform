@@ -4,3 +4,17 @@
 {{- if and .Values.workers.enabled (not (or .Values.temporal.enabled .Values.temporalDev.enabled)) }}
 {{- fail "workers.enabled requires one Temporal profile: set temporal.enabled=true or temporalDev.enabled=true" }}
 {{- end }}
+{{- if .Values.temporal.enabled }}
+{{- /* Every platform object is named <fullname>-<component> and every Temporal object <temporal fullname>-<suffix>; equal names of the same kind fail at install, not at render. */}}
+{{- $platformName := include "platform.fullname" . }}
+{{- $temporalName := include "platform.temporalFullname" . }}
+{{- $platformComponents := list "admin-allowlist" "caddy-config" "caddy-tailscale" "frontend" "frontend-ingress" "langfuse" "langfuse-netpol" "langfuse-secret" "litellm" "litellm-config" "litellm-netpol" "rustfs" "rustfs-auth" "rustfs-data" "rustfs-netpol" "secrets" "tailscale-data" "tailscale-egress" "temporal-dev" "temporal-dev-netpol" "temporal-netpol" "temporal-schema" "unified-api" "unified-api-ingress" "workers" "workers-netpol" }}
+{{- $temporalSuffixes := list "config" "dynamic-config" "frontend" "history" "matching" "worker" "frontend-headless" "history-headless" "matching-headless" "worker-headless" }}
+{{- range $component := $platformComponents }}
+{{- range $suffix := $temporalSuffixes }}
+{{- if eq (printf "%s-%s" $platformName $component) (printf "%s-%s" $temporalName $suffix) }}
+{{- fail (printf "temporal resources named %q would collide with platform resources (%s-%s); set temporal.nameOverride, temporal.fullnameOverride, nameOverride or the release name so they differ" $temporalName $platformName $component) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -165,6 +165,23 @@ def test_betterleaks_git_mode_ignores_untracked_and_gitignored_files(
     assert any(finding["File"].endswith("first-party.txt") for finding in findings)
 
 
+def test_betterleaks_inline_allow_marker_suppresses_only_the_marked_line(
+    tmp_path: Path, betterleaks_binary: str
+) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    line = "token = " + _synthetic_token()
+    (tmp_path / "marked.txt").write_text(line + "  # betterleaks:allow\n")
+    subprocess.run(["git", "add", "marked.txt"], cwd=tmp_path, check=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert findings == []
+    (tmp_path / "unmarked.txt").write_text(line + "\n")
+    subprocess.run(["git", "add", "unmarked.txt"], cwd=tmp_path, check=True)
+    result, findings = _scan_git(tmp_path, betterleaks_binary, staged=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert {finding["File"] for finding in findings} == {"unmarked.txt"}
+
+
 def test_scanner_policy_preserves_complementary_enforcement() -> None:
     assert (ROOT / ".betterleaks.toml").is_file()
     assert not (ROOT / ".gitleaks.toml").exists()
@@ -177,13 +194,33 @@ def test_scanner_policy_preserves_complementary_enforcement() -> None:
     assert set(allowlist) - {"description"} == {"commits"}
     assert "paths" not in allowlist
     assert "regexes" not in allowlist
-    assert len(allowlist["commits"]) == 5
+    assert sorted(allowlist["commits"]) == sorted(
+        {
+            "8990d700b7310bd9fd5666b846ee2ca2eeafee88",
+            "587339a494b92ad2bcb4240a88013c533144c8a5",
+            "611d282f947d493ea8f908c27367a9046dabcd2b",
+            "589c09e5db866f1b40806ce78c6efc2068063325",
+            "482b5eaa0479370fa5729ea8eafdd071a5cde7c4",
+        }
+    )
 
     mise_tools = tomllib.loads((ROOT / "mise.toml").read_text())["tools"]
     assert mise_tools["betterleaks"] == "1.9.0"
     assert mise_tools["github:temporalio/cli"] == "1.9.1"
     assert "gitleaks" not in mise_tools
-    assert "dev-temporal:" in (ROOT / "Makefile").read_text()
+    dev_temporal = subprocess.run(
+        ["make", "-n", "dev-temporal"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "temporal server start-dev" in dev_temporal
+    assert "--ip 127.0.0.1" in dev_temporal
+    assert "--port 7233" in dev_temporal
+    assert "--ui-port 8233" in dev_temporal
+    assert "--db-filename .cache/temporal/dev.db" in dev_temporal
+    assert "0.0.0.0" not in dev_temporal
 
     kube_linter = yaml.safe_load((ROOT / ".kube-linter.yaml").read_text())["checks"]
     assert kube_linter["addAllBuiltIn"] is True
@@ -517,6 +554,16 @@ def test_trivy_platform_workloads_scanned(tmp_path: Path) -> None:
     assert _trivy_failures(report) == {(target, "KSV-0017")}
 
 
+def _makefile_var(name: str) -> str:
+    match = re.search(
+        rf"^{re.escape(name)}\s*[:?]?=\s*(\S+)\s*$",
+        (ROOT / "Makefile").read_text(),
+        re.MULTILINE,
+    )
+    assert match is not None, name
+    return match.group(1)
+
+
 def _run_checkov_helm(
     directory: Path, *extra_args: str
 ) -> tuple[subprocess.CompletedProcess[str], list[dict[str, Any]]]:
@@ -535,7 +582,7 @@ def _run_checkov_helm(
             "exec",
             "--",
             "uvx",
-            "checkov@3.3.26",
+            f"checkov@{_makefile_var('CHECKOV_VERSION')}",
             "--framework",
             "helm",
             "--config-file",

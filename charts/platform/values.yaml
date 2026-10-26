@@ -187,6 +187,10 @@ temporal:
       limits:
         cpu: 1000m
         memory: 1Gi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
     frontend:
       service:
         port: 7233
@@ -211,6 +215,10 @@ temporal:
       limits:
         cpu: 500m
         memory: 512Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    podAnnotations: {}
 
 sandboxedContainers:
   enabled: true

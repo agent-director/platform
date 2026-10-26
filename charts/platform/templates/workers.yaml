@@ -110,9 +110,7 @@ spec:
               {{- if .Values.temporalDev.enabled }}
               {{- include "platform.selectorLabels" (dict "root" . "component" "temporal-dev") | nindent 14 }}
               {{- else }}
-              app.kubernetes.io/name: {{ include "platform.temporalName" . | quote }}
-              app.kubernetes.io/instance: {{ .Release.Name }}
-              app.kubernetes.io/component: frontend
+              {{- include "platform.temporalLabels" (dict "root" . "component" "frontend") | nindent 14 }}
               {{- end }}
       ports:
         - protocol: TCP

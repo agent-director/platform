@@ -1,5 +1,48 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+    "resourceQuantities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "memory": { "type": "string", "minLength": 1 }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": { "$ref": "#/definitions/resourceQuantities" },
+        "limits": { "$ref": "#/definitions/resourceQuantities" }
+      }
+    },
+    "imageRepoTag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 }
+      }
+    },
+    "imageWithPullPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
+      }
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -115,24 +158,16 @@
       ],
       "properties": {
         "enabled": { "type": "boolean" },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageRepoTag" },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         },
-        "consolePort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "consolePort": { "$ref": "#/definitions/port" },
         "persistence": {
           "type": "object",
           "additionalProperties": false,
@@ -180,19 +215,7 @@
       ],
       "properties": {
         "enabled": { "type": "boolean" },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageWithPullPolicy" },
         "hostname": { "type": "string" },
         "tailnet": { "type": "string" },
         "ephemeral": { "type": "boolean" },
@@ -215,26 +238,14 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "replicaCount": { "type": "integer", "minimum": 1 },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageWithPullPolicy" },
         "githubRepo": { "type": "string", "minLength": 1 },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         }
       }
@@ -246,25 +257,13 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "replicaCount": { "type": "integer", "minimum": 1 },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageWithPullPolicy" },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         }
       }
@@ -285,19 +284,7 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "replicaCount": { "type": "integer", "minimum": 1 },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag", "pullPolicy"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 },
-            "pullPolicy": {
-              "type": "string",
-              "enum": ["Always", "IfNotPresent", "Never"]
-            }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageWithPullPolicy" },
         "temporalNamespace": {
           "type": "string",
           "minLength": 1,
@@ -310,7 +297,7 @@
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         },
         "substrateNamespace": {
@@ -319,7 +306,7 @@
           "maxLength": 63,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
         },
-        "substratePort": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        "substratePort": { "$ref": "#/definitions/port" }
       }
     },
     "litellm": {
@@ -328,21 +315,13 @@
       "required": ["enabled", "image", "service"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageRepoTag" },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         }
       }
@@ -353,21 +332,13 @@
       "required": ["enabled", "image", "service"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageRepoTag" },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         }
       }
@@ -378,48 +349,16 @@
       "required": ["enabled", "image", "service", "resources"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "image": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["repository", "tag"],
-          "properties": {
-            "repository": { "type": "string", "minLength": 1 },
-            "tag": { "type": "string", "minLength": 1 }
-          }
-        },
+        "image": { "$ref": "#/definitions/imageRepoTag" },
         "service": {
           "type": "object",
           "additionalProperties": false,
           "required": ["port"],
           "properties": {
-            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+            "port": { "$ref": "#/definitions/port" }
           }
         },
-        "resources": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["requests", "limits"],
-          "properties": {
-            "requests": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            },
-            "limits": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["cpu", "memory"],
-              "properties": {
-                "cpu": { "type": "string", "minLength": 1 },
-                "memory": { "type": "string", "minLength": 1 }
-              }
-            }
-          }
-        }
+        "resources": { "$ref": "#/definitions/resources" }
       }
     },
     "temporal": {
@@ -445,48 +384,29 @@
             "image",
             "resources",
             "frontend",
-            "config"
+            "config",
+            "nodeSelector",
+            "tolerations",
+            "affinity",
+            "podAnnotations"
           ],
           "properties": {
             "replicaCount": { "type": "integer", "minimum": 1 },
-            "image": {
+            "nodeSelector": {
               "type": "object",
-              "additionalProperties": false,
-              "required": ["repository", "tag", "pullPolicy"],
-              "properties": {
-                "repository": { "type": "string", "minLength": 1 },
-                "tag": { "type": "string", "minLength": 1 },
-                "pullPolicy": {
-                  "type": "string",
-                  "enum": ["Always", "IfNotPresent", "Never"]
-                }
-              }
+              "additionalProperties": { "type": "string" }
             },
-            "resources": {
+            "tolerations": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "affinity": { "type": "object" },
+            "podAnnotations": {
               "type": "object",
-              "additionalProperties": false,
-              "required": ["requests", "limits"],
-              "properties": {
-                "requests": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["cpu", "memory"],
-                  "properties": {
-                    "cpu": { "type": "string", "minLength": 1 },
-                    "memory": { "type": "string", "minLength": 1 }
-                  }
-                },
-                "limits": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["cpu", "memory"],
-                  "properties": {
-                    "cpu": { "type": "string", "minLength": 1 },
-                    "memory": { "type": "string", "minLength": 1 }
-                  }
-                }
-              }
+              "additionalProperties": { "type": "string" }
             },
+            "image": { "$ref": "#/definitions/imageWithPullPolicy" },
+            "resources": { "$ref": "#/definitions/resources" },
             "frontend": {
               "type": "object",
               "additionalProperties": false,
@@ -497,7 +417,7 @@
                   "additionalProperties": false,
                   "required": ["port"],
                   "properties": {
-                    "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+                    "port": { "$ref": "#/definitions/port" }
                   }
                 }
               }
@@ -513,7 +433,10 @@
                   "required": ["create", "retention"],
                   "properties": {
                     "create": { "type": "boolean" },
-                    "retention": { "type": "string", "minLength": 1 }
+                    "retention": {
+                      "type": "string",
+                      "pattern": "^([1-9][0-9]*(\\.[0-9]+)?(h|d))+$"
+                    }
                   }
                 },
                 "persistence": {
@@ -533,53 +456,38 @@
           "additionalProperties": false,
           "required": ["image"],
           "properties": {
-            "image": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["repository", "tag", "pullPolicy"],
-              "properties": {
-                "repository": { "type": "string", "minLength": 1 },
-                "tag": { "type": "string", "minLength": 1 },
-                "pullPolicy": {
-                  "type": "string",
-                  "enum": ["Always", "IfNotPresent", "Never"]
-                }
-              }
-            }
+            "image": { "$ref": "#/definitions/imageWithPullPolicy" }
           }
         },
         "schema": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["backoffLimit", "activeDeadlineSeconds", "resources"],
+          "required": [
+            "backoffLimit",
+            "activeDeadlineSeconds",
+            "resources",
+            "nodeSelector",
+            "tolerations",
+            "affinity",
+            "podAnnotations"
+          ],
           "properties": {
             "backoffLimit": { "type": "integer", "minimum": 0 },
             "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
-            "resources": {
+            "nodeSelector": {
               "type": "object",
-              "additionalProperties": false,
-              "required": ["requests", "limits"],
-              "properties": {
-                "requests": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["cpu", "memory"],
-                  "properties": {
-                    "cpu": { "type": "string", "minLength": 1 },
-                    "memory": { "type": "string", "minLength": 1 }
-                  }
-                },
-                "limits": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["cpu", "memory"],
-                  "properties": {
-                    "cpu": { "type": "string", "minLength": 1 },
-                    "memory": { "type": "string", "minLength": 1 }
-                  }
-                }
-              }
-            }
+              "additionalProperties": { "type": "string" }
+            },
+            "tolerations": {
+              "type": "array",
+              "items": { "type": "object" }
+            },
+            "affinity": { "type": "object" },
+            "podAnnotations": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            "resources": { "$ref": "#/definitions/resources" }
           }
         }
       }
