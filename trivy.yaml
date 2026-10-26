@@ -5,7 +5,6 @@ severity:
   - HIGH
   - CRITICAL
 cache-dir: .cache/trivy
-ignorefile: .trivyignore.yaml
 vulnerability:
   ignore-unfixed: true
 pkg-types:
@@ -29,5 +28,3 @@ scan:
     - apps/ui/.cache
     - apps/ui/.next
     - .git
-  skip-files:
-    - .secrets.baseline

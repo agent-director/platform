@@ -4,18 +4,6 @@
 {{- if and .Values.workers.enabled (not (or .Values.temporal.enabled .Values.temporalDev.enabled)) -}}
 {{- fail "workers.enabled requires one Temporal profile" -}}
 {{- end -}}
-{{- if .Values.temporal.enabled -}}
-{{- if or (ne .Values.temporal.server.config.persistence.defaultStore "default") (ne .Values.temporal.server.config.persistence.visibilityStore "visibility") -}}
-{{- fail "Full Temporal requires defaultStore=default and visibilityStore=visibility" -}}
-{{- end -}}
-{{- $namespaces := .Values.temporal.server.config.namespaces -}}
-{{- if or .Values.temporal.schema.useHelmHooks (not $namespaces.create) $namespaces.useHelmHooks (ne (len $namespaces.namespace) 1) -}}
-{{- fail "Full Temporal requires non-hook schema/namespace Jobs and registration of the configured worker namespace" -}}
-{{- end -}}
-{{- if ne (index $namespaces.namespace 0).name .Values.workers.temporalNamespace -}}
-{{- fail "Full Temporal namespace registration must match workers.temporalNamespace" -}}
-{{- end -}}
-{{- end -}}
 {{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .Values.workers.temporalNamespace)) (gt (len .Values.workers.temporalNamespace) 46) -}}
 {{- fail "workers.temporalNamespace must be a DNS label of at most 46 characters" -}}
 {{- end -}}

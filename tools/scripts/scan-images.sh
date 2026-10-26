@@ -48,7 +48,7 @@ image_affected() {
     component="${component%/Dockerfile}"
     [[ -n "$diff_files" ]] || return 1
 
-    if grep -qE '^(mise\.toml|mise\.lock|trivy\.yaml|\.trivyignore\.yaml|\.dockerignore)$' <<< "$diff_files"; then
+    if grep -qE '^(mise\.toml|mise\.lock|trivy\.yaml|\.dockerignore)$' <<< "$diff_files"; then
         return 0
     fi
     if grep -qE "^images/$component/" <<< "$diff_files"; then

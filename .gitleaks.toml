@@ -1,6 +1,0 @@
-[extend]
-useDefault = true
-
-[[allowlists]]
-description = "Root detect-secrets baseline file"
-paths = ['''^(?:\./)?\.secrets\.baseline$''']

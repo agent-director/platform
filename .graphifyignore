@@ -13,8 +13,6 @@ node_modules/
 .nx/**
 graphify-out/
 graphify-out/**
-charts/*/charts/
-charts/*/charts/**
 charts/*/crds/
 charts/*/crds/**
 .schemas/
@@ -22,4 +20,3 @@ charts/*/crds/**
 apps/ui/.next/
 apps/ui/.next/**
 .env*
-.secrets.baseline

@@ -69,10 +69,15 @@ app.kubernetes.io/instance: {{ .root.Release.Name | quote }}
 {{- default "temporal" .Values.temporal.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 {{- define "platform.temporalFullname" -}}
+{{- if .Values.temporal.fullnameOverride -}}
+{{- .Values.temporal.fullnameOverride | trunc 45 | trimSuffix "-" -}}
+{{- else -}}
 {{- $name := include "platform.temporalName" . -}}
-{{- $fullname := ternary .Release.Name (printf "%s-%s" .Release.Name $name) (contains $name .Release.Name) -}}
-{{/* Namespace hook uses an untruncated -namespace suffix (10 chars). */}}
-{{- default $fullname .Values.temporal.fullnameOverride | trunc 53 | trimSuffix "-" -}}
+{{- $base := default .Release.Name .Values.fullnameOverride -}}
+{{- $fullname := ternary $base (printf "%s-%s" $base $name) (contains $name $base) -}}
+{{/* Headless membership Services append -matching-headless (18 chars). */}}
+{{- $fullname | trunc 45 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 {{- define "platform.temporalService" -}}
 {{- if .Values.temporalDev.enabled -}}

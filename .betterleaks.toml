@@ -1,0 +1,14 @@
+betterleaksMinVersion = "1.9.0"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Historical pre-migration commit SHAs on main"
+commits = [
+  "8990d700b7310bd9fd5666b846ee2ca2eeafee88",
+  "587339a494b92ad2bcb4240a88013c533144c8a5",
+  "611d282f947d493ea8f908c27367a9046dabcd2b",
+  "589c09e5db866f1b40806ce78c6efc2068063325",
+  "482b5eaa0479370fa5729ea8eafdd071a5cde7c4",
+]

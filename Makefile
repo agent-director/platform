@@ -33,9 +33,9 @@ PYTEST_ARGS ?=
 export CLUSTER_NAME KUBE_CONTEXT KUBECONFIG NAMESPACE RELEASE_NAME SUBSTRATE_NAMESPACE
 export SUBSTRATE_RELEASE_NAME PROVIDER_NAMESPACE PROVIDER_RELEASE_NAME PROFILE IMAGE_TAG CADDY_IMAGE
 
-.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch
+.PHONY: help setup typecheck build-frontend lint lint-residual format test pytest-unit image-matrix nx-graph nx-affected nx-ci ci graphify graphify-fetch dev-temporal
 .PHONY: cluster-up cluster-down check-cluster deploy teardown test-integration pytest-integration
-.PHONY: lint-helm lint-checkov lint-kubernetes lint-kube check-helm-deps update-schemas check-schema
+.PHONY: lint-helm lint-checkov lint-kubernetes lint-kube update-schemas check-schema
 .PHONY: scan-iac scan-secrets scan-secrets-staged scan-image scan-local actions-lock verify-actions-lock
 
 help:
@@ -49,7 +49,6 @@ setup:
 	$(MISE) install --locked
 	$(RUN) uv sync --locked --all-packages
 	$(RUN) pnpm install --frozen-lockfile
-	$(MAKE) check-helm-deps
 	@if [[ "$${CI:-false}" != "true" ]]; then $(RUN) prek install; fi
 
 typecheck:
@@ -110,6 +109,10 @@ graphify:
 graphify-fetch:
 	./tools/scripts/fetch-graphify-brain.sh
 
+dev-temporal:
+	@mkdir -p .cache/temporal
+	$(RUN) temporal server start-dev --ip 127.0.0.1 --port 7233 --ui-port 8233 --db-filename .cache/temporal/dev.db
+
 cluster-up:
 	./tools/scripts/deploy.sh cluster-up
 
@@ -130,19 +133,13 @@ test-integration:
 pytest-integration: check-cluster
 	$(RUN) uv run --locked pytest tests/integration/ -n 0 $(PYTEST_ARGS)
 
-lint-helm: check-helm-deps
+lint-helm:
 	@for chart in charts/*/Chart.yaml; do \
 	  $(RUN) helm lint "$${chart%/Chart.yaml}"; \
 	done
 	@$(RUN) helm template platform charts/platform --namespace platform > /dev/null
 	@$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml > /dev/null
 	@$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate > /dev/null
-
-check-helm-deps:
-	@if [[ ! -f charts/platform/charts/temporal-1.7.0.tgz ]]; then \
-	  $(RUN) helm repo add temporal https://go.temporal.io/helm-charts --force-update; \
-	  $(RUN) helm dependency build charts/platform --skip-refresh; \
-	fi
 
 update-schemas:
 	$(RUN) uv run --locked tools/scripts/update-crds.py all
@@ -153,12 +150,12 @@ lint-checkov:
 
 lint-kube: lint-kubernetes
 
-lint-kubernetes: check-helm-deps
+lint-kubernetes:
 	$(RUN) helm template platform charts/platform --namespace platform | $(RUN) kube-linter lint - --config .kube-linter.yaml
 	$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml | $(RUN) kube-linter lint - --config .kube-linter.yaml
 	$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate | $(RUN) kube-linter lint - --config .kube-linter.yaml
 
-check-schema: check-helm-deps
+check-schema:
 	$(RUN) helm template platform charts/platform --namespace platform | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
 	$(RUN) helm template platform charts/platform --namespace platform -f charts/platform/values-kind.yaml | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
 	$(RUN) helm template agent-substrate charts/agent-substrate --namespace agent-substrate | $(RUN) kubeconform $(KUBECONFORM_FLAGS)
@@ -167,10 +164,10 @@ scan-iac:
 	$(RUN) trivy fs --config trivy.yaml --scanners misconfig,secret .
 
 scan-secrets:
-	$(RUN) gitleaks git --log-opts="HEAD" --redact --config .gitleaks.toml
+	$(RUN) betterleaks git . --log-opts="HEAD" --redact --config .betterleaks.toml
 
 scan-secrets-staged:
-	$(RUN) gitleaks git --pre-commit --staged --redact --config .gitleaks.toml
+	$(RUN) betterleaks git . --pre-commit --staged --redact --config .betterleaks.toml
 
 TRIVY_IMAGE_FLAGS ?=
 

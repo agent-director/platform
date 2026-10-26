@@ -54,7 +54,6 @@ def test_default_profile_renders_backing_and_full_temporal(chart_dir: str) -> No
         document["metadata"]["labels"]["app.kubernetes.io/instance"] == RELEASE
         for document in documents
         if document["kind"] == "Deployment"
-        and "app.kubernetes.io/instance" in document["metadata"].get("labels", {})
     )
     postgres = resource(documents, "postgresql", "raven-db")
     assert postgres["spec"]["databases"]["agent_substrate"] == "agent_substrate"
@@ -68,7 +67,7 @@ def test_default_profile_renders_backing_and_full_temporal(chart_dir: str) -> No
     assert "PRIVATE KEY" not in trust["data"]["ca.crt"]
     resource(documents, "Deployment", "raven-platform-workers")
     resource(documents, "Deployment", "raven-platform-langfuse")
-    resource(documents, "Deployment", "platform-temporal-frontend")
+    resource(documents, "Deployment", f"{RELEASE}-temporal-frontend")
 
 
 def test_nondefault_names_ports_and_consumers(chart_dir: str) -> None:
@@ -173,19 +172,22 @@ def test_full_temporal_uses_v1_sql_datastores_without_hooks(chart_dir: str) -> N
             "temporal.server.frontend.service.port": 7338,
         },
     )
-    config = resource(documents, "ConfigMap", "platform-temporal-config")
+    config = resource(documents, "ConfigMap", "control-plane-temporal-config")
     rendered_config = config["data"]["config_template.yaml"]
     for expected in (
         "defaultStore: default",
         "visibilityStore: visibility",
         "pluginName: postgres12",
-        "connectAddr: platform-db.platform.svc.cluster.local:5432",
+        "connectAddr: raven-db.lab-two.svc.cluster.local:5432",
         "databaseName: temporal",
         "databaseName: temporal_visibility",
-        "serverName: platform-db.platform.svc.cluster.local",
+        "serverName: raven-db.lab-two.svc.cluster.local",
         "caFile: /etc/db-trust/ca.crt",
+        "passwordCommand:",
+        "/bin/printenv",
     ):
         assert expected in rendered_config
+    assert "password:" not in rendered_config
     assert "existingSecret:" not in rendered_config
     assert "driver: sql" not in rendered_config
     jobs = [doc for doc in documents if doc["kind"] == "Job"]
