@@ -87,7 +87,7 @@
         "/^tools/scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+(?:(?:ARG|ENV)[ \\t]+)?[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]
