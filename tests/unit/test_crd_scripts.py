@@ -200,18 +200,31 @@ def test_updater_callers_stage_selected_output_sets() -> None:
     match_regex = re.compile(
         renovate["customManagers"][0]["matchStrings"][0].replace("(?<", "(?P<")
     )
-    for rel_path, expected_dep in (
-        ("Makefile", "checkov"),
-        ("tools/scripts/deploy.sh", "zalando/postgres-operator"),
-        ("images/agent-substrate/Dockerfile", "agent-substrate/substrate"),
-        ("images/platform-worker/Dockerfile", "python"),
-        ("images/sandbox/Dockerfile", "python"),
+    for rel_path, expected_dep, expected_count in (
+        ("Makefile", "checkov", 1),
+        ("tools/scripts/deploy.sh", "zalando/postgres-operator", 1),
+        ("images/agent-substrate/Dockerfile", "agent-substrate/substrate", 1),
+        ("images/mcp-server/Dockerfile", "python", 1),
+        ("images/platform-worker/Dockerfile", "python", 1),
+        ("images/relay/Dockerfile", "python", 1),
+        ("images/sandbox/Dockerfile", "python", 2),
+        ("images/unified-api/Dockerfile", "python", 1),
     ):
         matches = [
             m.group("depName")
             for m in match_regex.finditer((ROOT / rel_path).read_text())
         ]
-        assert expected_dep in matches, rel_path
+        assert matches.count(expected_dep) == expected_count, rel_path
+    env_match = match_regex.search(
+        "# renovate: datasource=python-version depName=python\nENV PYTHON_VERSION=3.14.8\n"
+    )
+    assert env_match is not None and env_match.group("depName") == "python"
+    assert any(
+        r.get("matchManagers") == ["custom.regex"]
+        and r.get("matchPackageNames") == ["python"]
+        and r.get("enabled") is True
+        for r in renovate["packageRules"]
+    )
     python_rule = next(
         r for r in renovate["packageRules"] if r.get("groupName") == "python"
     )
