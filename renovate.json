@@ -59,11 +59,22 @@
       "groupName": "pnpm"
     },
     {
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "enabled": true
+    },
+    {
       "matchPackageNames": [
         "python",
+        "python/cpython",
         "docker.io/library/python"
       ],
-      "groupName": "python"
+      "groupName": "python",
+      "allowedVersions": "<3.15"
     }
   ],
   "customManagers": [
@@ -76,7 +87,7 @@
         "/^tools/scripts/.*\\.(?:sh|py)$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+(?:(?:ARG|ENV)[ \\t]+)?[A-Za-z0-9_]+[ \\t]*\\??:?=[ \\t]*\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]

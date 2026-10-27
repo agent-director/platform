@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -196,6 +197,28 @@ def test_updater_callers_stage_selected_output_sets() -> None:
     manager_patterns = renovate["customManagers"][0]["managerFilePatterns"]
     assert "/^tools/scripts/.*\\.(?:sh|py)$/" in manager_patterns
     assert not any(pattern.startswith("/^scripts/") for pattern in manager_patterns)
+    match_regex = re.compile(
+        renovate["customManagers"][0]["matchStrings"][0].replace("(?<", "(?P<")
+    )
+    for rel_path, expected_dep in (
+        ("Makefile", "checkov"),
+        ("tools/scripts/deploy.sh", "zalando/postgres-operator"),
+        ("images/agent-substrate/Dockerfile", "agent-substrate/substrate"),
+        ("images/platform-worker/Dockerfile", "python"),
+        ("images/sandbox/Dockerfile", "python"),
+    ):
+        matches = [
+            m.group("depName")
+            for m in match_regex.finditer((ROOT / rel_path).read_text())
+        ]
+        assert expected_dep in matches, rel_path
+    python_rule = next(
+        r for r in renovate["packageRules"] if r.get("groupName") == "python"
+    )
+    assert python_rule.get("allowedVersions") == "<3.15"
+    assert {"python", "python/cpython", "docker.io/library/python"} <= set(
+        python_rule.get("matchPackageNames", [])
+    )
     workflow = yaml.safe_load(
         (ROOT / ".github/workflows/update-schemas.yml").read_text()
     )
