@@ -59,11 +59,22 @@
       "groupName": "pnpm"
     },
     {
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "enabled": true
+    },
+    {
       "matchPackageNames": [
         "python",
+        "python/cpython",
         "docker.io/library/python"
       ],
-      "groupName": "python"
+      "groupName": "python",
+      "allowedVersions": "<3.15"
     }
   ],
   "customManagers": [
