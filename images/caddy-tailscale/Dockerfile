@@ -3,7 +3,7 @@ FROM caddy:2.11.7-builder@sha256:c2fc374fd352439d76e1777b28d97d9f6d9c1dd86116db9
 RUN apk add --no-cache mailcap && \
     mv /usr/local/go/bin/go /usr/local/go/bin/go.real && \
     echo '#!/bin/sh' > /usr/local/go/bin/go && \
-    echo 'if echo "$*" | grep -q "build"; then /usr/local/go/bin/go.real get golang.org/x/net@v0.60.0 && /usr/local/go/bin/go.real mod tidy; fi' >> /usr/local/go/bin/go && \
+    echo 'if echo "$*" | grep -q "build"; then /usr/local/go/bin/go.real get golang.org/x/net@v0.60.0 github.com/go-jose/go-jose/v4@v4.1.6 && /usr/local/go/bin/go.real mod tidy; fi' >> /usr/local/go/bin/go && \
     echo 'exec /usr/local/go/bin/go.real "$@"' >> /usr/local/go/bin/go && \
     chmod +x /usr/local/go/bin/go && \
     xcaddy build --output /usr/bin/caddy \
