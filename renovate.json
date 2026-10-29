@@ -29,6 +29,9 @@
       ]
     },
     {
+      "description": [
+        "executionMode must stay 'update': 'branch' mode takes postUpgradeTasks from the first-sorted upgrade in a grouped branch, silently skipping this task when another dependency sorts first."
+      ],
       "matchPackageNames": [
         "agent-substrate/substrate",
         "zalando/postgres-operator"
@@ -42,7 +45,7 @@
           "charts/agent-substrate/crds/*.yaml",
           ".schemas/**/*.json"
         ],
-        "executionMode": "branch"
+        "executionMode": "update"
       }
     },
     {

@@ -229,6 +229,7 @@ def test_updater_callers_stage_selected_output_sets() -> None:
     assert "charts/agent-substrate/Chart.yaml" in rule["fileFilters"]
     assert "charts/agent-substrate/crds/*.yaml" in rule["fileFilters"]
     assert ".schemas/**/*.json" in rule["fileFilters"]
+    assert rule["executionMode"] == "update"
     isolation = next(r for r in substrate_rules if "groupName" in r)
     assert isolation["matchPackageNames"] == ["agent-substrate/substrate"]
     assert isolation["groupName"] == "agent-substrate"
