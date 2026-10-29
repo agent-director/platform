@@ -330,7 +330,7 @@ temporal:
     podAnnotations:
       ignore-check.kube-linter.io/no-readiness-probe: "Upstream Helm test is a one-shot CLI health command, not a serving workload."
       ignore-check.kube-linter.io/no-liveness-probe: "Upstream Helm test terminates with its health result; liveness is not applicable."
-      ignore-check.kube-linter.io/run-as-non-root: "Pinned admin-tools 1.32.0 image declares USER temporal (UID 1000); upstream test template exposes no securityContext value."
+      ignore-check.kube-linter.io/run-as-non-root: "Pinned admin-tools image declares USER temporal (UID 1000); upstream test template exposes no securityContext value."
       ignore-check.kube-linter.io/no-read-only-root-fs: "Upstream one-shot test template exposes no securityContext override; server/schema/dev workloads explicitly require read-only roots."
     resources:
       requests:

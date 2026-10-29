@@ -29,6 +29,9 @@
       ]
     },
     {
+      "description": [
+        "executionMode must stay 'update': 'branch' mode takes postUpgradeTasks from the first-sorted upgrade in a grouped branch, silently skipping this task when another dependency sorts first."
+      ],
       "matchPackageNames": [
         "agent-substrate/substrate",
         "zalando/postgres-operator"
@@ -38,11 +41,22 @@
           "mise exec -- uv run --locked tools/scripts/update-crds.py all"
         ],
         "fileFilters": [
+          "charts/agent-substrate/Chart.yaml",
           "charts/agent-substrate/crds/*.yaml",
           ".schemas/**/*.json"
         ],
-        "executionMode": "branch"
+        "executionMode": "update"
       }
+    },
+    {
+      "description": [
+        "Substrate is fast-moving and core to the platform: upgrades get their own PR and manual review of chart templates against upstream changes."
+      ],
+      "matchPackageNames": [
+        "agent-substrate/substrate"
+      ],
+      "groupName": "agent-substrate",
+      "automerge": false
     },
     {
       "matchPackageNames": [

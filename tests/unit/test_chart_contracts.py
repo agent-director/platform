@@ -156,10 +156,12 @@ def test_nondefault_names_ports_and_consumers(chart_dir: str) -> None:
     cli = resource(documents, "Deployment", "control-plane-temporal-dev")["spec"][
         "template"
     ]["spec"]["containers"][0]
-    assert (
-        cli["image"]
-        == "temporalio/admin-tools:1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
-    )
+    dev_image = yaml.safe_load((Path(chart_dir) / "values.yaml").read_text())[
+        "temporalDev"
+    ]["image"]
+    assert dev_image["repository"] == "temporalio/admin-tools"
+    assert re.fullmatch(r"[\w.-]+@sha256:[0-9a-f]{64}", dev_image["tag"])
+    assert cli["image"] == f"{dev_image['repository']}:{dev_image['tag']}"
     assert cli["args"][cli["args"].index("--port") + 1] == "7339"
     assert cli["args"][cli["args"].index("--db-filename") + 1] == "/scratch/temporal.db"
     assert cli["args"][cli["args"].index("--namespace") + 1] == "tenant-one"
