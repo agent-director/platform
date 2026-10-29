@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run
-"""Update version-matched CRDs and kubeconform validation schemas."""
+"""Update version-matched CRDs, kubeconform validation schemas, and substrate chart appVersion."""
 
 import argparse
 import copy
@@ -20,6 +20,7 @@ POSTGRES_OPERATOR_VERSION = re.compile(
     r"^POSTGRES_OPERATOR_VERSION=(v?\d+\.\d+\.\d+(?:-[\w.-]+)?)$", re.MULTILINE
 )
 SUBSTRATE_CRD_NAME = re.compile(r"ate\.dev_[a-z0-9_.-]+\.yaml\Z")
+CHART_APP_VERSION = re.compile(r'^appVersion: "[^"\n]*"$', re.MULTILINE)
 
 
 def read_url(url: str) -> bytes:
@@ -152,6 +153,12 @@ def substrate_outputs(root: Path) -> dict[Path, str]:
     if match is None:
         raise ValueError(f"Missing exact AGENT_SUBSTRATE_VERSION in {dockerfile}")
     version = match.group(1)
+    chart = root / "charts/agent-substrate/Chart.yaml"
+    chart_metadata, count = CHART_APP_VERSION.subn(
+        f'appVersion: "{version.removeprefix("v")}"', chart.read_text()
+    )
+    if count != 1:
+        raise ValueError(f"Expected exactly one quoted appVersion in {chart}")
     api_url = (
         "https://api.github.com/repos/agent-substrate/substrate/contents/"
         f"manifests/ate-install/generated?ref={version}"
@@ -170,7 +177,7 @@ def substrate_outputs(root: Path) -> dict[Path, str]:
     )
     if not names:
         raise ValueError(f"No substrate CRDs found at {version}")
-    outputs: dict[Path, str] = {}
+    outputs: dict[Path, str] = {chart: chart_metadata}
     for filename in names:
         url = (
             f"https://raw.githubusercontent.com/agent-substrate/substrate/{version}/"

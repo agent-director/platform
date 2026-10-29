@@ -38,11 +38,22 @@
           "mise exec -- uv run --locked tools/scripts/update-crds.py all"
         ],
         "fileFilters": [
+          "charts/agent-substrate/Chart.yaml",
           "charts/agent-substrate/crds/*.yaml",
           ".schemas/**/*.json"
         ],
         "executionMode": "branch"
       }
+    },
+    {
+      "description": [
+        "Substrate is fast-moving and core to the platform: upgrades get their own PR and manual review of chart templates against upstream changes."
+      ],
+      "matchPackageNames": [
+        "agent-substrate/substrate"
+      ],
+      "groupName": "agent-substrate",
+      "automerge": false
     },
     {
       "matchPackageNames": [

@@ -55,6 +55,18 @@ def _setup_deploy_script(root: Path, version: str = "2.0.3") -> Path:
     return script
 
 
+def _setup_substrate(
+    root: Path, version: str = "v0.4.0", app_version: str = "0.3.0"
+) -> Path:
+    dockerfile = root / "images/agent-substrate/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(f"ARG AGENT_SUBSTRATE_VERSION={version}\n")
+    chart = root / "charts/agent-substrate/Chart.yaml"
+    chart.parent.mkdir(parents=True)
+    chart.write_text(f'name: agent-substrate\nappVersion: "{app_version}"\n')
+    return chart
+
+
 def test_to_json_schema_converts_nullable_nodes_only() -> None:
     raw = {
         "type": "object",
@@ -155,9 +167,7 @@ def test_selected_update_prunes_obsolete_provider_outputs_only(
 def test_substrate_operation_retains_dockerfile_version_and_scopes_outputs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    dockerfile = tmp_path / "images/agent-substrate/Dockerfile"
-    dockerfile.parent.mkdir(parents=True)
-    dockerfile.write_text("ARG AGENT_SUBSTRATE_VERSION=v0.4.0\n")
+    chart = _setup_substrate(tmp_path)
     urls: list[str] = []
 
     def read_url(url: str) -> bytes:
@@ -171,12 +181,33 @@ def test_substrate_operation_retains_dockerfile_version_and_scopes_outputs(
     monkeypatch.setattr(CRDS, "read_url", read_url)
     outputs = CRDS.update(tmp_path, "substrate")
     assert set(outputs) == {
+        chart,
         tmp_path / "charts/agent-substrate/crds/ate.dev_sandboxes.yaml",
         tmp_path / ".schemas/ate.dev/sandbox_v1.json",
     }
     assert "?ref=v0.4.0" in urls[0]
     assert "/v0.4.0/" in urls[1]
+    assert chart.read_text() == 'name: agent-substrate\nappVersion: "0.4.0"\n'
     assert not (tmp_path / ".schemas/acid.zalan.do").exists()
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    ["name: agent-substrate\n", 'appVersion: "0.3.0"\nappVersion: "0.3.0"\n'],
+)
+def test_substrate_operation_requires_single_quoted_app_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, metadata: str
+) -> None:
+    chart = _setup_substrate(tmp_path)
+    chart.write_text(metadata)
+
+    def read_url(_url: str) -> bytes:
+        raise AssertionError("appVersion must be validated before network access")
+
+    monkeypatch.setattr(CRDS, "read_url", read_url)
+    with pytest.raises(ValueError, match="exactly one quoted appVersion"):
+        CRDS.update(tmp_path, "substrate")
+    assert chart.read_text() == metadata
 
 
 def test_updater_callers_stage_selected_output_sets() -> None:
@@ -184,16 +215,24 @@ def test_updater_callers_stage_selected_output_sets() -> None:
     makefile = (ROOT / "Makefile").read_text()
     assert "tools/scripts/update-crds.py all" in makefile
     renovate = json.loads((ROOT / "renovate.json").read_text())
-    rule = next(
-        r["postUpgradeTasks"]
+    substrate_rules = [
+        r
         for r in renovate["packageRules"]
         if "agent-substrate/substrate" in r.get("matchPackageNames", [])
+    ]
+    rule = next(
+        r["postUpgradeTasks"] for r in substrate_rules if "postUpgradeTasks" in r
     )
     assert any(
         "tools/scripts/update-crds.py all" in command for command in rule["commands"]
     )
+    assert "charts/agent-substrate/Chart.yaml" in rule["fileFilters"]
     assert "charts/agent-substrate/crds/*.yaml" in rule["fileFilters"]
     assert ".schemas/**/*.json" in rule["fileFilters"]
+    isolation = next(r for r in substrate_rules if "groupName" in r)
+    assert isolation["matchPackageNames"] == ["agent-substrate/substrate"]
+    assert isolation["groupName"] == "agent-substrate"
+    assert isolation["automerge"] is False
     manager_patterns = renovate["customManagers"][0]["managerFilePatterns"]
     assert "/^tools/scripts/.*\\.(?:sh|py)$/" in manager_patterns
     assert not any(pattern.startswith("/^scripts/") for pattern in manager_patterns)
@@ -242,7 +281,9 @@ def test_updater_callers_stage_selected_output_sets() -> None:
     )
     staging = [line for line in runs.splitlines() if "git add" in line]
     assert any(
-        ".schemas/" in line and "charts/agent-substrate/crds/" in line
+        ".schemas/" in line
+        and "charts/agent-substrate/crds/" in line
+        and "charts/agent-substrate/Chart.yaml" in line
         for line in staging
     )
 
@@ -251,9 +292,7 @@ def test_all_operation_validates_all_inputs_before_writing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _setup_deploy_script(tmp_path, "2.0.3")
-    dockerfile = tmp_path / "images/agent-substrate/Dockerfile"
-    dockerfile.parent.mkdir(parents=True)
-    dockerfile.write_text("ARG AGENT_SUBSTRATE_VERSION=v0.4.0\n")
+    chart = _setup_substrate(tmp_path)
 
     def read_url(url: str) -> bytes:
         if "zalando/postgres-operator" in url:
@@ -264,3 +303,4 @@ def test_all_operation_validates_all_inputs_before_writing(
     with pytest.raises(ValueError, match="No substrate CRDs"):
         CRDS.update(tmp_path, "all")
     assert not (tmp_path / ".schemas").exists()
+    assert chart.read_text() == 'name: agent-substrate\nappVersion: "0.3.0"\n'
