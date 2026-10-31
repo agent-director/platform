@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Set up mise
-        uses: jdx/mise-action@v5.1.2
+        uses: jdx/mise-action@v5.2.0
 
       - name: Restore Trivy vulnerability database cache
         uses: actions/cache/restore@v6.1.0
