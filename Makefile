@@ -14,7 +14,7 @@ NX_OWNED_HOOKS := ruff ruff-format biome typecheck pytest helm-lint kubeconform 
 GRAPHIFY := $(RUN) uv run --locked --only-group graphify graphify
 GRAPHIFY_BACKEND ?= none
 # renovate: datasource=pypi depName=checkov
-CHECKOV_VERSION ?= 3.3.26
+CHECKOV_VERSION ?= 3.3.29
 KUBECONFORM_FLAGS := -strict -summary -skip KataConfig -schema-location default -schema-location '.schemas/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 CLUSTER_NAME ?= platform-dev
 KUBE_CONTEXT ?= $(if $(CLUSTER_NAME),kind-$(CLUSTER_NAME),)

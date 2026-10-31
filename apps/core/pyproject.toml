@@ -5,7 +5,7 @@ description = "Agent Control Plane Core Runtime"
 requires-python = ">=3.11"
 dependencies = [
     "agent-director-contracts",
-    "pydantic>=2.0",
+    "pydantic==2.14.2",
     "temporalio",
     "litellm",
     "mcp",
@@ -16,7 +16,7 @@ dependencies = [
     "httpx",
     "orjson",
     "pyyaml==6.0.3",
-    "cachetools==7.2.1",
+    "cachetools==7.2.3",
 ]
 
 [project.scripts]

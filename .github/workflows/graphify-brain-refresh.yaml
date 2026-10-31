@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up mise
-        uses: jdx/mise-action@v5.1.2
+        uses: jdx/mise-action@v5.2.0
 
       - name: Cache uv tool environment
         uses: actions/cache@v6.1.0

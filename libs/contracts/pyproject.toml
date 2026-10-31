@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Shared Pydantic v2 contract schemas across Agent Director services"
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic>=2.0",
+    "pydantic==2.14.2",
 ]
 
 [build-system]
