@@ -3,7 +3,7 @@ FROM docker.io/library/golang:1.27.3-trixie@sha256:fbb7ae40b62ff8afe31662df570d3
 
 # Single source of truth for upstream tracking
 # renovate: datasource=github-tags depName=agent-substrate/substrate
-ARG AGENT_SUBSTRATE_VERSION=v0.4.0
+ARG AGENT_SUBSTRATE_VERSION=v0.6.0
 
 WORKDIR /build
 # Clone the upstream agent-substrate repository

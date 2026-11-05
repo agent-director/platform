@@ -3,4 +3,4 @@ name: agent-substrate
 description: Helm chart for Agent Substrate (agent-substrate/substrate)
 type: application
 version: 0.1.0
-appVersion: "0.4.0"
+appVersion: "0.6.0"
