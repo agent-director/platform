@@ -15,14 +15,14 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-timeout==2.4.0",
-    "pyrefly==1.3.2",
+    "pyrefly==1.4.0",
     "cryptography",
     "kubernetes",
     "types-PyYAML",
     "pytest-xdist==3.8.0",
 ]
 graphify = [
-    "graphifyy[sql]==0.9.92",
+    "graphifyy[sql]==0.9.95",
 ]
 
 [tool.pytest.ini_options]
