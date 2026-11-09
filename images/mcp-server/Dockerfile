@@ -2,7 +2,7 @@
 # To be replaced with actual multi-stage builds in the next epic.
 FROM ghcr.io/astral-sh/uv:0.12.23-trixie-slim@sha256:cb8750e12902fdaca60c1e48a796d19c02e6c2037ca801f322689fa97f0a44f2 AS builder
 # renovate: datasource=python-version depName=python
-ARG PYTHON_VERSION=3.14.8
+ARG PYTHON_VERSION=3.14.10
 ENV UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 RUN uv venv --python "${PYTHON_VERSION}" /app/.venv && \
