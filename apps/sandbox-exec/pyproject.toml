@@ -5,7 +5,7 @@ description = "Isolated in-sandbox execution and hydration daemon"
 requires-python = ">=3.11"
 dependencies = [
     "agent-director-contracts",
-    "pydantic>=2.0",
+    "pydantic==2.14.2",
     "robyn==0.88.0",
 ]
 
