@@ -16,7 +16,7 @@ dependencies = [
     "httpx",
     "orjson",
     "pyyaml==6.0.3",
-    "cachetools==7.2.1",
+    "cachetools==8.0.0",
 ]
 
 [project.scripts]
