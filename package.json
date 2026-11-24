@@ -8,7 +8,7 @@
     "typecheck": "pnpm --filter platform-ui run typecheck"
   },
   "devDependencies": {
-    "nx": "23.3.0",
+    "nx": "24.0.6",
     "nx-mcp": "0.25.0"
   }
 }
