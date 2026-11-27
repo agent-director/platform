@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 FROM ghcr.io/astral-sh/uv:0.12.23-trixie-slim@sha256:cb8750e12902fdaca60c1e48a796d19c02e6c2037ca801f322689fa97f0a44f2 AS robyn-wheel
 # renovate: datasource=python-version depName=python
-ARG PYTHON_VERSION=3.14.8
+ARG PYTHON_VERSION=3.14.10
 # TODO: Remove robyn-wheel stage once upstream sparckles/Robyn publishes >0.88.0 with PR #1422 cp314 aarch64 wheels.
 ARG ROBYN_VERSION=0.88.0
 ARG ROBYN_SHA256=3149c2c473b756f654424b00584c4563ce23c2d1595df44e0b09d30efc7c3781
@@ -25,7 +25,7 @@ RUN uv python install "${PYTHON_VERSION}" && \
 
 FROM ghcr.io/astral-sh/uv:0.12.23-trixie-slim@sha256:cb8750e12902fdaca60c1e48a796d19c02e6c2037ca801f322689fa97f0a44f2 AS builder
 # renovate: datasource=python-version depName=python
-ARG PYTHON_VERSION=3.14.8
+ARG PYTHON_VERSION=3.14.10
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_INSTALL_DIR=/opt/python
 WORKDIR /app
 COPY --from=robyn-wheel /opt/python /opt/python
