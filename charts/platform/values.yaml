@@ -19,7 +19,7 @@ rustfs:
   enabled: true
   image:
     repository: rustfs/rustfs
-    tag: "1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c"
+    tag: "1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74"
   service:
     port: 9000
   consolePort: 9001
@@ -157,7 +157,7 @@ temporalDev:
   enabled: false
   image:
     repository: temporalio/admin-tools
-    tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
+    tag: "1.32.2@sha256:4a95866efba29d7e17ab012df5232795e8b0ad0f7d5f9d1ec4df321f7792a754"
   service:
     port: 7233
   resources:
@@ -282,7 +282,7 @@ temporal:
     enabled: false
     image:
       repository: temporalio/admin-tools
-      tag: "1.32.0@sha256:a9f84fb9a374b2374fe2e67c8efc0468ff3f1c66c8a0b14597ec86e349e62bca"
+      tag: "1.32.2@sha256:4a95866efba29d7e17ab012df5232795e8b0ad0f7d5f9d1ec4df321f7792a754"
     additionalVolumes:
       - name: db-trust
         configMap:
