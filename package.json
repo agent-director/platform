@@ -9,6 +9,6 @@
   },
   "devDependencies": {
     "nx": "23.3.0",
-    "nx-mcp": "0.25.0"
+    "nx-mcp": "0.25.3"
   }
 }
